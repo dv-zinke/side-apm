@@ -15,3 +15,32 @@ services:
       nofile: { soft: 262144, hard: 262144 }
     volumes:
       - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://localhost:8123/?query=SELECT+1' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  gateway:
+    build: { context: .., dockerfile: cmd/gateway/Dockerfile }
+    environment: { APM_CH_DSN: "clickhouse://clickhouse:9000/apm" }
+    ports: ["4318:4318"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
+
+  query:
+    build: { context: .., dockerfile: cmd/query/Dockerfile }
+    environment: { APM_CH_DSN: "clickhouse://clickhouse:9000/apm" }
+    ports: ["8080:8080"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
+
+  web:
+    build: { context: ../web, dockerfile: Dockerfile }
+    ports: ["3000:80"]
+    depends_on: [query]
