@@ -6,6 +6,11 @@ services:
       - "8123:8123"   # http
     environment:
       CLICKHOUSE_DB: apm
+      # Dev only: allow the default user network access. The base image disables
+      # network access for 'default' when no USER/PASSWORD is set, which breaks
+      # host-side clients (clickhouse-go). Production uses explicit credentials
+      # (roadmap Phase 4/6 auth/control-plane).
+      CLICKHOUSE_SKIP_USER_SETUP: 1
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
     volumes:

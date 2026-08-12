@@ -24,7 +24,6 @@ func testStore(t *testing.T) *Store {
 func TestInsertAndQuery(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
-	_, _ = s.conn.Exec, ctx // ensure fields visible
 	now := time.Now().UTC().Truncate(time.Second)
 	spans := []otlp.Span{
 		{TenantID: "default", TraceID: "aa11", SpanID: "01", ServiceName: "GatewayService",
