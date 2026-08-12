@@ -25,7 +25,7 @@ export function TransactionTable({ onSelect }: { onSelect: (t: Transaction) => v
             <td>{t.serviceName}</td>
             <td>{t.transactionName}</td>
             <td style={{ color: t.statusCode === "ERROR" ? "#f66" : "#6c6" }}>{t.statusCode}</td>
-            <td align="right">{t.durationMs.toLocaleString()}</td>
+            <td align="right">{t.durationMs.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
           </tr>
         ))}
       </tbody>

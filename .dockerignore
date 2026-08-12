@@ -1,0 +1,7 @@
+web/
+demo/
+**/node_modules/
+**/dist/
+.git/
+.superpowers/
+docs/

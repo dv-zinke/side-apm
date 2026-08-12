@@ -22,7 +22,10 @@ func (fakeReader) ListTransactions(_ context.Context, tenant string, f storage.F
 }
 
 func (fakeReader) GetTraceSpans(_ context.Context, tenant, traceID string) ([]otlp.Span, error) {
-	return []otlp.Span{{TraceID: traceID, SpanID: "01", SpanName: "GET /x", SpanKind: "SERVER"}}, nil
+	return []otlp.Span{{
+		TraceID: traceID, SpanID: "01", SpanName: "GET /x", SpanKind: "SERVER",
+		DurationNs: 500000, // 0.5ms — tests sub-millisecond precision
+	}}, nil
 }
 
 func TestListTransactionsEndpoint(t *testing.T) {
@@ -39,7 +42,7 @@ func TestListTransactionsEndpoint(t *testing.T) {
 	}
 	var got []TransactionDTO
 	json.NewDecoder(resp.Body).Decode(&got)
-	if len(got) != 1 || got[0].TraceID != "aa11" || got[0].DurationMs != 1424 {
+	if len(got) != 1 || got[0].TraceID != "aa11" || got[0].DurationMs != float64(1424) {
 		t.Fatalf("dto = %+v", got)
 	}
 }
@@ -55,7 +58,7 @@ func TestTraceSpansEndpoint(t *testing.T) {
 	defer resp.Body.Close()
 	var got []SpanDTO
 	json.NewDecoder(resp.Body).Decode(&got)
-	if len(got) != 1 || got[0].SpanID != "01" {
+	if len(got) != 1 || got[0].SpanID != "01" || got[0].DurationMs != 0.5 {
 		t.Fatalf("dto = %+v", got)
 	}
 }

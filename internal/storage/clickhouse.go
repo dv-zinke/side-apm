@@ -63,6 +63,7 @@ func (s *Store) InsertSpans(ctx context.Context, spans []otlp.Span) error {
 		_ = tx.Rollback()
 		return err
 	}
+	defer stmt.Close()
 	for _, sp := range spans {
 		if _, err := stmt.ExecContext(ctx,
 			sp.TenantID, sp.TraceID, sp.SpanID, sp.ParentSpanID,

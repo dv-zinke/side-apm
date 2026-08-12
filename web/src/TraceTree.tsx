@@ -25,7 +25,7 @@ function Row({ n, depth, max }: { n: Node; depth: number; max: number }) {
           {n.serviceName} · {n.spanName}
         </div>
         <div style={{ background: "#4a8", height: 10, width: `${width}%` }} />
-        <div style={{ fontSize: 11, color: "#999" }}>{n.durationMs}ms</div>
+        <div style={{ fontSize: 11, color: "#999" }}>{n.durationMs.toFixed(2)}ms</div>
       </div>
       {n.children.map((c) => <Row key={c.spanId} n={c} depth={depth + 1} max={max} />)}
     </>

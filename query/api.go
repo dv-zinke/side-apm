@@ -18,28 +18,28 @@ type Reader interface {
 }
 
 type TransactionDTO struct {
-	TraceID         string `json:"traceId"`
-	ServiceName     string `json:"serviceName"`
-	TransactionName string `json:"transactionName"`
-	StatusCode      string `json:"statusCode"`
-	StartTime       string `json:"startTime"`
-	DurationMs      int64  `json:"durationMs"`
+	TraceID         string  `json:"traceId"`
+	ServiceName     string  `json:"serviceName"`
+	TransactionName string  `json:"transactionName"`
+	StatusCode      string  `json:"statusCode"`
+	StartTime       string  `json:"startTime"`
+	DurationMs      float64 `json:"durationMs"`
 }
 
 type SpanDTO struct {
-	TraceID      string `json:"traceId"`
-	SpanID       string `json:"spanId"`
-	ParentSpanID string `json:"parentSpanId"`
-	ServiceName  string `json:"serviceName"`
-	SpanName     string `json:"spanName"`
-	SpanKind     string `json:"spanKind"`
-	StartTime    string `json:"startTime"`
-	DurationMs   int64  `json:"durationMs"`
-	StatusCode   string `json:"statusCode"`
-	HTTPMethod   string `json:"httpMethod,omitempty"`
-	HTTPRoute    string `json:"httpRoute,omitempty"`
-	DBSystem     string `json:"dbSystem,omitempty"`
-	DBStatement  string `json:"dbStatement,omitempty"`
+	TraceID      string  `json:"traceId"`
+	SpanID       string  `json:"spanId"`
+	ParentSpanID string  `json:"parentSpanId"`
+	ServiceName  string  `json:"serviceName"`
+	SpanName     string  `json:"spanName"`
+	SpanKind     string  `json:"spanKind"`
+	StartTime    string  `json:"startTime"`
+	DurationMs   float64 `json:"durationMs"`
+	StatusCode   string  `json:"statusCode"`
+	HTTPMethod   string  `json:"httpMethod,omitempty"`
+	HTTPRoute    string  `json:"httpRoute,omitempty"`
+	DBSystem     string  `json:"dbSystem,omitempty"`
+	DBStatement  string  `json:"dbStatement,omitempty"`
 }
 
 func Router(r Reader) http.Handler {
@@ -59,7 +59,7 @@ func Router(r Reader) http.Handler {
 			out = append(out, TransactionDTO{
 				TraceID: t.TraceID, ServiceName: t.ServiceName, TransactionName: t.TransactionName,
 				StatusCode: t.StatusCode, StartTime: t.StartTime.Format("2006-01-02T15:04:05.000Z"),
-				DurationMs: int64(t.DurationNs / 1_000_000),
+				DurationMs: float64(t.DurationNs) / 1e6,
 			})
 		}
 		writeJSON(w, out)
@@ -76,7 +76,7 @@ func Router(r Reader) http.Handler {
 				TraceID: s.TraceID, SpanID: s.SpanID, ParentSpanID: s.ParentSpanID,
 				ServiceName: s.ServiceName, SpanName: s.SpanName, SpanKind: s.SpanKind,
 				StartTime:  s.StartTime.Format("2006-01-02T15:04:05.000Z"),
-				DurationMs: int64(s.DurationNs / 1_000_000), StatusCode: s.StatusCode,
+				DurationMs: float64(s.DurationNs) / 1e6, StatusCode: s.StatusCode,
 				HTTPMethod: s.HTTPMethod, HTTPRoute: s.HTTPRoute,
 				DBSystem: s.DBSystem, DBStatement: s.DBStatement,
 			})
