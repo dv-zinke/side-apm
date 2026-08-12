@@ -2,6 +2,7 @@ package otlp
 
 import (
 	"encoding/hex"
+	"strconv"
 	"time"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -67,10 +68,19 @@ func attrString(kv *commonpb.KeyValue) string {
 	if kv == nil || kv.Value == nil {
 		return ""
 	}
-	if v, ok := kv.Value.Value.(*commonpb.AnyValue_StringValue); ok {
+	switch v := kv.Value.Value.(type) {
+	case *commonpb.AnyValue_StringValue:
 		return v.StringValue
+	case *commonpb.AnyValue_IntValue:
+		return strconv.FormatInt(v.IntValue, 10)
+	case *commonpb.AnyValue_DoubleValue:
+		return strconv.FormatFloat(v.DoubleValue, 'g', -1, 64)
+	case *commonpb.AnyValue_BoolValue:
+		return strconv.FormatBool(v.BoolValue)
+	default:
+		// ArrayValue, KvlistValue left empty for now (out of scope)
+		return ""
 	}
-	return ""
 }
 
 func attrMap(kvs []*commonpb.KeyValue) map[string]string {
