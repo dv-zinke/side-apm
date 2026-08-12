@@ -37,6 +37,32 @@
 이후: 알림 엔진 · tail 샘플링 · 프로파일링(액티브 스택/메소드 요약) · RUM · SSO/RBAC ·
 멀티리전 · 과금.
 
+### 와탭 주요 기능 → Phase 매핑 (레퍼런스 스크린샷 기반)
+
+메인 대시보드/드릴다운 화면을 우리 파이프라인에 매핑한 것. 전부 Phase 1 트레이싱 등뼈 위에 얹힌다.
+
+| 와탭 화면 | 데이터 원천 | Phase |
+|---|---|---|
+| 액티브 트랜잭션 스피드 (실시간 흐름, RPS/TPS) | 진행 중 트레이스(활성 스팬) 라이브 스트림 | 2 (X-View, WS) |
+| 액티브 스테이터스 (METHOD/SQL/HTTPC/DBC/SOCKET 정체) | 활성 스팬의 현재 kind/상태 | 2 |
+| 액티브 트랜잭션 도넛 (Very Slow/Slow/Normal) | 활성 트레이스 소요시간 임계 분류 | 2 |
+| 히트맵 (응답시간 0~5s scatter, 에러 강조) | trace_summary(duration, error) | 2 |
+| Apdex 점수 | RED duration + 임계 T (satisfied/tolerating) | 2 |
+| TPS · 평균 응답시간 | red_rollup | 2 |
+| 금일 TPS/사용자 (어제 대비 비교) | red_rollup + 시간대 시프트 비교 | 2 |
+| 시스템 CPU | 호스트/런타임 메트릭 | 3 |
+| 힙 메모리 (GC 톱니) | JVM 런타임 메트릭 | 3 |
+| 동시접속 사용자 | RUM/세션 메트릭 (경량판은 활성세션 추정) | 3~로드맵 |
+| 테이블 뷰 (SQL 단계별: 시간·갭·경과·내용·결과건수) | spans(db client, db_statement) + 파생 gap | 1 데이터 / 2 렌더 |
+| 트리 뷰 (워터폴) | spans(부모-자식) | 1 |
+| SQL 요약 / HTTP Call 요약 | spans(db/http client) | 2 |
+| 트랜잭션 로그 (oname·수집시간 상관) | 로그 신호 + trace_id 상관 | 4 (로드맵 ④) |
+
+**데이터 모델 보강 필요(위 화면에서 도출):**
+- `spans`에 DB 결과건수 캡처: span_attrs의 `db.response.returned_rows`(OTel semconv) → 테이블 뷰 `[결과 건수]`.
+- 테이블 뷰 "갭(gap)"은 형제/부모 스팬 간 시간차로 쿼리 시 파생(저장 불필요).
+- `trace_summary`에 Apdex 분류용 파생은 red_rollup의 duration으로 계산(별도 컬럼 불필요).
+
 ## 3. 아키텍처
 
 ```
