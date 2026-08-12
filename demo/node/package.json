@@ -1,0 +1,14 @@
+{
+  "name": "apm-demo-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OTel-instrumented demo app that emits traces to the APM gateway",
+  "scripts": {
+    "start": "node --require @opentelemetry/auto-instrumentations-node/register server.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.60.0",
+    "express": "^4.21.2"
+  }
+}
