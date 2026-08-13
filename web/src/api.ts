@@ -61,3 +61,22 @@ export async function fetchRED(service: string, fromISO: string, toISO: string):
   if (!r.ok) throw new Error(`red ${r.status}`);
   return r.json();
 }
+
+export type ServiceMapData = {
+  nodes: { name: string; requestCount: number; errorCount: number }[];
+  edges: { from: string; to: string; callCount: number; errorCount: number; avgMs: number }[];
+};
+export async function fetchServiceMap(): Promise<ServiceMapData> {
+  const r = await fetch(`${BASE}/api/v1/servicemap`);
+  if (!r.ok) throw new Error(`servicemap ${r.status}`);
+  return r.json();
+}
+export type LiveTxn = {
+  traceId: string; service: string; transaction: string; statusCode: string;
+  startTime: string; durationMs: number; isError: boolean;
+};
+export function liveTxnStream(onTxn: (t: LiveTxn) => void): () => void {
+  const es = new EventSource(`${BASE}/api/v1/live/transactions`);
+  es.onmessage = (e) => { try { onTxn(JSON.parse(e.data)); } catch {} };
+  return () => es.close();
+}
