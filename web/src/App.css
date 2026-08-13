@@ -103,6 +103,39 @@
 .content { flex: 1; min-height: 0; overflow: hidden; }
 .content-scroll { height: 100%; overflow: auto; }
 
+/* Trace drill-down modal ──────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-5);
+  background: rgba(6, 9, 14, 0.55);
+  backdrop-filter: blur(3px);
+  animation: fadeIn 160ms ease-out;
+}
+.modal {
+  width: min(880px, 100%);
+  max-height: 86vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  animation: modalIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.modal-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.modal-svc { font-size: var(--fs-xs); color: var(--tx-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.modal-txn { font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modal-head .icon-btn { margin-left: auto; flex: none; }
+.modal-body { padding: var(--sp-4); overflow: auto; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
 /* Dashboard — WhaTap-style application grid ───────────────── */
 .dash {
   padding: var(--sp-4) var(--sp-5) var(--sp-6);

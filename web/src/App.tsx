@@ -7,6 +7,7 @@ import { RedDashboard } from "./RedDashboard";
 import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
 import { Dashboard } from "./Dashboard";
+import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
@@ -122,8 +123,10 @@ function ThemeToggle() {
 function Console() {
   const [sel, setSel] = useState<Transaction | null>(null);
   const [view, setView] = useState<View>("dashboard");
-  // Drill-down: a live widget picked a trace → open it in trace analysis.
-  const openTrace = (t: Transaction) => { setSel(t); setView("trace"); };
+  const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
+  // Drill-down from a live widget → open the trace in an overlay, so the
+  // dashboard and its live streams keep running underneath.
+  const openTrace = (t: Transaction) => setModalTrace(t);
   return (
     <NavCtx.Provider value={{ openTrace }}>
     <div className="shell">
@@ -172,6 +175,7 @@ function Console() {
           )}
         </main>
       </div>
+      {modalTrace && <TraceModal txn={modalTrace} onClose={() => setModalTrace(null)} />}
     </div>
     </NavCtx.Provider>
   );
