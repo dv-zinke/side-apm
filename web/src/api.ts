@@ -36,3 +36,28 @@ export async function fetchSpans(traceId: string): Promise<Span[]> {
   if (!r.ok) throw new Error(`spans ${r.status}`);
   return r.json();
 }
+
+export type TraceSummary = {
+  traceId: string; entryService: string; transactionName: string; rootHttpStatus: number;
+  startTime: string; durationMs: number; spanCount: number; errorCount: number;
+  sqlCount: number; httpCallCount: number; sqlTimeMs: number; httpCallTimeMs: number;
+};
+export type REDPoint = {
+  minute: string; requestCount: number; errorCount: number;
+  p50Ms: number; p95Ms: number; p99Ms: number;
+};
+export async function fetchSummary(traceId: string): Promise<TraceSummary> {
+  const r = await fetch(`${BASE}/api/v1/transactions/${traceId}/summary`);
+  if (!r.ok) throw new Error(`summary ${r.status}`);
+  return r.json();
+}
+export async function fetchServices(): Promise<string[]> {
+  const r = await fetch(`${BASE}/api/v1/services`);
+  if (!r.ok) throw new Error(`services ${r.status}`);
+  return r.json();
+}
+export async function fetchRED(service: string, fromISO: string, toISO: string): Promise<REDPoint[]> {
+  const r = await fetch(`${BASE}/api/v1/services/${service}/red?from=${fromISO}&to=${toISO}`);
+  if (!r.ok) throw new Error(`red ${r.status}`);
+  return r.json();
+}
