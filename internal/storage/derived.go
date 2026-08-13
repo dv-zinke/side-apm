@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -59,6 +61,9 @@ FROM (
 	if err := row.Scan(&r.EntryService, &r.TransactionName, &r.RootHTTPStatus,
 		&startNs, &r.DurationMs, &r.SpanCount, &r.ErrorCount, &r.SqlCount,
 		&r.HttpCallCount, &r.SqlTimeMs, &r.HttpCallTimeMs); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TraceSummaryRow{TraceID: traceID}, nil
+		}
 		return TraceSummaryRow{}, err
 	}
 	r.TraceID = traceID

@@ -23,11 +23,11 @@ export function RedDashboard() {
     legend: { textStyle: { color: "#ccc" } },
     grid: { left: 48, right: 16, top: 30, bottom: 30 },
     xAxis: { type: "category", data: x, axisLabel: { color: "#999" } },
-    yAxis: { type: "value", axisLabel: { color: "#999" } },
+    yAxis: [{ type: "value", axisLabel: { color: "#999" } }, { type: "value", position: "right", axisLabel: { color: "#999", formatter: "{value} ms" } }],
     series: [
       { name: "Requests", type: "bar", data: pts.map((p) => p.requestCount) },
       { name: "Errors", type: "bar", data: pts.map((p) => p.errorCount) },
-      { name: "p95 ms", type: "line", yAxisIndex: 0, data: pts.map((p) => Math.round(p.p95Ms)) },
+      { name: "p95 ms", type: "line", yAxisIndex: 1, data: pts.map((p) => Math.round(p.p95Ms)) },
     ],
   };
   return (

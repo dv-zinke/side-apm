@@ -21,6 +21,17 @@ func testStoreDerived(t *testing.T) *Store {
 	return s
 }
 
+func TestGetTraceSummaryMissing(t *testing.T) {
+	s := testStoreDerived(t)
+	got, err := s.GetTraceSummary(context.Background(), "default", "no_such_trace_xyz")
+	if err != nil {
+		t.Fatalf("expected nil error for missing trace, got %v", err)
+	}
+	if got.TraceID != "no_such_trace_xyz" || got.SpanCount != 0 {
+		t.Fatalf("expected empty summary, got %+v", got)
+	}
+}
+
 func TestTraceSummaryPopulates(t *testing.T) {
 	s := testStoreDerived(t)
 	ctx := context.Background()
