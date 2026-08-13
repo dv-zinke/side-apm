@@ -2,6 +2,7 @@ package query
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 )
@@ -78,35 +79,43 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 		seen := make(map[string]struct{})
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
+		writeStr := func(s string) bool {
+			if _, err := io.WriteString(w, s); err != nil {
+				return false
+			}
+			return true
+		}
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				txns, err := r.RecentRootTxns(ctx, defaultTenant, since, 500)
-				if err != nil {
-					continue
-				}
-				for _, x := range txns {
-					if _, dup := seen[x.TraceID]; dup {
-						continue
+				if err == nil {
+					for _, x := range txns {
+						if _, dup := seen[x.TraceID]; dup {
+							continue
+						}
+						seen[x.TraceID] = struct{}{}
+						if x.StartTime.After(since) {
+							since = x.StartTime
+						}
+						b, _ := json.Marshal(LiveTxnDTO{
+							TraceID: x.TraceID, Service: x.Service, Transaction: x.Transaction,
+							StatusCode: x.StatusCode, StartTime: x.StartTime.Format(time.RFC3339Nano),
+							DurationMs: x.DurationMs, IsError: x.IsError,
+						})
+						if !writeStr("data: " + string(b) + "\n\n") {
+							return
+						}
 					}
-					seen[x.TraceID] = struct{}{}
-					if x.StartTime.After(since) {
-						since = x.StartTime
+					if len(seen) > 5000 {
+						seen = make(map[string]struct{})
 					}
-					b, _ := json.Marshal(LiveTxnDTO{
-						TraceID: x.TraceID, Service: x.Service, Transaction: x.Transaction,
-						StatusCode: x.StatusCode, StartTime: x.StartTime.Format(time.RFC3339Nano),
-						DurationMs: x.DurationMs, IsError: x.IsError,
-					})
-					_, _ = w.Write([]byte("data: "))
-					_, _ = w.Write(b)
-					_, _ = w.Write([]byte("\n\n"))
 				}
-				// prune seen set occasionally to bound memory
-				if len(seen) > 5000 {
-					seen = make(map[string]struct{})
+				// heartbeat: detect dead connections even when idle
+				if !writeStr(": ping\n\n") {
+					return
 				}
 				flusher.Flush()
 			}
