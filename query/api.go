@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/heejune/apm/internal/otlp"
 	"github.com/heejune/apm/internal/storage"
@@ -15,6 +16,9 @@ const defaultTenant = "default" // Phase 4에서 인증 컨텍스트로 대체
 type Reader interface {
 	ListTransactions(ctx context.Context, tenant string, f storage.Filter) ([]storage.TransactionRow, error)
 	GetTraceSpans(ctx context.Context, tenant, traceID string) ([]otlp.Span, error)
+	GetTraceSummary(ctx context.Context, tenant, traceID string) (storage.TraceSummaryRow, error)
+	ListServices(ctx context.Context, tenant string) ([]string, error)
+	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
 }
 
 type TransactionDTO struct {
@@ -83,6 +87,7 @@ func Router(r Reader) http.Handler {
 		}
 		writeJSON(w, out)
 	})
+	registerDerived(mux, r)
 	return withCORS(mux)
 }
 

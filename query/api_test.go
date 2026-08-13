@@ -28,6 +28,18 @@ func (fakeReader) GetTraceSpans(_ context.Context, tenant, traceID string) ([]ot
 	}}, nil
 }
 
+func (fakeReader) GetTraceSummary(_ context.Context, _, traceID string) (storage.TraceSummaryRow, error) {
+	return storage.TraceSummaryRow{}, nil
+}
+
+func (fakeReader) ListServices(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (fakeReader) GetServiceRED(_ context.Context, _, _ string, _, _ time.Time) ([]storage.REDPoint, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
