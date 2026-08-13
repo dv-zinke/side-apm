@@ -63,6 +63,11 @@
 - 테이블 뷰 "갭(gap)"은 형제/부모 스팬 간 시간차로 쿼리 시 파생(저장 불필요).
 - `trace_summary`에 Apdex 분류용 파생은 red_rollup의 duration으로 계산(별도 컬럼 불필요).
 
+### Known limitations (Phase 2B 최종 리뷰에서 기록 → Phase 3 처리)
+- **서비스맵 self-join은 중복 인입 스팬을 dedup하지 않음**: `spans`는 MergeTree라 at-least-once로 중복 span_id가 있을 수 있고, 트레이스 읽기경로는 `LIMIT 1 BY span_id`로 방어하지만 `GetServiceMap`의 self-join/노드 countIf에는 동일 가드가 없어 간선 calls/errors/avg_ms가 중복 배수될 수 있음. 현 규모 저위험. **Phase 3에서 self-join을 aggregating MV로 최적화할 때 dedup 서브쿼리로 함께 해결.**
+- 파생 테이블(trace_summary·red_rollup) TTL 미설정 → 보존 패스(P4/P6)에서 추가.
+- X-View SSE는 최근 완료 트랜잭션 기반(진행중 인플라이트 액티브 스팬 추적은 R — 에이전트측 활성 리포팅 필요).
+
 ## 3. 아키텍처
 
 ```
