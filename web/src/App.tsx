@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TransactionTable } from "./TransactionTable";
 import { TraceTree } from "./TraceTree";
@@ -6,46 +6,151 @@ import { RecordSummary } from "./RecordSummary";
 import { RedDashboard } from "./RedDashboard";
 import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
+import { ThemeProvider, useTheme } from "./theme";
+import {
+  EmptyState, IconTrace,
+  IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconSun, IconMoon,
+} from "./states";
 import type { Transaction } from "./api";
+import "./App.css";
 
 const qc = new QueryClient();
 
-export default function App() {
-  const [sel, setSel] = useState<Transaction | null>(null);
-  const [tab, setTab] = useState<"trace" | "red" | "map" | "xview">("trace");
+type View = "trace" | "red" | "map" | "xview";
+type NavItem = { id: View; label: string; icon: () => React.ReactElement };
+const GROUPS: { label: string; items: NavItem[] }[] = [
+  { label: "모니터링", items: [
+    { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
+    { id: "red", label: "RED 대시보드", icon: IconPulse },
+  ] },
+  { label: "토폴로지 · 실시간", items: [
+    { id: "map", label: "서비스맵", icon: IconGraphNav },
+    { id: "xview", label: "X-View", icon: IconScatter },
+  ] },
+];
+const ALL = GROUPS.flatMap((g) => g.items);
+const titleOf = (v: View) => ALL.find((i) => i.id === v)!.label;
+
+function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  function onKey(e: React.KeyboardEvent, idx: number) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const next = e.key === "ArrowDown" ? (idx + 1) % ALL.length : (idx - 1 + ALL.length) % ALL.length;
+    setView(ALL[next].id);
+    refs.current[ALL[next].id]?.focus();
+  }
   return (
-    <QueryClientProvider client={qc}>
-      <div style={{ height: "100vh", background: "#111", color: "#ddd", display: "flex", flexDirection: "column" }}>
-        <nav style={{ display: "flex", gap: 16, padding: "8px 12px", borderBottom: "1px solid #333" }}>
-          <a onClick={() => setTab("trace")} style={{ cursor: "pointer", color: tab === "trace" ? "#fff" : "#888" }}>트레이스 분석</a>
-          <a onClick={() => setTab("red")} style={{ cursor: "pointer", color: tab === "red" ? "#fff" : "#888" }}>RED 대시보드</a>
-          <a onClick={() => setTab("map")} style={{ cursor: "pointer", color: tab === "map" ? "#fff" : "#888" }}>서비스맵</a>
-          <a onClick={() => setTab("xview")} style={{ cursor: "pointer", color: tab === "xview" ? "#fff" : "#888" }}>X-View</a>
-        </nav>
-        {tab === "map" ? (
-          <ServiceMap />
-        ) : tab === "xview" ? (
-          <XView />
-        ) : tab === "red" ? (
-          <RedDashboard />
-        ) : (
-          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-            <div style={{ flex: 1, overflow: "auto", padding: 12, borderRight: "1px solid #333" }}>
-              <TransactionTable onSelect={setSel} />
-            </div>
-            <div style={{ flex: 1, overflow: "auto", padding: 12 }}>
-              {sel ? (
-                <>
-                  <h4>레코드 요약</h4>
-                  <RecordSummary traceId={sel.traceId} />
-                  <h4 style={{ marginTop: 16 }}>트리 뷰</h4>
-                  <TraceTree traceId={sel.traceId} />
-                </>
-              ) : <div>트랜잭션을 선택하세요</div>}
-            </div>
-          </div>
-        )}
+    <aside className="sidebar">
+      <div className="workspace">
+        <svg className="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12h4l2 6 4-14 2 8h6" />
+        </svg>
+        <span className="workspace-name">APM Console</span>
       </div>
-    </QueryClientProvider>
+      <nav className="nav" role="tablist" aria-orientation="vertical" aria-label="관제 화면">
+        {GROUPS.map((g) => (
+          <div className="nav-group" key={g.label}>
+            <div className="nav-label">{g.label}</div>
+            {g.items.map((it) => {
+              const active = view === it.id;
+              const idx = ALL.findIndex((x) => x.id === it.id);
+              return (
+                <button
+                  key={it.id}
+                  ref={(el) => { refs.current[it.id] = el; }}
+                  role="tab"
+                  id={`tab-${it.id}`}
+                  aria-selected={active}
+                  aria-controls="panel"
+                  tabIndex={active ? 0 : -1}
+                  className={`nav-item${active ? " active" : ""}`}
+                  onClick={() => setView(it.id)}
+                  onKeyDown={(e) => onKey(e, idx)}
+                >
+                  <span className="nav-ico">{it.icon()}</span>
+                  <span className="nav-text">{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      className="icon-btn"
+      onClick={toggle}
+      aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+      title={theme === "dark" ? "라이트 모드" : "다크 모드"}
+    >
+      {theme === "dark" ? <IconSun /> : <IconMoon />}
+    </button>
+  );
+}
+
+function Console() {
+  const [sel, setSel] = useState<Transaction | null>(null);
+  const [view, setView] = useState<View>("trace");
+  return (
+    <div className="shell">
+      <Sidebar view={view} setView={setView} />
+      <div className="main">
+        <header className="topbar">
+          <h1 className="page-title">{titleOf(view)}</h1>
+          <span className="live" aria-label="실시간 수신 중">
+            <span className="live-dot" /><span className="live-text">live</span>
+          </span>
+          <ThemeToggle />
+        </header>
+        <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
+          {view === "map" ? (
+            <ServiceMap />
+          ) : view === "xview" ? (
+            <XView />
+          ) : view === "red" ? (
+            <RedDashboard />
+          ) : (
+            <div className="split">
+              <section className="pane pane-list" aria-label="트랜잭션 목록">
+                <TransactionTable selected={sel} onSelect={setSel} />
+              </section>
+              <section className="pane pane-detail" aria-label="트랜잭션 상세">
+                {sel ? (
+                  <div className="pane-body">
+                    <div className="section-label">레코드 요약</div>
+                    <RecordSummary traceId={sel.traceId} />
+                    <div className="section-label">트리 뷰 · 워터폴</div>
+                    <TraceTree traceId={sel.traceId} />
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<IconTrace />}
+                    title="트랜잭션을 선택해주세요"
+                    body="왼쪽 목록에서 트랜잭션을 고르면 요약과 스팬 워터폴이 여기에 펼쳐져요."
+                    hint="5초마다 자동 갱신"
+                  />
+                )}
+              </section>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={qc}>
+        <Console />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

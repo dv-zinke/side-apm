@@ -2,16 +2,26 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { fetchServices, fetchRED } from "./api";
+import { EmptyState, Skeleton } from "./states";
+import { useTheme } from "./theme";
+import { chartColors } from "./chart";
 
 export function RedDashboard() {
+  const { theme } = useTheme();
+  const c = chartColors(theme);
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 10000 });
   const [svc, setSvc] = useState<string>("");
   const service = svc || (services && services[0]) || "";
-  const to = new Date().toISOString();
-  const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { data: red } = useQuery({
-    queryKey: ["red", service, from],
-    queryFn: () => fetchRED(service, from, to),
+  // Bucket the key to the minute so it stays stable across renders — otherwise a
+  // fresh millisecond timestamp per render churns the query and it never resolves.
+  const minute = Math.floor(Date.now() / 60000);
+  const { data: red, isLoading } = useQuery({
+    queryKey: ["red", service, minute],
+    queryFn: () => {
+      const to = new Date().toISOString();
+      const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      return fetchRED(service, from, to);
+    },
     enabled: !!service,
     refetchInterval: 10000,
   });
@@ -19,26 +29,44 @@ export function RedDashboard() {
   const x = pts.map((p) => p.minute.slice(11, 16));
   const option = {
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis" },
-    legend: { textStyle: { color: "#ccc" } },
-    grid: { left: 48, right: 16, top: 30, bottom: 30 },
-    xAxis: { type: "category", data: x, axisLabel: { color: "#999" } },
-    yAxis: [{ type: "value", axisLabel: { color: "#999" } }, { type: "value", position: "right", axisLabel: { color: "#999", formatter: "{value} ms" } }],
+    color: [c.accent, c.err, c.warn],
+    tooltip: { trigger: "axis", backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
+    legend: { textStyle: { color: c.legend }, top: 0, icon: "roundRect" },
+    grid: { left: 52, right: 20, top: 34, bottom: 28 },
+    xAxis: { type: "category", data: x, axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } } },
+    yAxis: [
+      { type: "value", axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
+      { type: "value", position: "right", axisLabel: { color: c.axis, formatter: "{value} ms" }, splitLine: { show: false } },
+    ],
     series: [
-      { name: "Requests", type: "bar", data: pts.map((p) => p.requestCount) },
-      { name: "Errors", type: "bar", data: pts.map((p) => p.errorCount) },
-      { name: "p95 ms", type: "line", yAxisIndex: 1, data: pts.map((p) => Math.round(p.p95Ms)) },
+      { name: "Requests", type: "bar", data: pts.map((p) => p.requestCount), itemStyle: { borderRadius: [2, 2, 0, 0] } },
+      { name: "Errors", type: "bar", data: pts.map((p) => p.errorCount), itemStyle: { borderRadius: [2, 2, 0, 0] } },
+      { name: "p95 ms", type: "line", yAxisIndex: 1, smooth: true, symbol: "none", data: pts.map((p) => Math.round(p.p95Ms)) },
     ],
   };
   return (
-    <div style={{ padding: 12 }}>
-      <div style={{ marginBottom: 8 }}>
-        서비스:{" "}
-        <select value={service} onChange={(e) => setSvc(e.target.value)}>
-          {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+    <div className="chart-wrap">
+      <div className="pane-head" style={{ position: "static", margin: "calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0", borderTop: 0 }}>
+        <span className="pane-title">RED · 최근 1시간</span>
+        <label className="bar" style={{ marginLeft: "auto" }}>
+          <span className="field-label">서비스</span>
+          <select className="select" value={service} onChange={(e) => setSvc(e.target.value)}>
+            {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
       </div>
-      <ReactECharts option={option} style={{ height: 360 }} theme="dark" />
+      {isLoading && service ? (
+        <Skeleton rows={6} />
+      ) : pts.length === 0 ? (
+        <EmptyState
+          title="이 구간에 데이터가 없어요"
+          body="선택한 서비스의 최근 1시간 집계가 아직 비어 있어요. 트래픽이 흐르면 분당 지표가 채워져요."
+        />
+      ) : (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <ReactECharts option={option} style={{ height: "100%" }} notMerge />
+        </div>
+      )}
     </div>
   );
 }
