@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions } from "./api";
 import type { Transaction } from "./api";
@@ -18,6 +19,15 @@ export function TransactionTable({
     queryFn: fetchTransactions,
     refetchInterval: 5000,
   });
+
+  // Track which trace keys we've already shown so only fresh arrivals flash in.
+  const seen = useRef<Set<string>>(new Set());
+  const primed = useRef(false);
+  useEffect(() => {
+    if (!data) return;
+    for (const t of data) seen.current.add(t.traceId + t.startTime);
+    primed.current = true;
+  }, [data]);
 
   return (
     <>
@@ -44,10 +54,13 @@ export function TransactionTable({
           </thead>
           <tbody>
             {(data ?? []).map((t) => {
+              const key = t.traceId + t.startTime;
               const isSel = selected?.traceId === t.traceId && selected?.startTime === t.startTime;
+              const isNew = primed.current && !seen.current.has(key);
               return (
                 <tr
-                  key={t.traceId + t.startTime}
+                  key={key}
+                  className={isNew ? "live-row" : undefined}
                   aria-selected={isSel}
                   tabIndex={0}
                   onClick={() => onSelect(t)}

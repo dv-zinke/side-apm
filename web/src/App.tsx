@@ -1,24 +1,30 @@
-import { useState, useRef } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TransactionTable } from "./TransactionTable";
 import { TraceTree } from "./TraceTree";
 import { RecordSummary } from "./RecordSummary";
 import { RedDashboard } from "./RedDashboard";
 import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
+import { Dashboard } from "./Dashboard";
 import { ThemeProvider, useTheme } from "./theme";
+import { LiveProvider } from "./live";
+import { NavCtx } from "./nav";
 import {
   EmptyState, IconTrace,
-  IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "trace" | "red" | "map" | "xview";
+type View = "dashboard" | "trace" | "red" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
+  { label: "개요", items: [
+    { id: "dashboard", label: "대시보드", icon: IconGrid },
+  ] },
   { label: "모니터링", items: [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
@@ -80,6 +86,25 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
   );
 }
 
+// Ticking freshness — reflects how recently any polling query last succeeded,
+// so the console visibly "breathes" instead of updating silently.
+function Freshness() {
+  const qc = useQueryClient();
+  const last = useRef(Date.now());
+  const [ago, setAgo] = useState(0);
+  useEffect(() => {
+    const unsub = qc.getQueryCache().subscribe((e: any) => {
+      if (e?.type === "updated" && e.query?.state?.status === "success" && e.action?.type === "success") {
+        last.current = Date.now();
+        setAgo(0);
+      }
+    });
+    const iv = setInterval(() => setAgo(Math.floor((Date.now() - last.current) / 1000)), 1000);
+    return () => { unsub(); clearInterval(iv); };
+  }, [qc]);
+  return <span className="fresh" aria-live="off">{ago <= 1 ? "방금 갱신" : `${ago}초 전 갱신`}</span>;
+}
+
 function ThemeToggle() {
   const { theme, toggle } = useTheme();
   return (
@@ -96,20 +121,26 @@ function ThemeToggle() {
 
 function Console() {
   const [sel, setSel] = useState<Transaction | null>(null);
-  const [view, setView] = useState<View>("trace");
+  const [view, setView] = useState<View>("dashboard");
+  // Drill-down: a live widget picked a trace → open it in trace analysis.
+  const openTrace = (t: Transaction) => { setSel(t); setView("trace"); };
   return (
+    <NavCtx.Provider value={{ openTrace }}>
     <div className="shell">
       <Sidebar view={view} setView={setView} />
       <div className="main">
         <header className="topbar">
           <h1 className="page-title">{titleOf(view)}</h1>
+          <Freshness />
           <span className="live" aria-label="실시간 수신 중">
             <span className="live-dot" /><span className="live-text">live</span>
           </span>
           <ThemeToggle />
         </header>
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
-          {view === "map" ? (
+          {view === "dashboard" ? (
+            <div className="content-scroll"><Dashboard /></div>
+          ) : view === "map" ? (
             <ServiceMap />
           ) : view === "xview" ? (
             <XView />
@@ -142,6 +173,7 @@ function Console() {
         </main>
       </div>
     </div>
+    </NavCtx.Provider>
   );
 }
 
@@ -149,7 +181,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={qc}>
-        <Console />
+        <LiveProvider>
+          <Console />
+        </LiveProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

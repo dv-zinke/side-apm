@@ -80,3 +80,15 @@ export function liveTxnStream(onTxn: (t: LiveTxn) => void): () => void {
   es.onmessage = (e) => { try { onTxn(JSON.parse(e.data)); } catch {} };
   return () => es.close();
 }
+
+// Adapt a streamed transaction into the shape the trace-detail view consumes.
+export function liveToTxn(l: LiveTxn): Transaction {
+  return {
+    traceId: l.traceId,
+    serviceName: l.service,
+    transactionName: l.transaction,
+    statusCode: l.statusCode,
+    startTime: l.startTime,
+    durationMs: l.durationMs,
+  };
+}
