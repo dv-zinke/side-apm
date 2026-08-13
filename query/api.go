@@ -19,6 +19,8 @@ type Reader interface {
 	GetTraceSummary(ctx context.Context, tenant, traceID string) (storage.TraceSummaryRow, error)
 	ListServices(ctx context.Context, tenant string) ([]string, error)
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
+	GetServiceMap(ctx context.Context, tenant string, from, to time.Time) (storage.ServiceMap, error)
+	RecentRootTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
 }
 
 type TransactionDTO struct {
@@ -88,6 +90,7 @@ func Router(r Reader) http.Handler {
 		writeJSON(w, out)
 	})
 	registerDerived(mux, r)
+	registerServiceMap(mux, r)
 	return withCORS(mux)
 }
 

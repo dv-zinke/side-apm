@@ -40,6 +40,14 @@ func (fakeReader) GetServiceRED(_ context.Context, _, _ string, _, _ time.Time) 
 	return nil, nil
 }
 
+func (fakeReader) GetServiceMap(_ context.Context, _ string, _, _ time.Time) (storage.ServiceMap, error) {
+	return storage.ServiceMap{}, nil
+}
+
+func (fakeReader) RecentRootTxns(_ context.Context, _ string, _ time.Time, _ int) ([]storage.LiveTxn, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
