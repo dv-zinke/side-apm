@@ -61,3 +61,33 @@ func TestTraceSummaryPopulates(t *testing.T) {
 		t.Errorf("sql ms = %v (want ~30)", sum.SqlTimeMs)
 	}
 }
+
+func TestServiceRED(t *testing.T) {
+	s := testStoreDerived(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	svc := "RedSvc" + now.Format("150405")
+	spans := []otlp.Span{
+		{TenantID: "default", TraceID: "rd1", SpanID: "s1", ServiceName: svc, SpanName: "GET /a",
+			SpanKind: "SERVER", StartTime: now, DurationNs: 100_000_000, StatusCode: "OK",
+			ResourceAttrs: map[string]string{}, SpanAttrs: map[string]string{}},
+		{TenantID: "default", TraceID: "rd2", SpanID: "s2", ServiceName: svc, SpanName: "GET /a",
+			SpanKind: "SERVER", StartTime: now, DurationNs: 300_000_000, StatusCode: "ERROR",
+			ResourceAttrs: map[string]string{}, SpanAttrs: map[string]string{}},
+	}
+	if err := s.InsertSpans(ctx, spans); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	pts, err := s.GetServiceRED(ctx, "default", svc, now.Add(-2*time.Minute), now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("GetServiceRED: %v", err)
+	}
+	var reqs, errs uint64
+	for _, p := range pts {
+		reqs += p.RequestCount
+		errs += p.ErrorCount
+	}
+	if reqs != 2 || errs != 1 {
+		t.Fatalf("reqs=%d errs=%d (want 2,1)", reqs, errs)
+	}
+}

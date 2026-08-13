@@ -65,3 +65,61 @@ FROM (
 	r.StartTime = time.Unix(0, int64(startNs)).UTC()
 	return r, nil
 }
+
+type REDPoint struct {
+	Minute       time.Time
+	RequestCount uint64
+	ErrorCount   uint64
+	P50Ms        float64
+	P95Ms        float64
+	P99Ms        float64
+}
+
+func (s *Store) ListServices(ctx context.Context, tenantID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT service_name FROM apm.red_rollup WHERE tenant_id = ? ORDER BY service_name`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetServiceRED(ctx context.Context, tenantID, service string, from, to time.Time) ([]REDPoint, error) {
+	const q = `
+SELECT
+    minute,
+    countMerge(request_count),
+    sumMerge(error_count),
+    quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND service_name = ? AND minute >= ? AND minute <= ?
+GROUP BY minute
+ORDER BY minute`
+	rows, err := s.db.QueryContext(ctx, q, tenantID, service, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []REDPoint
+	for rows.Next() {
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
