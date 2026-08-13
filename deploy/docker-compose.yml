@@ -44,3 +44,14 @@ services:
     build: { context: ../web, dockerfile: Dockerfile }
     ports: ["3000:80"]
     depends_on: [query]
+
+  # Multi-service traffic simulator. Off by default; start with:
+  #   docker compose -f deploy/docker-compose.yml --profile sim up -d --build sim
+  sim:
+    build: { context: ../demo/sim, dockerfile: Dockerfile }
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
+      SIM_RPS: "12"
+    depends_on: [gateway]
+    profiles: ["sim"]
+    restart: on-failure
