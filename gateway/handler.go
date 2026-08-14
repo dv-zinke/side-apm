@@ -1,10 +1,7 @@
 package gateway
 
 import (
-	"io"
 	"net/http"
-
-	"google.golang.org/protobuf/proto"
 
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
@@ -20,14 +17,9 @@ func TracesHandler(buf buffer.Port) http.HandlerFunc {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		body, err := io.ReadAll(io.LimitReader(r.Body, 16<<20)) // 16MB 상한
-		if err != nil {
-			http.Error(w, "read error", http.StatusBadRequest)
-			return
-		}
 		var req coltracepb.ExportTraceServiceRequest
-		if err := proto.Unmarshal(body, &req); err != nil {
-			http.Error(w, "invalid protobuf", http.StatusBadRequest)
+		if err := readExport(r, &req); err != nil {
+			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
 			return
 		}
 		spans := otlp.MapTraces(&req, defaultTenant)
@@ -35,10 +27,6 @@ func TracesHandler(buf buffer.Port) http.HandlerFunc {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}
-		// OTLP 성공 응답: 빈 ExportTraceServiceResponse
-		resp, _ := proto.Marshal(&coltracepb.ExportTraceServiceResponse{})
-		w.Header().Set("Content-Type", "application/x-protobuf")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(resp)
+		writeExportOK(w, r, &coltracepb.ExportTraceServiceResponse{})
 	}
 }

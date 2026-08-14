@@ -2,10 +2,7 @@ package gateway
 
 import (
 	"context"
-	"io"
 	"net/http"
-
-	"google.golang.org/protobuf/proto"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 
@@ -18,14 +15,9 @@ func LogsHandler(publishLogs func(ctx context.Context, ls []otlp.LogRecord) erro
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		body, err := io.ReadAll(io.LimitReader(r.Body, 16<<20))
-		if err != nil {
-			http.Error(w, "read error", http.StatusBadRequest)
-			return
-		}
 		var req collogspb.ExportLogsServiceRequest
-		if err := proto.Unmarshal(body, &req); err != nil {
-			http.Error(w, "invalid protobuf", http.StatusBadRequest)
+		if err := readExport(r, &req); err != nil {
+			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
 			return
 		}
 		logs := otlp.MapLogs(&req, defaultTenant)
@@ -33,9 +25,6 @@ func LogsHandler(publishLogs func(ctx context.Context, ls []otlp.LogRecord) erro
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}
-		resp, _ := proto.Marshal(&collogspb.ExportLogsServiceResponse{})
-		w.Header().Set("Content-Type", "application/x-protobuf")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(resp)
+		writeExportOK(w, r, &collogspb.ExportLogsServiceResponse{})
 	}
 }

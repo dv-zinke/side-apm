@@ -2,10 +2,7 @@ package gateway
 
 import (
 	"context"
-	"io"
 	"net/http"
-
-	"google.golang.org/protobuf/proto"
 
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 
@@ -22,14 +19,9 @@ func MetricsHandler(
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		body, err := io.ReadAll(io.LimitReader(r.Body, 16<<20))
-		if err != nil {
-			http.Error(w, "read error", http.StatusBadRequest)
-			return
-		}
 		var req colmetricspb.ExportMetricsServiceRequest
-		if err := proto.Unmarshal(body, &req); err != nil {
-			http.Error(w, "invalid protobuf", http.StatusBadRequest)
+		if err := readExport(r, &req); err != nil {
+			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
 			return
 		}
 		metrics := otlp.MapMetrics(&req, defaultTenant)
@@ -43,9 +35,6 @@ func MetricsHandler(
 				return
 			}
 		}
-		resp, _ := proto.Marshal(&colmetricspb.ExportMetricsServiceResponse{})
-		w.Header().Set("Content-Type", "application/x-protobuf")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(resp)
+		writeExportOK(w, r, &colmetricspb.ExportMetricsServiceResponse{})
 	}
 }
