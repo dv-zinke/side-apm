@@ -46,6 +46,18 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \\
 opentelemetry-instrument python your_app.py`,
   },
   {
+    id: "curl", label: "빠른 테스트 (curl)",
+    snippet: (svc, ep) => `# SDK 없이 이 한 줄로 첫 트레이스 보내기 (복사→붙여넣기)
+curl -X POST ${ep}/v1/traces -H 'Content-Type: application/json' -d '{
+  "resourceSpans":[{"resource":{"attributes":[
+    {"key":"service.name","value":{"stringValue":"${svc}"}}]},
+  "scopeSpans":[{"spans":[{
+    "traceId":"5b8efff798038103d269b633813fc60c",
+    "spanId":"eee19b7ec3c1b174","name":"GET /hello","kind":2,
+    "startTimeUnixNano":"'$(date +%s)'000000000",
+    "endTimeUnixNano":"'$(date +%s)'050000000"}]}]}]}'`,
+  },
+  {
     id: "ai", label: "AI 프롬프트",
     snippet: (svc, ep) => `내 앱에 OpenTelemetry 자동계측을 붙여줘.
 - 트레이스를 OTLP/HTTP(protobuf)로 ${ep} 에 보내기
