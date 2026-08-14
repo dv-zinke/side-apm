@@ -124,11 +124,14 @@ function Console() {
   const [sel, setSel] = useState<Transaction | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
+  const [svcFilter, setSvcFilter] = useState("");
   // Drill-down from a live widget → open the trace in an overlay, so the
   // dashboard and its live streams keep running underneath.
   const openTrace = (t: Transaction) => setModalTrace(t);
+  // Service map node → jump to the transaction list filtered to that service.
+  const openService = (name: string) => { setSvcFilter(name); setSel(null); setView("trace"); };
   return (
-    <NavCtx.Provider value={{ openTrace }}>
+    <NavCtx.Provider value={{ openTrace, openService }}>
     <div className="shell">
       <Sidebar view={view} setView={setView} />
       <div className="main">
@@ -152,7 +155,7 @@ function Console() {
           ) : (
             <div className="split">
               <section className="pane pane-list" aria-label="트랜잭션 목록">
-                <TransactionTable selected={sel} onSelect={setSel} />
+                <TransactionTable selected={sel} onSelect={setSel} service={svcFilter} onService={setSvcFilter} />
               </section>
               <section className="pane pane-detail" aria-label="트랜잭션 상세">
                 {sel ? (

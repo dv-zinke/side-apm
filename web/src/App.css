@@ -244,6 +244,8 @@
 .tbl tbody tr:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .tbl td { padding: var(--sp-2) var(--sp-3); color: var(--tx); }
 .tbl td.r { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--tx-hi); }
+.tbl td.r.dur-slow { color: var(--warn); }
+.tbl td.r.dur-vslow { color: var(--err); font-weight: 600; }
 .tbl td.svc { color: var(--tx-hi); font-weight: 500; }
 
 /* Status chip — dot + label, never color alone */

@@ -11,10 +11,18 @@ function StatusChip({ code }: { code: string }) {
   return <span className={`chip ${cls}`}><span className="dot" />{code || "UNSET"}</span>;
 }
 
+function durClass(ms: number, status: string): string {
+  if (status === "ERROR" || ms >= 1500) return "dur-vslow";
+  if (ms >= 600) return "dur-slow";
+  return "";
+}
+
 export function TransactionTable({
-  selected, onSelect,
-}: { selected: Transaction | null; onSelect: (t: Transaction) => void }) {
-  const [service, setService] = useState("");
+  selected, onSelect, service, onService,
+}: {
+  selected: Transaction | null; onSelect: (t: Transaction) => void;
+  service: string; onService: (s: string) => void;
+}) {
   const [errorsOnly, setErrorsOnly] = useState(false);
   const [minMs, setMinMs] = useState(0);
   const [q, setQ] = useState("");
@@ -50,7 +58,7 @@ export function TransactionTable({
           placeholder="예: /checkout"
           aria-label="트랜잭션 검색"
         />
-        <select className="select" value={service} onChange={(e) => setService(e.target.value)} aria-label="서비스 필터">
+        <select className="select" value={service} onChange={(e) => onService(e.target.value)} aria-label="서비스 필터">
           <option value="">전체 서비스</option>
           {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -109,7 +117,7 @@ export function TransactionTable({
                   <td className="svc">{t.serviceName}</td>
                   <td>{t.transactionName}</td>
                   <td><StatusChip code={t.statusCode} /></td>
-                  <td className="r">{t.durationMs.toLocaleString(undefined, { maximumFractionDigits: 1 })} ms</td>
+                  <td className={`r ${durClass(t.durationMs, t.statusCode)}`}>{t.durationMs.toLocaleString(undefined, { maximumFractionDigits: 1 })} ms</td>
                 </tr>
               );
             })}

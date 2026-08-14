@@ -4,9 +4,11 @@ import { fetchServiceMap } from "./api";
 import { EmptyState, IconGraph } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
+import { useNav } from "./nav";
 
 export function ServiceMap() {
   const { theme } = useTheme();
+  const { openService } = useNav();
   const c = chartColors(theme);
   const { data } = useQuery({ queryKey: ["servicemap"], queryFn: fetchServiceMap, refetchInterval: 10000 });
   const nodes = (data?.nodes ?? []).map((n) => ({
@@ -37,7 +39,7 @@ export function ServiceMap() {
   return (
     <div className="chart-wrap">
       <div className="pane-head" style={{ position: "static", margin: "calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0", borderTop: 0 }}>
-        <span className="pane-title">서비스맵</span>
+        <span className="pane-title">서비스맵 <span className="hint-inline">노드를 클릭하면 트랜잭션</span></span>
         <span className="chart-note" style={{ marginLeft: "auto", marginBottom: 0 }}>
           <span className="legend-key"><i style={{ background: c.accent }} />정상</span>
           <span className="legend-key"><i style={{ background: c.err }} />에러</span>
@@ -51,7 +53,12 @@ export function ServiceMap() {
         />
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <ReactECharts option={option} style={{ height: "100%" }} notMerge />
+          <ReactECharts
+            option={option}
+            style={{ height: "100%" }}
+            notMerge
+            onEvents={{ click: (p: any) => { if (p?.dataType === "node" && p?.name) openService(p.name); } }}
+          />
         </div>
       )}
     </div>
