@@ -48,12 +48,12 @@ export function Heatmap({ compact }: { compact?: boolean }) {
     backgroundColor: "transparent",
     animation: false,
     tooltip: { formatter: (p: any) => `${p.value[1].toFixed(0)} ms`, backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
-    grid: { left: 48, right: 16, top: 10, bottom: 24 },
+    grid: { left: 52, right: 16, top: 10, bottom: 24 },
     xAxis: { type: "time", axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } }, splitLine: { show: false } },
     yAxis: { type: "value", min: 0, name: "ms", nameTextStyle: { color: c.axis }, axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
     series: [{
-      type: "scatter", symbol: "rect", symbolSize: compact ? 6 : 7,
-      data: points.map((p) => ({ value: p.value, itemStyle: { color: col[p.tier], opacity: 0.85 }, tx: p.t })),
+      type: "scatter", symbol: "rect", symbolSize: compact ? 8 : 9,
+      data: points.map((p) => ({ value: p.value, itemStyle: { color: col[p.tier], opacity: 0.95 }, tx: p.t })),
     }],
   };
   const onEvents = { click: (p: any) => { if (p?.data?.tx) openTrace(liveToTxn(p.data.tx)); } };

@@ -41,7 +41,7 @@ export function SpeedBand() {
       // stream instead of vertical columns.
       x: reduce ? Math.random() : 1 + Math.random() * 0.18,
       y: Math.random(),
-      r: 3 + Math.min(7, t.durationMs / 250),
+      r: 4.5 + Math.min(9, t.durationMs / 180),
       tier,
       t,
     });
@@ -77,9 +77,9 @@ export function SpeedBand() {
         const px = p.x * w;
         const py = 10 + p.y * (h - 20);
         ctx.fillStyle = col[p.tier];
-        ctx.globalAlpha = 0.18;
-        ctx.beginPath(); ctx.arc(px, py, p.r * 2.1, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 0.92;
+        ctx.globalAlpha = 0.24;
+        ctx.beginPath(); ctx.arc(px, py, p.r * 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 1;
