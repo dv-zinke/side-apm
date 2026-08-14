@@ -25,8 +25,15 @@ export type Span = {
   dbStatement?: string;
 };
 
-export async function fetchTransactions(): Promise<Transaction[]> {
-  const r = await fetch(`${BASE}/api/v1/transactions?limit=100`);
+export type TxnFilter = { service?: string; errorsOnly?: boolean; minMs?: number; q?: string; limit?: number };
+
+export async function fetchTransactions(f: TxnFilter = {}): Promise<Transaction[]> {
+  const p = new URLSearchParams({ limit: String(f.limit ?? 100) });
+  if (f.service) p.set("service", f.service);
+  if (f.errorsOnly) p.set("errors", "1");
+  if (f.minMs) p.set("minMs", String(f.minMs));
+  if (f.q) p.set("q", f.q);
+  const r = await fetch(`${BASE}/api/v1/transactions?${p}`);
   if (!r.ok) throw new Error(`transactions ${r.status}`);
   return r.json();
 }

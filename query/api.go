@@ -51,10 +51,15 @@ type SpanDTO struct {
 func Router(r Reader) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/transactions", func(w http.ResponseWriter, req *http.Request) {
-		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		q := req.URL.Query()
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		minMs, _ := strconv.ParseFloat(q.Get("minMs"), 64)
 		rows, err := r.ListTransactions(req.Context(), defaultTenant, storage.Filter{
-			Service: req.URL.Query().Get("service"),
-			Limit:   limit,
+			Service:    q.Get("service"),
+			ErrorsOnly: q.Get("errors") == "1" || q.Get("errors") == "true",
+			MinMs:      minMs,
+			Query:      q.Get("q"),
+			Limit:      limit,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

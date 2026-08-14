@@ -81,8 +81,11 @@ func (s *Store) InsertSpans(ctx context.Context, spans []otlp.Span) error {
 }
 
 type Filter struct {
-	Service string
-	Limit   int
+	Service    string
+	ErrorsOnly bool
+	MinMs      float64 // minimum duration in ms (0 = no floor)
+	Query      string  // case-insensitive substring on transaction name
+	Limit      int
 }
 
 type TransactionRow struct {
@@ -98,14 +101,31 @@ func (s *Store) ListTransactions(ctx context.Context, tenantID string, f Filter)
 	if f.Limit <= 0 || f.Limit > 1000 {
 		f.Limit = 100
 	}
+	errFlag := 0
+	if f.ErrorsOnly {
+		errFlag = 1
+	}
+	var minNs uint64
+	if f.MinMs > 0 {
+		minNs = uint64(f.MinMs * 1e6)
+	}
+	like := "%" + f.Query + "%"
 	const q = `
 SELECT trace_id, service_name, span_name, status_code, start_time, duration_ns
 FROM apm.spans
 WHERE tenant_id = ? AND span_kind = 'SERVER'
   AND (? = '' OR service_name = ?)
+  AND (? = 0 OR status_code = 'ERROR')
+  AND (? = 0 OR duration_ns >= ?)
+  AND (? = '' OR span_name ILIKE ?)
 ORDER BY start_time DESC
 LIMIT ?`
-	rows, err := s.db.QueryContext(ctx, q, tenantID, f.Service, f.Service, f.Limit)
+	rows, err := s.db.QueryContext(ctx, q, tenantID,
+		f.Service, f.Service,
+		errFlag,
+		minNs, minNs,
+		f.Query, like,
+		f.Limit)
 	if err != nil {
 		return nil, err
 	}

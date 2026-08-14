@@ -191,6 +191,35 @@
 .pane-title { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx-dim); }
 .pane-body { padding: var(--sp-3) var(--sp-4); }
 
+/* Filter bar ──────────────────────────────────────────────── */
+.filterbar {
+  display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 41px; background: var(--bg-panel); z-index: 1;
+}
+.input {
+  flex: 1 1 140px; min-width: 120px;
+  background: var(--bg-raised); color: var(--tx-hi);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 6px 10px; font: var(--fs-sm) var(--sans);
+}
+.input::placeholder { color: var(--tx-dim); }
+.input:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); border-color: var(--accent); }
+.filterbar .select { flex: 0 0 auto; }
+.filter-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  appearance: none; cursor: pointer;
+  background: var(--bg-raised); color: var(--tx-dim);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 6px 10px; font: 500 var(--fs-sm) var(--sans);
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.filter-toggle .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.filter-toggle:hover { background: var(--bg-hover); color: var(--tx); }
+.filter-toggle.on { background: var(--err-wash); color: var(--err); border-color: color-mix(in srgb, var(--err) 30%, transparent); }
+.filter-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); }
+
 /* Data table ──────────────────────────────────────────────── */
 .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .tbl thead th {
