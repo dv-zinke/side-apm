@@ -28,27 +28,28 @@ func (d *Direct) Publish(ctx context.Context, spans []otlp.Span) error {
 // maps it to 503 so the OTLP exporter retries (preserving at-least-once).
 var ErrQueueFull = errors.New("ingest queue full")
 
-// Async decouples accept from write: Publish enqueues and returns immediately;
-// a background worker batches spans and inserts them with retry/backoff. This
-// absorbs traffic spikes and rides out transient ClickHouse hiccups without
-// dropping data or blocking the caller. A bounded queue provides backpressure.
+type Opts struct {
+	QueueDepth int           // number of in-flight publish batches buffered
+	BatchMax   int           // flush once this many items accumulate
+	Flush      time.Duration // ...or after this interval
+	Retries    int           // insert attempts before dropping a batch
+}
+
+// Batcher decouples accept from write for any telemetry signal: Publish enqueues
+// and returns immediately; a background worker batches items and writes them
+// with retry/backoff. Absorbs spikes, rides out transient ClickHouse hiccups,
+// and backpressures (ErrQueueFull → 503) instead of blocking or dropping.
 // (Cross-process durability — surviving a gateway crash — is the Kafka tier.)
-type Async struct {
-	store    Inserter
-	ch       chan []otlp.Span
+type Batcher[T any] struct {
+	name     string
+	write    func(context.Context, []T) error
+	ch       chan []T
 	batchMax int
 	flush    time.Duration
 	retries  int
 }
 
-type AsyncOpts struct {
-	QueueDepth int           // number of in-flight publish batches buffered
-	BatchMax   int           // flush once this many spans accumulate
-	Flush      time.Duration // ...or after this interval
-	Retries    int           // insert attempts before dropping a batch
-}
-
-func NewAsync(store Inserter, o AsyncOpts) *Async {
+func NewBatcher[T any](name string, write func(context.Context, []T) error, o Opts) *Batcher[T] {
 	if o.QueueDepth <= 0 {
 		o.QueueDepth = 1024
 	}
@@ -61,64 +62,67 @@ func NewAsync(store Inserter, o AsyncOpts) *Async {
 	if o.Retries <= 0 {
 		o.Retries = 3
 	}
-	a := &Async{
-		store:    store,
-		ch:       make(chan []otlp.Span, o.QueueDepth),
-		batchMax: o.BatchMax,
-		flush:    o.Flush,
-		retries:  o.Retries,
+	b := &Batcher[T]{
+		name: name, write: write,
+		ch:       make(chan []T, o.QueueDepth),
+		batchMax: o.BatchMax, flush: o.Flush, retries: o.Retries,
 	}
-	go a.run()
-	return a
+	go b.run()
+	return b
 }
 
-func (a *Async) Publish(_ context.Context, spans []otlp.Span) error {
-	if len(spans) == 0 {
+func (b *Batcher[T]) Publish(_ context.Context, items []T) error {
+	if len(items) == 0 {
 		return nil
 	}
 	select {
-	case a.ch <- spans:
+	case b.ch <- items:
 		return nil
 	default:
 		return ErrQueueFull
 	}
 }
 
-func (a *Async) run() {
-	batch := make([]otlp.Span, 0, a.batchMax)
-	ticker := time.NewTicker(a.flush)
+func (b *Batcher[T]) run() {
+	batch := make([]T, 0, b.batchMax)
+	ticker := time.NewTicker(b.flush)
 	defer ticker.Stop()
 	for {
 		select {
-		case spans := <-a.ch:
-			batch = append(batch, spans...)
-			if len(batch) >= a.batchMax {
-				a.write(batch)
+		case items := <-b.ch:
+			batch = append(batch, items...)
+			if len(batch) >= b.batchMax {
+				b.writeBatch(batch)
 				batch = batch[:0]
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
-				a.write(batch)
+				b.writeBatch(batch)
 				batch = batch[:0]
 			}
 		}
 	}
 }
 
-func (a *Async) write(batch []otlp.Span) {
+func (b *Batcher[T]) writeBatch(batch []T) {
 	backoff := 100 * time.Millisecond
-	for attempt := 1; attempt <= a.retries; attempt++ {
+	for attempt := 1; attempt <= b.retries; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err := a.store.InsertSpans(ctx, batch)
+		err := b.write(ctx, batch)
 		cancel()
 		if err == nil {
 			return
 		}
-		if attempt == a.retries {
-			log.Printf("buffer: dropping %d spans after %d attempts: %v", len(batch), a.retries, err)
+		if attempt == b.retries {
+			log.Printf("buffer[%s]: dropping %d items after %d attempts: %v", b.name, len(batch), b.retries, err)
 			return
 		}
 		time.Sleep(backoff)
 		backoff *= 2
 	}
+}
+
+// NewSpanBatcher is a typed convenience so the gateway keeps a buffer.Port.
+func NewSpanBatcher(store Inserter, o Opts) *Batcher[otlp.Span] {
+	return NewBatcher[otlp.Span]("spans", store.InsertSpans, o)
 }

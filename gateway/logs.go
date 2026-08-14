@@ -12,11 +12,7 @@ import (
 	"github.com/heejune/apm/internal/otlp"
 )
 
-type LogsPublisher interface {
-	InsertLogs(ctx context.Context, ls []otlp.LogRecord) error
-}
-
-func LogsHandler(pub LogsPublisher) http.HandlerFunc {
+func LogsHandler(publishLogs func(ctx context.Context, ls []otlp.LogRecord) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -33,7 +29,7 @@ func LogsHandler(pub LogsPublisher) http.HandlerFunc {
 			return
 		}
 		logs := otlp.MapLogs(&req, defaultTenant)
-		if err := pub.InsertLogs(r.Context(), logs); err != nil {
+		if err := publishLogs(r.Context(), logs); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}

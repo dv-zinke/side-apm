@@ -18,18 +18,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("clickhouse: %v", err)
 	}
-	// Async batched ingest: absorb spikes, retry transient CH failures,
-	// backpressure (503) when saturated so exporters retry.
-	buf := buffer.NewAsync(store, buffer.AsyncOpts{
+	// Async batched ingest for every signal: absorb spikes, retry transient CH
+	// failures, backpressure (503) when saturated so exporters retry.
+	opts := buffer.Opts{
 		QueueDepth: getenvInt("APM_INGEST_QUEUE", 1024),
 		BatchMax:   getenvInt("APM_INGEST_BATCH", 2000),
 		Flush:      time.Duration(getenvInt("APM_INGEST_FLUSH_MS", 500)) * time.Millisecond,
-	})
+	}
+	spanBuf := buffer.NewSpanBatcher(store, opts)
+	metricBuf := buffer.NewBatcher("metrics", store.InsertMetrics, opts)
+	histoBuf := buffer.NewBatcher("histograms", store.InsertHistograms, opts)
+	logBuf := buffer.NewBatcher("logs", store.InsertLogs, opts)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/traces", gateway.TracesHandler(buf))
-	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(store))
-	mux.HandleFunc("/v1/logs", gateway.LogsHandler(store))
+	mux.HandleFunc("/v1/traces", gateway.TracesHandler(spanBuf))
+	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(metricBuf.Publish, histoBuf.Publish))
+	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")

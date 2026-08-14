@@ -12,12 +12,11 @@ import (
 	"github.com/heejune/apm/internal/otlp"
 )
 
-type MetricsPublisher interface {
-	InsertMetrics(ctx context.Context, ms []otlp.Metric) error
-	InsertHistograms(ctx context.Context, hs []otlp.Histogram) error
-}
-
-func MetricsHandler(pub MetricsPublisher) http.HandlerFunc {
+// Publishers are batchers (or direct inserters) for each metric shape.
+func MetricsHandler(
+	publishMetrics func(ctx context.Context, ms []otlp.Metric) error,
+	publishHistograms func(ctx context.Context, hs []otlp.Histogram) error,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -34,12 +33,12 @@ func MetricsHandler(pub MetricsPublisher) http.HandlerFunc {
 			return
 		}
 		metrics := otlp.MapMetrics(&req, defaultTenant)
-		if err := pub.InsertMetrics(r.Context(), metrics); err != nil {
+		if err := publishMetrics(r.Context(), metrics); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}
 		if hs := otlp.MapHistograms(&req, defaultTenant); len(hs) > 0 {
-			if err := pub.InsertHistograms(r.Context(), hs); err != nil {
+			if err := publishHistograms(r.Context(), hs); err != nil {
 				http.Error(w, "publish failed", http.StatusServiceUnavailable)
 				return
 			}

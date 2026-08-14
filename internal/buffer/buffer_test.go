@@ -41,7 +41,7 @@ func TestDirectPublish(t *testing.T) {
 
 func TestAsyncBatchesAndFlushes(t *testing.T) {
 	fi := &fakeInserter{}
-	a := NewAsync(fi, AsyncOpts{QueueDepth: 16, BatchMax: 1000, Flush: 20 * time.Millisecond})
+	a := NewSpanBatcher(fi, Opts{QueueDepth: 16, BatchMax: 1000, Flush: 20 * time.Millisecond})
 	for i := 0; i < 5; i++ {
 		if err := a.Publish(context.Background(), []otlp.Span{{TraceID: "t"}}); err != nil {
 			t.Fatalf("publish %d: %v", i, err)
@@ -67,7 +67,7 @@ func (b *blockInserter) InsertSpans(_ context.Context, _ []otlp.Span) error {
 
 func TestAsyncBackpressure(t *testing.T) {
 	bi := &blockInserter{release: make(chan struct{})}
-	a := NewAsync(bi, AsyncOpts{QueueDepth: 2, BatchMax: 1, Flush: time.Hour})
+	a := NewSpanBatcher(bi, Opts{QueueDepth: 2, BatchMax: 1, Flush: time.Hour})
 	// Fill the worker (stuck on first insert) + the 2-deep queue, then expect
 	// ErrQueueFull once saturated.
 	var full bool
