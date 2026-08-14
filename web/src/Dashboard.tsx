@@ -128,7 +128,7 @@ export function Dashboard() {
           </section>
 
           <section className="dash-panel">
-            <div className="hm-fixed"><Heatmap compact /></div>
+            <div className="hm-fixed"><Heatmap /></div>
           </section>
           <section className="dash-panel">
             <div className="section-label">처리량 · 에러 · 지연</div>
