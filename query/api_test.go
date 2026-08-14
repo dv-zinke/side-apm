@@ -48,6 +48,14 @@ func (fakeReader) RecentRootTxns(_ context.Context, _ string, _ time.Time, _ int
 	return nil, nil
 }
 
+func (fakeReader) ListMetricNames(_ context.Context, _, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (fakeReader) GetServiceMetric(_ context.Context, _, _, _ string, _, _ time.Time) ([]storage.MetricPoint, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()

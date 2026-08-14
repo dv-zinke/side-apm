@@ -78,6 +78,19 @@ export async function fetchServiceMap(): Promise<ServiceMapData> {
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
+export type MetricPoint = { time: string; value: number };
+export async function fetchMetricNames(service: string): Promise<string[]> {
+  const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/metric-names`);
+  if (!r.ok) throw new Error(`metric-names ${r.status}`);
+  return r.json();
+}
+export async function fetchMetric(service: string, name: string, fromISO: string, toISO: string): Promise<MetricPoint[]> {
+  const p = new URLSearchParams({ name, from: fromISO, to: toISO });
+  const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/metrics?${p}`);
+  if (!r.ok) throw new Error(`metrics ${r.status}`);
+  return r.json();
+}
+
 export type LiveTxn = {
   traceId: string; service: string; transaction: string; statusCode: string;
   startTime: string; durationMs: number; isError: boolean;
