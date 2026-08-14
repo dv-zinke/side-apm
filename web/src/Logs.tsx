@@ -37,10 +37,10 @@ export function Logs() {
           </select>
           <select className="select" value={severity} onChange={(e) => setSeverity(e.target.value)} aria-label="심각도">
             <option value="">전체 레벨</option>
-            <option value="error">ERROR</option>
-            <option value="warn">WARN</option>
-            <option value="info">INFO</option>
-            <option value="debug">DEBUG</option>
+            <option value="ERROR">ERROR</option>
+            <option value="WARN">WARN</option>
+            <option value="INFO">INFO</option>
+            <option value="DEBUG">DEBUG</option>
           </select>
         </div>
         {isLoading ? (

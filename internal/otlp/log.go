@@ -3,6 +3,7 @@ package otlp
 import (
 	"encoding/hex"
 	"strconv"
+	"strings"
 	"time"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -71,9 +72,12 @@ func MapLogs(req *collogspb.ExportLogsServiceRequest, tenantID string) []LogReco
 	return out
 }
 
+// severityText normalizes to upper-case so filters match regardless of whether
+// the source sent "error"/"ERROR" (pino sends lower-case severityText, other
+// agents send upper). Consistent storage keeps exact-match severity filters honest.
 func severityText(lr *logspb.LogRecord) string {
 	if t := lr.GetSeverityText(); t != "" {
-		return t
+		return strings.ToUpper(t)
 	}
 	n := lr.GetSeverityNumber()
 	switch {

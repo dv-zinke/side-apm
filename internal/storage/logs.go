@@ -90,7 +90,7 @@ SELECT ts, service_name, severity, body, trace_id, span_id
 FROM apm.logs
 WHERE tenant_id = ? AND ts >= ? AND ts <= ?
   AND (? = '' OR service_name = ?)
-  AND (? = '' OR severity = ?)
+  AND (? = '' OR upper(severity) = upper(?))
   AND (? = '' OR body ILIKE ?)
 ORDER BY ts DESC
 LIMIT ?`
