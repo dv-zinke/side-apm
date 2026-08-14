@@ -4,7 +4,7 @@ import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useLiveTxns } from "./live";
 import { useNav } from "./nav";
-import { liveToTxn } from "./api";
+import { liveToTxn, fetchRecentTxns } from "./api";
 import type { LiveTxn } from "./api";
 
 type Tier = "ok" | "slow" | "err";
@@ -29,10 +29,17 @@ export function Heatmap({ compact }: { compact?: boolean }) {
   const [points, setPoints] = useState<Point[]>([]);
   const buf = useRef<Point[]>([]);
 
-  useLiveTxns((t) => {
+  const add = (t: LiveTxn) => {
     const ts = new Date(t.startTime).getTime();
     buf.current.push({ value: [ts, t.durationMs], tier: tierOf(t.durationMs, t.isError), t });
-  });
+  };
+  useLiveTxns(add);
+  // Backfill the last 10 minutes on mount so the map is full immediately.
+  useEffect(() => {
+    let alive = true;
+    fetchRecentTxns(10).then((txns) => { if (alive) { txns.forEach(add); setPoints([...buf.current]); } }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     const iv = setInterval(() => {
       const cut = Date.now() - WINDOW_MS;
@@ -44,16 +51,23 @@ export function Heatmap({ compact }: { compact?: boolean }) {
 
   const col: Record<Tier, string> = { ok: c.accent, slow: c.warn, err: c.err };
   const counts = points.reduce((a, p) => { a[p.tier]++; return a; }, { ok: 0, slow: 0, err: 0 });
+  const now = Date.now();
   const option = {
     backgroundColor: "transparent",
     animation: false,
     tooltip: { formatter: (p: any) => `${p.value[1].toFixed(0)} ms`, backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
     grid: { left: 52, right: 16, top: 10, bottom: 24 },
-    xAxis: { type: "time", axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } }, splitLine: { show: false } },
+    // Fixed rolling 10-min window so the axis reads as real wall-clock minutes
+    // (like WhaTap), not a 2-second sliver of whatever just arrived.
+    xAxis: {
+      type: "time", min: now - WINDOW_MS, max: now,
+      axisLabel: { color: c.axis, hideOverlap: true },
+      axisLine: { lineStyle: { color: c.split } }, splitLine: { show: false },
+    },
     yAxis: { type: "value", min: 0, name: "ms", nameTextStyle: { color: c.axis }, axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
     series: [{
-      type: "scatter", symbol: "rect", symbolSize: compact ? 8 : 9,
-      data: points.map((p) => ({ value: p.value, itemStyle: { color: col[p.tier], opacity: 0.95 }, tx: p.t })),
+      type: "scatter", symbol: "rect", symbolSize: compact ? 5 : 6,
+      data: points.map((p) => ({ value: p.value, itemStyle: { color: col[p.tier], opacity: 0.9 }, tx: p.t })),
     }],
   };
   const onEvents = { click: (p: any) => { if (p?.data?.tx) openTrace(liveToTxn(p.data.tx)); } };

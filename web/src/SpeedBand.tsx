@@ -3,7 +3,7 @@ import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useLiveTxns } from "./live";
 import { useNav } from "./nav";
-import { liveToTxn } from "./api";
+import { liveToTxn, fetchRecentTxns } from "./api";
 import type { LiveTxn } from "./api";
 
 type Tier = "ok" | "slow" | "err";
@@ -34,20 +34,37 @@ export function SpeedBand() {
 
   // Ingest the live stream → spawn particles.
   const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  useLiveTxns((t) => {
-    const tier = tierOf(t.durationMs, t.isError);
+  const spawn = (t: LiveTxn, x: number) => {
     particles.current.push({
-      // stagger entry across ~1s so 1-second SSE batches read as a continuous
-      // stream instead of vertical columns.
-      x: reduce ? Math.random() : 1 + Math.random() * 0.18,
-      y: Math.random(),
+      x, y: Math.random(),
       r: 4.5 + Math.min(9, t.durationMs / 180),
-      tier,
+      tier: tierOf(t.durationMs, t.isError),
       t,
     });
+  };
+  useLiveTxns((t) => {
+    // stagger entry across ~1s so 1-second SSE batches read as a continuous
+    // stream instead of vertical columns.
+    spawn(t, reduce ? Math.random() : 1 + Math.random() * 0.18);
     spawns.current.push(performance.now());
+    const tier = tierOf(t.durationMs, t.isError);
     setTally((s) => ({ ...s, [tier]: s[tier] + 1 }));
   });
+  // Backfill the lane on mount so it's full of flowing dots immediately.
+  useEffect(() => {
+    let alive = true;
+    fetchRecentTxns(10).then((txns) => {
+      if (!alive) return;
+      const recent = txns.slice(-400);
+      recent.forEach((t, i) => spawn(t, i / recent.length)); // spread across the lane
+      setTally((s) => {
+        const n = { ...s };
+        for (const t of recent) n[tierOf(t.durationMs, t.isError)]++;
+        return n;
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // rAF flow + draw.
   useEffect(() => {

@@ -26,7 +26,7 @@ export function RedDashboard() {
     refetchInterval: 10000,
   });
   const pts = red ?? [];
-  const x = pts.map((p) => p.minute.slice(11, 16));
+  const x = pts.map((p) => { const d = new Date(p.minute); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; });
   const option = {
     backgroundColor: "transparent",
     color: [c.accent, c.err, c.warn],

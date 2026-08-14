@@ -141,6 +141,13 @@ export type LiveTxn = {
   traceId: string; service: string; transaction: string; statusCode: string;
   startTime: string; durationMs: number; isError: boolean;
 };
+// Recent root transactions for backfilling live widgets on mount.
+export async function fetchRecentTxns(sinceMin = 10): Promise<LiveTxn[]> {
+  const r = await fetch(`${BASE}/api/v1/live/recent?sinceMin=${sinceMin}`);
+  if (!r.ok) throw new Error(`recent ${r.status}`);
+  return r.json();
+}
+
 export function liveTxnStream(onTxn: (t: LiveTxn) => void): () => void {
   const es = new EventSource(`${BASE}/api/v1/live/transactions`);
   es.onmessage = (e) => { try { onTxn(JSON.parse(e.data)); } catch {} };

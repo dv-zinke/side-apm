@@ -81,7 +81,9 @@ export function Dashboard() {
   });
 
   const errRate = data && data.totalReq > 0 ? (data.totalErr / data.totalReq) * 100 : 0;
-  const x = data ? data.minutes.map((m) => m.slice(11, 16)) : [];
+  // Local HH:MM so the axis matches the heatmap's wall clock (not UTC).
+  const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const x = data ? data.minutes.map(hm) : [];
   const option = {
     backgroundColor: "transparent",
     color: [c.accent, c.err, c.warn],

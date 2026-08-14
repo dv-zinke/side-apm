@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -109,5 +110,31 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 				flusher.Flush()
 			}
 		}
+	})
+
+	// Backfill: recent root transactions so live widgets (heatmap, speed band)
+	// render a full window immediately instead of filling in from empty.
+	mux.HandleFunc("GET /api/v1/live/recent", func(w http.ResponseWriter, req *http.Request) {
+		sinceMin := 10
+		if v := req.URL.Query().Get("sinceMin"); v != "" {
+			if m, err := strconv.Atoi(v); err == nil && m > 0 && m <= 60 {
+				sinceMin = m
+			}
+		}
+		since := time.Now().UTC().Add(-time.Duration(sinceMin) * time.Minute)
+		txns, err := r.RecentRootTxns(req.Context(), defaultTenant, since, 2000)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]LiveTxnDTO, 0, len(txns))
+		for _, x := range txns {
+			out = append(out, LiveTxnDTO{
+				TraceID: x.TraceID, Service: x.Service, Transaction: x.Transaction,
+				StatusCode: x.StatusCode, StartTime: x.StartTime.Format(time.RFC3339Nano),
+				DurationMs: x.DurationMs, IsError: x.IsError,
+			})
+		}
+		writeJSON(w, out)
 	})
 }
