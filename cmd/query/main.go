@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +16,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("clickhouse: %v", err)
 	}
+
+	// Background alert evaluator: checks rules on an interval, fires on breach,
+	// optional Slack-compatible webhook via APM_ALERT_WEBHOOK.
+	eval := query.NewEvaluator(store, 0, os.Getenv("APM_ALERT_WEBHOOK"))
+	go eval.Run(context.Background())
+
 	addr := getenv("APM_QUERY_ADDR", ":8080")
 	log.Printf("query service listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, query.Router(store)))

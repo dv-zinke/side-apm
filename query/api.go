@@ -25,6 +25,10 @@ type Reader interface {
 	GetServiceMetric(ctx context.Context, tenant, service, name string, from, to time.Time) ([]storage.MetricPoint, error)
 	GetTraceLogs(ctx context.Context, tenant, traceID string) ([]storage.LogRow, error)
 	ListLogs(ctx context.Context, tenant string, f storage.LogFilter) ([]storage.LogRow, error)
+	ListAlertRules(ctx context.Context, tenant string) ([]storage.AlertRule, error)
+	UpsertAlertRule(ctx context.Context, tenant string, r storage.AlertRule) error
+	DeleteAlertRule(ctx context.Context, tenant, id string) error
+	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
 }
 
 type TransactionDTO struct {
@@ -102,6 +106,7 @@ func Router(r Reader) http.Handler {
 	registerServiceMap(mux, r)
 	registerMetrics(mux, r)
 	registerLogs(mux, r)
+	registerAlerts(mux, r)
 	return withCORS(mux)
 }
 
@@ -113,6 +118,8 @@ func writeJSON(w http.ResponseWriter, v any) {
 func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

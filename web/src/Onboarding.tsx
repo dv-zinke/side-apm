@@ -97,9 +97,9 @@ export function Onboarding() {
           </label>
         </div>
 
-        <div className="tabs onboard-tabs" role="tablist" aria-label="언어">
+        <div className="segmented" role="tablist" aria-label="언어">
           {LANGS.map((l) => (
-            <button key={l.id} role="tab" aria-selected={lang === l.id} className="tab" onClick={() => setLang(l.id)}>{l.label}</button>
+            <button key={l.id} role="tab" aria-selected={lang === l.id} className="seg" onClick={() => setLang(l.id)}>{l.label}</button>
           ))}
         </div>
 

@@ -64,6 +64,20 @@ func (fakeReader) ListLogs(_ context.Context, _ string, _ storage.LogFilter) ([]
 	return nil, nil
 }
 
+func (fakeReader) ListAlertRules(_ context.Context, _ string) ([]storage.AlertRule, error) {
+	return nil, nil
+}
+
+func (fakeReader) UpsertAlertRule(_ context.Context, _ string, _ storage.AlertRule) error {
+	return nil
+}
+
+func (fakeReader) DeleteAlertRule(_ context.Context, _, _ string) error { return nil }
+
+func (fakeReader) ListAlerts(_ context.Context, _ string, _ int) ([]storage.Alert, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()

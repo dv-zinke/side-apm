@@ -78,6 +78,28 @@ export async function fetchServiceMap(): Promise<ServiceMapData> {
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
+export type AlertRule = { id?: string; name: string; service: string; metric: "error_rate" | "p95_ms"; threshold: number; windowMin: number; enabled: boolean };
+export type Alert = { firedAt: string; ruleId: string; ruleName: string; service: string; metric: string; value: number; threshold: number; state: string };
+export async function fetchAlertRules(): Promise<AlertRule[]> {
+  const r = await fetch(`${BASE}/api/v1/alert-rules`);
+  if (!r.ok) throw new Error(`alert-rules ${r.status}`);
+  return r.json();
+}
+export async function createAlertRule(rule: AlertRule): Promise<AlertRule> {
+  const r = await fetch(`${BASE}/api/v1/alert-rules`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rule) });
+  if (!r.ok) throw new Error(await r.text() || `create ${r.status}`);
+  return r.json();
+}
+export async function deleteAlertRule(id: string): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/alert-rules/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`delete ${r.status}`);
+}
+export async function fetchAlerts(): Promise<Alert[]> {
+  const r = await fetch(`${BASE}/api/v1/alerts?limit=100`);
+  if (!r.ok) throw new Error(`alerts ${r.status}`);
+  return r.json();
+}
+
 export type LogLine = { time: string; service: string; severity: string; body: string; traceId: string; spanId: string };
 export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
   const r = await fetch(`${BASE}/api/v1/traces/${traceId}/logs`);
