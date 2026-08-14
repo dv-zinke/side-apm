@@ -133,6 +133,32 @@
 .modal-txn { font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modal-head .icon-btn { margin-left: auto; flex: none; }
 .modal-body { padding: var(--sp-4); overflow: auto; }
+.modal-lg { width: min(960px, 100%); }
+
+/* Modal tabs (trace detail) */
+.modal-tabs {
+  display: flex; gap: 2px; padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto; scrollbar-width: none;
+}
+.modal-tabs::-webkit-scrollbar { display: none; }
+.modal-tabs .tab { position: relative; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: var(--sp-3) var(--sp-3); }
+.modal-tabs .tab[aria-selected="true"]::after {
+  content: ""; position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: -1px; height: 2px;
+  background: var(--accent); border-radius: 2px 2px 0 0;
+}
+.tab-badge {
+  font-size: 10px; font-weight: 600; font-family: var(--mono);
+  padding: 0 5px; border-radius: 999px; min-width: 16px; text-align: center;
+  background: var(--bg-active); color: var(--tx-dim);
+}
+.tab[aria-selected="true"] .tab-badge { background: var(--accent-wash); color: var(--accent); }
+
+/* SQL / HTTP detail tables */
+.detail-tbl td { vertical-align: top; }
+.detail-stmt { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); max-width: 560px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.http-method { color: var(--accent); font-weight: 600; }
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
 

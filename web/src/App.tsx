@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TransactionTable } from "./TransactionTable";
-import { TraceTree } from "./TraceTree";
-import { RecordSummary } from "./RecordSummary";
 import { RedDashboard } from "./RedDashboard";
 import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
@@ -16,7 +14,6 @@ import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  EmptyState, IconTrace,
   IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
@@ -129,7 +126,6 @@ function ThemeToggle() {
 }
 
 function Console() {
-  const [sel, setSel] = useState<Transaction | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
   const [svcFilter, setSvcFilter] = useState("");
@@ -137,7 +133,7 @@ function Console() {
   // dashboard and its live streams keep running underneath.
   const openTrace = (t: Transaction) => setModalTrace(t);
   // Service map node → jump to the transaction list filtered to that service.
-  const openService = (name: string) => { setSvcFilter(name); setSel(null); setView("trace"); };
+  const openService = (name: string) => { setSvcFilter(name); setView("trace"); };
   return (
     <NavCtx.Provider value={{ openTrace, openService }}>
     <div className="shell">
@@ -169,28 +165,9 @@ function Console() {
           ) : view === "red" ? (
             <RedDashboard />
           ) : (
-            <div className="split">
-              <section className="pane pane-list" aria-label="트랜잭션 목록">
-                <TransactionTable selected={sel} onSelect={setSel} service={svcFilter} onService={setSvcFilter} />
-              </section>
-              <section className="pane pane-detail" aria-label="트랜잭션 상세">
-                {sel ? (
-                  <div className="pane-body">
-                    <div className="section-label">레코드 요약</div>
-                    <RecordSummary traceId={sel.traceId} />
-                    <div className="section-label">트리 뷰 · 워터폴</div>
-                    <TraceTree traceId={sel.traceId} />
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<IconTrace />}
-                    title="트랜잭션을 선택해주세요"
-                    body="왼쪽 목록에서 트랜잭션을 고르면 요약과 스팬 워터폴이 여기에 펼쳐져요."
-                    hint="5초마다 자동 갱신"
-                  />
-                )}
-              </section>
-            </div>
+            <section className="pane" aria-label="트랜잭션 목록">
+              <TransactionTable selected={modalTrace} onSelect={openTrace} service={svcFilter} onService={setSvcFilter} />
+            </section>
           )}
         </main>
       </div>

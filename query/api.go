@@ -55,6 +55,7 @@ type SpanDTO struct {
 	StatusCode   string  `json:"statusCode"`
 	HTTPMethod   string  `json:"httpMethod,omitempty"`
 	HTTPRoute    string  `json:"httpRoute,omitempty"`
+	HTTPURL      string  `json:"httpUrl,omitempty"`
 	DBSystem     string  `json:"dbSystem,omitempty"`
 	DBStatement  string  `json:"dbStatement,omitempty"`
 }
@@ -99,7 +100,7 @@ func Router(r Reader) http.Handler {
 				ServiceName: s.ServiceName, SpanName: s.SpanName, SpanKind: s.SpanKind,
 				StartTime:  s.StartTime.Format("2006-01-02T15:04:05.000Z"),
 				DurationMs: float64(s.DurationNs) / 1e6, StatusCode: s.StatusCode,
-				HTTPMethod: s.HTTPMethod, HTTPRoute: s.HTTPRoute,
+				HTTPMethod: s.HTTPMethod, HTTPRoute: s.HTTPRoute, HTTPURL: s.HTTPURL,
 				DBSystem: s.DBSystem, DBStatement: s.DBStatement,
 			})
 		}

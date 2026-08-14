@@ -21,6 +21,7 @@ export type Span = {
   statusCode: string;
   httpMethod?: string;
   httpRoute?: string;
+  httpUrl?: string;
   dbSystem?: string;
   dbStatement?: string;
 };

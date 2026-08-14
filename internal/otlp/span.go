@@ -99,7 +99,7 @@ func MapTraces(req *coltracepb.ExportTraceServiceRequest, tenantID string) []Spa
 			for _, sp := range ss.GetSpans() {
 				a := attrMap(sp.GetAttributes())
 				httpStatus := uint16(0)
-				if v := a["http.response.status_code"]; v != "" {
+				if v := firstNonEmpty(a["http.response.status_code"], a["http.status_code"]); v != "" {
 					if n, err := parseUint16(v); err == nil {
 						httpStatus = n
 					}
@@ -116,9 +116,9 @@ func MapTraces(req *coltracepb.ExportTraceServiceRequest, tenantID string) []Spa
 					StartTime:       time.Unix(0, int64(sp.GetStartTimeUnixNano())).UTC(),
 					DurationNs:      sp.GetEndTimeUnixNano() - sp.GetStartTimeUnixNano(),
 					StatusCode:      statusString(sp.GetStatus()),
-					HTTPMethod:      a["http.request.method"],
-					HTTPRoute:       a["http.route"],
-					HTTPURL:         a["url.full"],
+					HTTPMethod:      firstNonEmpty(a["http.request.method"], a["http.method"], httpMethodFromName(sp.GetName(), sp.GetKind())),
+					HTTPRoute:       firstNonEmpty(a["http.route"], a["url.path"]),
+					HTTPURL:         firstNonEmpty(a["url.full"], a["http.url"], a["server.address"]),
 					HTTPStatusCode:  httpStatus,
 					DBSystem:        a["db.system"],
 					DBStatement:     a["db.query.text"],
@@ -130,6 +130,28 @@ func MapTraces(req *coltracepb.ExportTraceServiceRequest, tenantID string) []Spa
 		}
 	}
 	return out
+}
+
+func firstNonEmpty(vs ...string) string {
+	for _, v := range vs {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// HTTP client spans are often named just "GET"/"POST" with method attrs missing
+// (semconv drift). Fall back to the span name for CLIENT/SERVER HTTP spans.
+func httpMethodFromName(name string, kind tracepb.Span_SpanKind) string {
+	if kind != tracepb.Span_SPAN_KIND_CLIENT && kind != tracepb.Span_SPAN_KIND_SERVER {
+		return ""
+	}
+	switch name {
+	case "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS":
+		return name
+	}
+	return ""
 }
 
 func parseUint16(s string) (uint16, error) {
