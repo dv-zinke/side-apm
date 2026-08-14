@@ -21,6 +21,7 @@ type Reader interface {
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
 	GetServiceMap(ctx context.Context, tenant string, from, to time.Time) (storage.ServiceMap, error)
 	RecentRootTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
+	BackfillTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
 	ListMetricNames(ctx context.Context, tenant, service string) ([]string, error)
 	GetServiceMetric(ctx context.Context, tenant, service, name string, from, to time.Time) ([]storage.MetricPoint, error)
 	GetTraceLogs(ctx context.Context, tenant, traceID string) ([]storage.LogRow, error)

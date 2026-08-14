@@ -37,7 +37,7 @@ export function SpeedBand() {
   const spawn = (t: LiveTxn, x: number) => {
     particles.current.push({
       x, y: Math.random(),
-      r: 4.5 + Math.min(9, t.durationMs / 180),
+      r: 5 + Math.min(6, t.durationMs / 300),
       tier: tierOf(t.durationMs, t.isError),
       t,
     });
@@ -53,10 +53,11 @@ export function SpeedBand() {
   // Backfill the lane on mount so it's full of flowing dots immediately.
   useEffect(() => {
     let alive = true;
-    fetchRecentTxns(10).then((txns) => {
+    fetchRecentTxns(5).then((txns) => {
       if (!alive) return;
-      const recent = txns.slice(-400);
-      recent.forEach((t, i) => spawn(t, i / recent.length)); // spread across the lane
+      const recent = txns.slice(0, 350);
+      // spread evenly across the lane (position ≠ time; it's a live density band)
+      recent.forEach((t) => spawn(t, Math.random()));
       setTally((s) => {
         const n = { ...s };
         for (const t of recent) n[tierOf(t.durationMs, t.isError)]++;
@@ -93,11 +94,14 @@ export function SpeedBand() {
         if (p.x < -0.02) { arr.splice(i, 1); continue; }
         const px = p.x * w;
         const py = 10 + p.y * (h - 20);
+        // Small rounded block per transaction (WhaTap-style), no heavy glow so
+        // dense traffic reads as a clean stream instead of a blob.
+        const s = p.r;
         ctx.fillStyle = col[p.tier];
-        ctx.globalAlpha = 0.24;
-        ctx.beginPath(); ctx.arc(px, py, p.r * 2.4, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.roundRect(px - s / 2, py - s / 2, s, s, 1.5);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
       const cap = reduce ? 160 : 2500;

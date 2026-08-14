@@ -122,7 +122,7 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 			}
 		}
 		since := time.Now().UTC().Add(-time.Duration(sinceMin) * time.Minute)
-		txns, err := r.RecentRootTxns(req.Context(), defaultTenant, since, 2000)
+		txns, err := r.BackfillTxns(req.Context(), defaultTenant, since, 5000)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

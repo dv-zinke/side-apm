@@ -48,6 +48,10 @@ func (fakeReader) RecentRootTxns(_ context.Context, _ string, _ time.Time, _ int
 	return nil, nil
 }
 
+func (fakeReader) BackfillTxns(_ context.Context, _ string, _ time.Time, _ int) ([]storage.LiveTxn, error) {
+	return nil, nil
+}
+
 func (fakeReader) ListMetricNames(_ context.Context, _, _ string) ([]string, error) {
 	return nil, nil
 }

@@ -12,7 +12,7 @@ type Point = { value: [number, number]; tier: Tier; t: LiveTxn };
 
 const SLOW_MS = 600;
 const VERYSLOW_MS = 1500;
-const WINDOW_MS = 10 * 60 * 1000;
+const WINDOW_MS = 5 * 60 * 1000;
 
 export function tierOf(d: number, isErr: boolean): Tier {
   if (isErr || d >= VERYSLOW_MS) return "err";
@@ -37,7 +37,7 @@ export function Heatmap({ compact }: { compact?: boolean }) {
   // Backfill the last 10 minutes on mount so the map is full immediately.
   useEffect(() => {
     let alive = true;
-    fetchRecentTxns(10).then((txns) => { if (alive) { txns.forEach(add); setPoints([...buf.current]); } }).catch(() => {});
+    fetchRecentTxns(5).then((txns) => { if (alive) { txns.forEach(add); setPoints([...buf.current]); } }).catch(() => {});
     return () => { alive = false; };
   }, []);
   useEffect(() => {
@@ -74,7 +74,7 @@ export function Heatmap({ compact }: { compact?: boolean }) {
   return (
     <div className="hm">
       <div className="pane-head" style={{ position: "static", borderTop: 0, borderBottom: 0, padding: "0 0 var(--sp-1)" }}>
-        <span className="pane-title">히트맵 · 최근 10분 <span className="hint-inline">점을 클릭하면 트레이스</span></span>
+        <span className="pane-title">히트맵 · 최근 5분 <span className="hint-inline">점을 클릭하면 트레이스</span></span>
         <span className="chart-note" style={{ marginLeft: "auto", marginBottom: 0 }}>
           <span className="legend-key"><i style={{ background: c.accent }} />정상 {counts.ok}</span>
           <span className="legend-key"><i style={{ background: c.warn }} />느림 {counts.slow}</span>

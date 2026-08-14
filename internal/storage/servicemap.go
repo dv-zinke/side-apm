@@ -124,3 +124,37 @@ LIMIT ?`
 	}
 	return out, rows.Err()
 }
+
+// BackfillTxns returns the most recent root transactions in a window (DESC so a
+// LIMIT keeps the freshest, not the oldest). For seeding live widgets on load.
+func (s *Store) BackfillTxns(ctx context.Context, tenantID string, since time.Time, limit int) ([]LiveTxn, error) {
+	if limit <= 0 || limit > 8000 {
+		limit = 3000
+	}
+	const q = `
+SELECT trace_id, service_name, http_route, span_name, status_code, start_time, duration_ns / 1e6 AS ms
+FROM apm.spans
+WHERE tenant_id = ? AND parent_span_id = '' AND start_time > ?
+ORDER BY start_time DESC
+LIMIT ?`
+	rows, err := s.db.QueryContext(ctx, q, tenantID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LiveTxn
+	for rows.Next() {
+		var x LiveTxn
+		var route, name string
+		if err := rows.Scan(&x.TraceID, &x.Service, &route, &name, &x.StatusCode, &x.StartTime, &x.DurationMs); err != nil {
+			return nil, err
+		}
+		x.Transaction = route
+		if x.Transaction == "" {
+			x.Transaction = name
+		}
+		x.IsError = x.StatusCode == "ERROR"
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
