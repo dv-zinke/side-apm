@@ -14,11 +14,11 @@ const SLOW_MS = 600;
 const VERYSLOW_MS = 1500;
 const WINDOW_MS = 5 * 60 * 1000;
 
-// Grid: 10-second time columns × 0–10s latency rows (WhaTap-style block map).
-const BIN_SEC = 10;
-const X_BINS = (WINDOW_MS / 1000) / BIN_SEC; // 30 columns
+// Grid: 5-second time columns × 0–10s latency rows (WhaTap-style block map).
+const BIN_SEC = 5;
+const X_BINS = (WINDOW_MS / 1000) / BIN_SEC; // 60 columns
 const MAX_MS = 10000;
-const Y_BINS = 20;                            // 500ms rows, 0–10s
+const Y_BINS = 40;                            // 250ms rows, 0–10s
 const Y_STEP = MAX_MS / Y_BINS;
 
 export function tierOf(d: number, isErr: boolean): Tier {
@@ -102,7 +102,7 @@ export function Heatmap() {
     grid: { left: 44, right: 14, top: 8, bottom: 30 },
     xAxis: {
       type: "category", data: xLabels,
-      axisLabel: { color: c.axis, interval: 5, fontSize: 10 },
+      axisLabel: { color: c.axis, interval: 11, fontSize: 10 },
       axisLine: { lineStyle: { color: c.split } }, axisTick: { show: false }, splitArea: { show: false },
     },
     yAxis: {
@@ -112,7 +112,7 @@ export function Heatmap() {
     },
     series: [{
       type: "heatmap", data,
-      itemStyle: { borderColor: c.tip, borderWidth: 1 },
+      itemStyle: { borderColor: c.tip, borderWidth: 0.5 },
       emphasis: { itemStyle: { borderColor: c.tipText, borderWidth: 1 } },
     }],
   };

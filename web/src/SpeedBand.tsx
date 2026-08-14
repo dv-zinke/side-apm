@@ -11,7 +11,7 @@ type P = { x: number; y: number; r: number; tier: Tier; t: LiveTxn };
 
 const SLOW_MS = 600;   // amber above this
 const VERYSLOW_MS = 1500; // red above this
-const FLOW_SEC = 6;    // time to cross the lane
+const FLOW_SEC = 4.5;  // time to cross the lane
 
 function tierOf(durationMs: number, isError: boolean): Tier {
   if (isError || durationMs >= VERYSLOW_MS) return "err";
@@ -85,7 +85,18 @@ export function SpeedBand() {
         canvas.height = Math.round(h * dpr);
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      if (reduce) {
+        ctx.clearRect(0, 0, w, h);
+      } else {
+        // Fade the previous frame instead of clearing → each dot leaves a
+        // trailing streak, so traffic reads as packets flowing across the wire.
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
       const speed = 1 / (FLOW_SEC * 1000); // fraction of width per ms
       const arr = particles.current;
       for (let i = arr.length - 1; i >= 0; i--) {
@@ -94,13 +105,12 @@ export function SpeedBand() {
         if (p.x < -0.02) { arr.splice(i, 1); continue; }
         const px = p.x * w;
         const py = 10 + p.y * (h - 20);
-        // Small rounded block per transaction (WhaTap-style), no heavy glow so
-        // dense traffic reads as a clean stream instead of a blob.
-        const s = p.r;
+        // Small round dot; the fade above turns its motion into a streak.
+        const r = p.r * 0.55;
         ctx.fillStyle = col[p.tier];
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = 0.95;
         ctx.beginPath();
-        ctx.roundRect(px - s / 2, py - s / 2, s, s, 1.5);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
