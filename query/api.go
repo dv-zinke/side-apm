@@ -23,6 +23,8 @@ type Reader interface {
 	RecentRootTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
 	ListMetricNames(ctx context.Context, tenant, service string) ([]string, error)
 	GetServiceMetric(ctx context.Context, tenant, service, name string, from, to time.Time) ([]storage.MetricPoint, error)
+	GetTraceLogs(ctx context.Context, tenant, traceID string) ([]storage.LogRow, error)
+	ListLogs(ctx context.Context, tenant string, f storage.LogFilter) ([]storage.LogRow, error)
 }
 
 type TransactionDTO struct {
@@ -99,6 +101,7 @@ func Router(r Reader) http.Handler {
 	registerDerived(mux, r)
 	registerServiceMap(mux, r)
 	registerMetrics(mux, r)
+	registerLogs(mux, r)
 	return withCORS(mux)
 }
 

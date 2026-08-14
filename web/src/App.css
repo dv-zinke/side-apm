@@ -332,6 +332,24 @@
 .sk-row:nth-child(3n) { width: 68%; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* Logs — correlated + search ──────────────────────────────── */
+.logs-view { display: flex; flex-direction: column; }
+.loglist { display: flex; flex-direction: column; font-size: var(--fs-sm); }
+.logrow {
+  display: grid;
+  grid-template-columns: 92px auto minmax(90px, max-content) 1fr;
+  gap: var(--sp-3); align-items: center;
+  padding: 5px var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+.logrow.clickable { cursor: pointer; }
+.logrow.clickable:hover { background: var(--bg-hover); }
+.log-time { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); }
+.log-sev { justify-self: start; min-width: 62px; }
+.log-svc { color: var(--tx-hi); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-body { font-family: var(--mono); color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-empty { font-size: var(--fs-sm); color: var(--tx-dim); padding: var(--sp-3) 0; }
+
 /* Onboarding — connect an app ─────────────────────────────── */
 .onboard { max-width: 820px; padding: var(--sp-5) var(--sp-5) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); }
 .onboard-head h2 { font-size: var(--fs-xl); }

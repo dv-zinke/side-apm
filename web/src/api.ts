@@ -78,6 +78,23 @@ export async function fetchServiceMap(): Promise<ServiceMapData> {
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
+export type LogLine = { time: string; service: string; severity: string; body: string; traceId: string; spanId: string };
+export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
+  const r = await fetch(`${BASE}/api/v1/traces/${traceId}/logs`);
+  if (!r.ok) throw new Error(`trace logs ${r.status}`);
+  return r.json();
+}
+export type LogQuery = { service?: string; severity?: string; q?: string; limit?: number };
+export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
+  const p = new URLSearchParams({ limit: String(f.limit ?? 200) });
+  if (f.service) p.set("service", f.service);
+  if (f.severity) p.set("severity", f.severity);
+  if (f.q) p.set("q", f.q);
+  const r = await fetch(`${BASE}/api/v1/logs?${p}`);
+  if (!r.ok) throw new Error(`logs ${r.status}`);
+  return r.json();
+}
+
 export type MetricPoint = { time: string; value: number };
 export async function fetchMetricNames(service: string): Promise<string[]> {
   const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/metric-names`);

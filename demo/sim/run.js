@@ -18,7 +18,7 @@ const children = services.map((s) => {
     OTEL_METRICS_EXPORTER: "otlp",
     OTEL_METRIC_EXPORT_INTERVAL: "10000",
     OTEL_METRIC_EXPORT_TIMEOUT: "5000",
-    OTEL_LOGS_EXPORTER: "none",
+    OTEL_LOGS_EXPORTER: "otlp",
     OTEL_BSP_SCHEDULE_DELAY: "500",
     SVC_NAME: s.name,
     SVC_PORT: String(s.port),

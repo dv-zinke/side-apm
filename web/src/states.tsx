@@ -72,3 +72,4 @@ export const IconGrid       = () => <svg {...N}><rect x="3" y="3" width="7" heig
 export const IconX          = () => <svg {...N}><path d="M18 6 6 18M6 6l12 12" /></svg>;
 export const IconGauge      = () => <svg {...N}><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /><path d="m13.4 12.6 3.6-3.6" /><path d="M4.2 18a9 9 0 1 1 15.6 0" /></svg>;
 export const IconPlug       = () => <svg {...N}><path d="M12 22v-5" /><path d="M9 8V2M15 8V2" /><path d="M18 8H6v3a6 6 0 0 0 12 0V8z" /></svg>;
+export const IconLogs       = () => <svg {...N}><path d="M8 6h11M8 12h11M8 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></svg>;

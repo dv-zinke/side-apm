@@ -9,6 +9,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.0",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "pino": "^9.5.0"
   }
 }

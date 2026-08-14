@@ -3,8 +3,10 @@
 // downstream deps over HTTP (trace context auto-propagates), then maybe errors.
 const express = require("express");
 const http = require("http");
+const pino = require("pino");
 
 const NAME = process.env.SVC_NAME || "svc";
+const logger = pino({ name: NAME });
 const PORT = Number(process.env.SVC_PORT || 3100);
 const DEPS = (process.env.SVC_DEPS || "").split(",").filter(Boolean); // host:port list
 const BASE = Number(process.env.SVC_BASE || 40);
@@ -34,9 +36,17 @@ function callDep(target) {
 const app = express();
 for (const route of ROUTES) {
   app.get(`/${route}`, async (_req, res) => {
+    // Logged inside the active request span → carries trace_id/span_id for
+    // trace↔log correlation.
+    logger.info({ route }, `handling ${route}`);
     await sleep(latency());
     await Promise.all(DEPS.map(callDep));
-    if (Math.random() < ERR) { res.status(500).json({ error: "simulated failure", svc: NAME }); return; }
+    if (Math.random() < ERR) {
+      logger.error({ route }, `${route} failed (simulated)`);
+      res.status(500).json({ error: "simulated failure", svc: NAME });
+      return;
+    }
+    logger.info({ route }, `${route} ok`);
     res.json({ ok: true, svc: NAME, route });
   });
 }

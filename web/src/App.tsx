@@ -9,20 +9,21 @@ import { XView } from "./XView";
 import { Dashboard } from "./Dashboard";
 import { Runtime } from "./Runtime";
 import { Onboarding } from "./Onboarding";
+import { Logs } from "./Logs";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
   EmptyState, IconTrace,
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "map" | "xview";
+type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -33,6 +34,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
     { id: "runtime", label: "런타임", icon: IconGauge },
+    { id: "logs", label: "로그", icon: IconLogs },
   ] },
   { label: "토폴로지 · 실시간", items: [
     { id: "map", label: "서비스맵", icon: IconGraphNav },
@@ -154,6 +156,8 @@ function Console() {
             <Onboarding />
           ) : view === "runtime" ? (
             <Runtime />
+          ) : view === "logs" ? (
+            <Logs />
           ) : view === "map" ? (
             <ServiceMap />
           ) : view === "xview" ? (

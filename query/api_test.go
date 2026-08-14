@@ -56,6 +56,14 @@ func (fakeReader) GetServiceMetric(_ context.Context, _, _, _ string, _, _ time.
 	return nil, nil
 }
 
+func (fakeReader) GetTraceLogs(_ context.Context, _, _ string) ([]storage.LogRow, error) {
+	return nil, nil
+}
+
+func (fakeReader) ListLogs(_ context.Context, _ string, _ storage.LogFilter) ([]storage.LogRow, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
