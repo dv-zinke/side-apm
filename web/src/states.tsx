@@ -71,3 +71,4 @@ export const IconMoon       = () => <svg {...N}><path d="M21 12.8A9 9 0 1 1 11.2
 export const IconGrid       = () => <svg {...N}><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>;
 export const IconX          = () => <svg {...N}><path d="M18 6 6 18M6 6l12 12" /></svg>;
 export const IconGauge      = () => <svg {...N}><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /><path d="m13.4 12.6 3.6-3.6" /><path d="M4.2 18a9 9 0 1 1 15.6 0" /></svg>;
+export const IconPlug       = () => <svg {...N}><path d="M12 22v-5" /><path d="M9 8V2M15 8V2" /><path d="M18 8H6v3a6 6 0 0 0 12 0V8z" /></svg>;

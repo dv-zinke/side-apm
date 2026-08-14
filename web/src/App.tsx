@@ -8,24 +8,26 @@ import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
 import { Dashboard } from "./Dashboard";
 import { Runtime } from "./Runtime";
+import { Onboarding } from "./Onboarding";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
   EmptyState, IconTrace,
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "trace" | "red" | "runtime" | "map" | "xview";
+type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
     { id: "dashboard", label: "대시보드", icon: IconGrid },
+    { id: "connect", label: "연결하기", icon: IconPlug },
   ] },
   { label: "모니터링", items: [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
@@ -148,6 +150,8 @@ function Console() {
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
           {view === "dashboard" ? (
             <div className="content-scroll"><Dashboard /></div>
+          ) : view === "connect" ? (
+            <Onboarding />
           ) : view === "runtime" ? (
             <Runtime />
           ) : view === "map" ? (
