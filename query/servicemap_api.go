@@ -35,18 +35,7 @@ type LiveTxnDTO struct {
 
 func registerServiceMap(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/servicemap", func(w http.ResponseWriter, req *http.Request) {
-		to := time.Now().UTC()
-		from := to.Add(-15 * time.Minute)
-		if v := req.URL.Query().Get("from"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				from = p
-			}
-		}
-		if v := req.URL.Query().Get("to"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				to = p
-			}
-		}
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 15*time.Minute)
 		sm, err := r.GetServiceMap(req.Context(), defaultTenant, from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

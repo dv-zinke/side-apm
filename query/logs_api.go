@@ -43,18 +43,7 @@ func registerLogs(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/logs", func(w http.ResponseWriter, req *http.Request) {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
-		to := time.Now().UTC()
-		from := to.Add(-1 * time.Hour)
-		if v := q.Get("from"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				from = p
-			}
-		}
-		if v := q.Get("to"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				to = p
-			}
-		}
+		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
 		rows, err := r.ListLogs(req.Context(), defaultTenant, storage.LogFilter{
 			Service: q.Get("service"), Severity: q.Get("severity"), Query: q.Get("q"),
 			Limit: limit, From: from, To: to,

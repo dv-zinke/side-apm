@@ -33,18 +33,7 @@ func registerMetrics(mux *http.ServeMux, r Reader) {
 			http.Error(w, "name required", http.StatusBadRequest)
 			return
 		}
-		to := time.Now().UTC()
-		from := to.Add(-1 * time.Hour)
-		if v := q.Get("from"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				from = p
-			}
-		}
-		if v := q.Get("to"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				to = p
-			}
-		}
+		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
 		pts, err := r.GetServiceMetric(req.Context(), defaultTenant, req.PathValue("name"), metric, from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

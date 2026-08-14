@@ -56,14 +56,7 @@ func registerDerived(mux *http.ServeMux, r Reader) {
 		writeJSON(w, svcs)
 	})
 	mux.HandleFunc("GET /api/v1/services/{name}/red", func(w http.ResponseWriter, req *http.Request) {
-		from, _ := time.Parse(time.RFC3339, req.URL.Query().Get("from"))
-		to, _ := time.Parse(time.RFC3339, req.URL.Query().Get("to"))
-		if to.IsZero() {
-			to = time.Now().UTC()
-		}
-		if from.IsZero() {
-			from = to.Add(-1 * time.Hour)
-		}
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
 		pts, err := r.GetServiceRED(req.Context(), defaultTenant, req.PathValue("name"), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

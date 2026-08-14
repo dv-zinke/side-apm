@@ -23,19 +23,24 @@ type AlertStore interface {
 // Evaluator periodically checks alert rules and fires on breaches. It tracks
 // per-rule state in-memory so it only fires on transitions (ok→firing) and
 // records a resolved event on recovery — no alert spam.
+type firingState struct {
+	rule storage.AlertRule
+	val  float64
+}
+
 type Evaluator struct {
 	store      AlertStore
 	interval   time.Duration
 	webhookURL string
 	mu         sync.Mutex
-	firing     map[string]bool // rule id -> currently firing
+	firing     map[string]firingState // rule id -> last-firing snapshot
 }
 
 func NewEvaluator(store AlertStore, interval time.Duration, webhookURL string) *Evaluator {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]bool{}}
+	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]firingState{}}
 }
 
 func (e *Evaluator) Run(ctx context.Context) {
@@ -57,7 +62,13 @@ func (e *Evaluator) tick(ctx context.Context) {
 		log.Printf("alerts: list rules: %v", err)
 		return
 	}
+	// Track which rules still exist + are enabled this tick, so deleted/disabled
+	// rules that were firing get auto-resolved instead of lingering forever.
+	live := make(map[string]bool, len(rules))
 	for _, r := range rules {
+		if r.Enabled {
+			live[r.ID] = true
+		}
 		if !r.Enabled {
 			continue
 		}
@@ -67,20 +78,38 @@ func (e *Evaluator) tick(ctx context.Context) {
 		}
 		breached := val > r.Threshold
 		e.mu.Lock()
-		was := e.firing[r.ID]
+		_, was := e.firing[r.ID]
 		e.mu.Unlock()
 
 		if breached && !was {
 			e.fire(ctx, r, val, "firing")
 			e.mu.Lock()
-			e.firing[r.ID] = true
+			e.firing[r.ID] = firingState{rule: r, val: val}
 			e.mu.Unlock()
 		} else if !breached && was {
 			e.fire(ctx, r, val, "resolved")
 			e.mu.Lock()
-			e.firing[r.ID] = false
+			delete(e.firing, r.ID)
+			e.mu.Unlock()
+		} else if breached && was {
+			e.mu.Lock()
+			e.firing[r.ID] = firingState{rule: r, val: val}
 			e.mu.Unlock()
 		}
+	}
+
+	// Auto-resolve rules that vanished (deleted or disabled) while firing.
+	e.mu.Lock()
+	stale := make([]firingState, 0)
+	for id, fs := range e.firing {
+		if !live[id] {
+			stale = append(stale, fs)
+			delete(e.firing, id)
+		}
+	}
+	e.mu.Unlock()
+	for _, fs := range stale {
+		e.fire(ctx, fs.rule, fs.val, "resolved")
 	}
 }
 
