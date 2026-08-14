@@ -172,6 +172,7 @@
 .kpi-value.warn { color: var(--warn); }
 .kpi-value.err { color: var(--err); }
 .kpi-unit { font-size: var(--fs-md); font-weight: 500; color: var(--tx-dim); margin-left: 4px; }
+.kpi-sub { font-size: var(--fs-xs); color: var(--tx-dim); }
 .dash-chart .section-label { margin-top: 0; }
 @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 520px) { .kpi-grid { grid-template-columns: 1fr; } .dash { padding: var(--sp-3) var(--sp-3) var(--sp-5); } }

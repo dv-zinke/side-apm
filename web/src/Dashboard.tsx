@@ -120,7 +120,7 @@ export function Dashboard() {
           <section className="kpi-grid span-all">
             <Kpi label="총 요청 · 최근 1시간" value={data.totalReq.toLocaleString()} />
             <Kpi label="에러율" value={errRate.toFixed(errRate < 10 ? 2 : 1)} unit="%" tone={errRate > 5 ? "err" : errRate > 1 ? "warn" : "ok"} />
-            <ApdexCard />
+            <ApdexCard service={data.perSvc[0]?.service} />
             <Kpi label="활성 서비스" value={String(data.perSvc.length)} />
             <Kpi label="최대 p95" value={data.maxP95.toLocaleString()} unit="ms" tone={data.maxP95 > 1000 ? "warn" : undefined} />
           </section>

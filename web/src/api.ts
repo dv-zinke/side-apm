@@ -117,6 +117,13 @@ export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
   return r.json();
 }
 
+export type ApdexResult = { tMs: number; score: number; samples: number; hasData: boolean; p50Ms: number; p95Ms: number; p99Ms: number; hasPercentiles: boolean };
+export async function fetchApdex(service: string, windowMin = 10): Promise<ApdexResult> {
+  const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/apdex?windowMin=${windowMin}`);
+  if (!r.ok) throw new Error(`apdex ${r.status}`);
+  return r.json();
+}
+
 export type MetricPoint = { time: string; value: number };
 export async function fetchMetricNames(service: string): Promise<string[]> {
   const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/metric-names`);

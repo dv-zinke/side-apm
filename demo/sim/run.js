@@ -18,6 +18,9 @@ const children = services.map((s) => {
     OTEL_METRICS_EXPORTER: "otlp",
     OTEL_METRIC_EXPORT_INTERVAL: "10000",
     OTEL_METRIC_EXPORT_TIMEOUT: "5000",
+    // delta temporality so each export is that window's counts → summable for
+    // server-side Apdex/percentiles from http.server.request.duration.
+    OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: "delta",
     OTEL_LOGS_EXPORTER: "otlp",
     OTEL_BSP_SCHEDULE_DELAY: "500",
     SVC_NAME: s.name,

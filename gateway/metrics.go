@@ -14,6 +14,7 @@ import (
 
 type MetricsPublisher interface {
 	InsertMetrics(ctx context.Context, ms []otlp.Metric) error
+	InsertHistograms(ctx context.Context, hs []otlp.Histogram) error
 }
 
 func MetricsHandler(pub MetricsPublisher) http.HandlerFunc {
@@ -36,6 +37,12 @@ func MetricsHandler(pub MetricsPublisher) http.HandlerFunc {
 		if err := pub.InsertMetrics(r.Context(), metrics); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
+		}
+		if hs := otlp.MapHistograms(&req, defaultTenant); len(hs) > 0 {
+			if err := pub.InsertHistograms(r.Context(), hs); err != nil {
+				http.Error(w, "publish failed", http.StatusServiceUnavailable)
+				return
+			}
 		}
 		resp, _ := proto.Marshal(&colmetricspb.ExportMetricsServiceResponse{})
 		w.Header().Set("Content-Type", "application/x-protobuf")

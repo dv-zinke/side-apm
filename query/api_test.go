@@ -78,6 +78,14 @@ func (fakeReader) ListAlerts(_ context.Context, _ string, _ int) ([]storage.Aler
 	return nil, nil
 }
 
+func (fakeReader) ServiceApdex(_ context.Context, _, _ string, _ float64, _, _ time.Time) (float64, uint64, bool, error) {
+	return 0, 0, false, nil
+}
+
+func (fakeReader) ServicePercentiles(_ context.Context, _, _ string, _, _ time.Time) (float64, float64, float64, bool, error) {
+	return 0, 0, 0, false, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()

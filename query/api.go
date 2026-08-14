@@ -29,6 +29,8 @@ type Reader interface {
 	UpsertAlertRule(ctx context.Context, tenant string, r storage.AlertRule) error
 	DeleteAlertRule(ctx context.Context, tenant, id string) error
 	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
+	ServiceApdex(ctx context.Context, tenant, service string, tMs float64, from, to time.Time) (float64, uint64, bool, error)
+	ServicePercentiles(ctx context.Context, tenant, service string, from, to time.Time) (p50, p95, p99 float64, ok bool, err error)
 }
 
 type TransactionDTO struct {

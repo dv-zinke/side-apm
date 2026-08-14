@@ -2,6 +2,7 @@ package query
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -54,5 +55,36 @@ func registerMetrics(mux *http.ServeMux, r Reader) {
 			out = append(out, MetricPointDTO{Time: p.Time.Format(time.RFC3339), Value: p.Value})
 		}
 		writeJSON(w, out)
+	})
+
+	// Server-side Apdex from real latency histograms (not stream-approximated).
+	mux.HandleFunc("GET /api/v1/services/{name}/apdex", func(w http.ResponseWriter, req *http.Request) {
+		tMs := 500.0
+		if v := req.URL.Query().Get("t"); v != "" {
+			if p, err := strconv.ParseFloat(v, 64); err == nil && p > 0 {
+				tMs = p
+			}
+		}
+		to := time.Now().UTC()
+		from := to.Add(-5 * time.Minute)
+		if v := req.URL.Query().Get("windowMin"); v != "" {
+			if m, err := strconv.Atoi(v); err == nil && m > 0 {
+				from = to.Add(-time.Duration(m) * time.Minute)
+			}
+		}
+		score, n, ok, err := r.ServiceApdex(req.Context(), defaultTenant, req.PathValue("name"), tMs, from, to)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		p50, p95, p99, pok, err := r.ServicePercentiles(req.Context(), defaultTenant, req.PathValue("name"), from, to)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"tMs": tMs, "score": score, "samples": n, "hasData": ok,
+			"p50Ms": p50, "p95Ms": p95, "p99Ms": p99, "hasPercentiles": pok,
+		})
 	})
 }
