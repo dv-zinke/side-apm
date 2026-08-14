@@ -12,8 +12,8 @@ func TestParseTimeParam(t *testing.T) {
 		ok bool
 	}{
 		"rfc3339":  {"2026-08-14T03:30:00Z", true},
-		"epoch_ms": {"1786793400000", true},
-		"epoch_s":  {"1786793400", true},
+		"epoch_ms": {"1786678200000", true},
+		"epoch_s":  {"1786678200", true},
 		"empty":    {"", false},
 		"garbage":  {"not-a-time", false},
 	}
