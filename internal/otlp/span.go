@@ -120,9 +120,9 @@ func MapTraces(req *coltracepb.ExportTraceServiceRequest, tenantID string) []Spa
 					HTTPRoute:       firstNonEmpty(a["http.route"], a["url.path"]),
 					HTTPURL:         firstNonEmpty(a["url.full"], a["http.url"], a["server.address"]),
 					HTTPStatusCode:  httpStatus,
-					DBSystem:        a["db.system"],
-					DBStatement:     a["db.query.text"],
-					DBName:          a["db.namespace"],
+					DBSystem:        firstNonEmpty(a["db.system"], a["db.system.name"]),
+					DBStatement:     firstNonEmpty(a["db.query.text"], a["db.statement"]),
+					DBName:          firstNonEmpty(a["db.namespace"], a["db.name"]),
 					ResourceAttrs:   res,
 					SpanAttrs:       a,
 				})

@@ -4,9 +4,12 @@
 const express = require("express");
 const http = require("http");
 const pino = require("pino");
+const { trace, SpanKind } = require("@opentelemetry/api");
 
 const NAME = process.env.SVC_NAME || "svc";
 const logger = pino({ name: NAME });
+const tracer = trace.getTracer("sim-db");
+const QUERIES = (process.env.SVC_QUERIES || "").split("|").filter(Boolean);
 const PORT = Number(process.env.SVC_PORT || 3100);
 const DEPS = (process.env.SVC_DEPS || "").split(",").filter(Boolean); // host:port list
 const BASE = Number(process.env.SVC_BASE || 40);
@@ -16,6 +19,22 @@ const ERR = Number(process.env.SVC_ERR || 0);
 const ROUTES = (process.env.SVC_ROUTES || "work").split(",").filter(Boolean);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Emit a child DB span under the active request span (trace context flows in).
+// Occasionally slow to exercise slow-query detection.
+async function dbQuery() {
+  if (QUERIES.length === 0) return;
+  const sql = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+  const op = sql.trim().split(/\s+/)[0].toUpperCase();
+  const dbMs = 4 + Math.random() * 30 + (Math.random() < 0.06 ? 300 + Math.random() * 900 : 0);
+  await tracer.startActiveSpan(`${op} appdb`, {
+    kind: SpanKind.CLIENT,
+    attributes: { "db.system": "postgresql", "db.name": "appdb", "db.statement": sql },
+  }, async (span) => {
+    await sleep(dbMs);
+    span.end();
+  });
+}
 function latency() {
   let d = BASE + Math.random() * JITTER;
   if (Math.random() < SPIKE) d += 1500 + Math.random() * 2500; // very-slow stall
@@ -39,7 +58,8 @@ for (const route of ROUTES) {
     // Logged inside the active request span → carries trace_id/span_id for
     // trace↔log correlation.
     logger.info({ route }, `handling ${route}`);
-    await sleep(latency());
+    await sleep(latency() * 0.5);
+    await dbQuery();
     await Promise.all(DEPS.map(callDep));
     if (Math.random() < ERR) {
       logger.error({ route }, `${route} failed (simulated)`);

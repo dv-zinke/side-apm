@@ -31,6 +31,7 @@ const children = services.map((s) => {
     SVC_SPIKE: String(s.spike || 0),
     SVC_ERR: String(s.err || 0),
     SVC_ROUTES: (s.routes || ["work"]).join(","),
+    SVC_QUERIES: (s.queries || []).join("|"),
   };
   return spawn("node", ["-r", REGISTER, "service.js"], { env, stdio: "inherit", cwd: __dirname });
 });
