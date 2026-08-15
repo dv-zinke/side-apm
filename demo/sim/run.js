@@ -52,3 +52,33 @@ setTimeout(() => {
   console.log(`[sim] driving ~${RPS} rps through ${gw.name} → ${OTLP}`);
   setInterval(hit, Math.max(20, Math.floor(1000 / RPS)));
 }, 4000);
+
+// Keep RUM alive: post browser-like sessions to the gateway on an interval so
+// the RUM view has continuous data (the browser agent only fires on real use).
+const RUM_PAGES = ["/dashboard", "/trace", "/rum", "/alerts", "/db", "/servicemap", "/infra"];
+const RUM_CLICKS = ["대시보드", "트레이스 분석", "RED 대시보드", "알림", "서비스맵", "규칙 추가", "다크 모드로 전환", "복사", "저장하기", "에러만", "X-View", "연결하기", "컨테이너"];
+const RUM_ERRORS = ["TypeError: Cannot read properties of undefined (reading 'map')", "NetworkError: Failed to fetch", "Unhandled: request timeout after 10000ms"];
+const RUM_RES = ["/api/v1/transactions", "/api/v1/servicemap", "/api/v1/live/recent", "/api/v1/alerts", "/api/v1/db/queries", "/api/v1/rum/overview"];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a));
+
+function postJSON(path, body) {
+  const data = JSON.stringify(body);
+  const req = http.request(OTLP + path, { method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } },
+    (r) => { r.on("data", () => {}); r.on("end", () => {}); });
+  req.on("error", () => {});
+  req.write(data); req.end();
+}
+function rumSession() {
+  const now = Date.now();
+  const page = pick(RUM_PAGES);
+  const ev = [{ type: "pageview", ts: now, page }];
+  for (let i = 0; i < rint(3, 12); i++) ev.push({ type: "click", ts: now, target: pick(RUM_CLICKS) });
+  for (let i = 0; i < rint(2, 6); i++) ev.push({ type: "resource", ts: now, url: pick(RUM_RES), value: rint(15, 950), status: pick([200, 200, 200, 304, 500]) });
+  ev.push({ type: "vital", ts: now, metric: "LCP", value: rint(700, 4300) });
+  ev.push({ type: "vital", ts: now, metric: "INP", value: rint(20, 380) });
+  ev.push({ type: "vital", ts: now, metric: "CLS", value: Math.round(Math.random() * 250) / 1000 });
+  if (Math.random() < 0.28) ev.push({ type: "error", ts: now, message: pick(RUM_ERRORS), stack: "at App.tsx:42:11" });
+  postJSON("/v1/rum", { sessionId: "sim" + rint(1, 1e9), page, ua: "Mozilla/5.0 (sim)", events: ev });
+}
+setTimeout(() => { console.log("[sim] seeding RUM sessions"); setInterval(rumSession, 1200); }, 6000);

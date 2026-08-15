@@ -27,6 +27,9 @@ func getenv(k, def string) string {
 func main() {
 	sock := getenv("DOCKER_SOCK", "/var/run/docker.sock")
 	gateway := getenv("APM_GATEWAY", "http://gateway:4318") + "/v1/infra"
+	// Only collect containers whose name starts with this prefix (comma-list),
+	// so we don't scrape unrelated host containers. Empty = all.
+	prefixes := splitCSV(getenv("DOCKER_NAME_PREFIX", "deploy-"))
 	interval := 5 * time.Second
 
 	docker := &http.Client{Transport: &http.Transport{
@@ -36,13 +39,35 @@ func main() {
 	}}
 	out := &http.Client{Timeout: 5 * time.Second}
 
-	log.Printf("dockermon: socket=%s gateway=%s interval=%s", sock, gateway, interval)
+	log.Printf("dockermon: socket=%s gateway=%s interval=%s prefixes=%v", sock, gateway, interval, prefixes)
 	for {
-		if err := collect(docker, out, gateway); err != nil {
+		if err := collect(docker, out, gateway, prefixes); err != nil {
 			log.Printf("dockermon: %v", err)
 		}
 		time.Sleep(interval)
 	}
+}
+
+func splitCSV(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func matchesPrefix(name string, prefixes []string) bool {
+	if len(prefixes) == 0 {
+		return true
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
 }
 
 type containerLite struct {
@@ -87,21 +112,23 @@ type outStat struct {
 	NetTx     uint64  `json:"netTx"`
 }
 
-func collect(docker, out *http.Client, gateway string) error {
+func collect(docker, out *http.Client, gateway string, prefixes []string) error {
 	var list []containerLite
 	if err := getJSON(docker, "http://d/"+apiVer+"/containers/json", &list); err != nil {
 		return err
 	}
-	log.Printf("dockermon: %d containers seen", len(list))
 	stats := make([]outStat, 0, len(list))
 	for _, c := range list {
-		var s statJSON
-		if err := getJSON(docker, "http://d/"+apiVer+"/containers/"+c.ID+"/stats?stream=false", &s); err != nil {
-			continue
-		}
 		name := c.ID[:12]
 		if len(c.Names) > 0 {
 			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		if !matchesPrefix(name, prefixes) {
+			continue
+		}
+		var s statJSON
+		if err := getJSON(docker, "http://d/"+apiVer+"/containers/"+c.ID+"/stats?stream=false", &s); err != nil {
+			continue
 		}
 		memCache := s.MemoryStats.Stats["inactive_file"]
 		memUsed := s.MemoryStats.Usage

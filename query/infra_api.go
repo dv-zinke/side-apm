@@ -42,6 +42,12 @@ func registerInfra(mux *http.ServeMux, r Reader) {
 		if metric == "" {
 			metric = "cpu_pct"
 		}
+		switch metric {
+		case "cpu_pct", "mem_pct", "mem_bytes", "net_rx", "net_tx":
+		default:
+			http.Error(w, "metric must be cpu_pct|mem_pct|mem_bytes|net_rx|net_tx", http.StatusBadRequest)
+			return
+		}
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
 		pts, err := r.ContainerSeries(req.Context(), defaultTenant, req.PathValue("name"), metric, from, to)
 		if err != nil {
