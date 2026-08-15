@@ -9,19 +9,20 @@ import { Runtime } from "./Runtime";
 import { Onboarding } from "./Onboarding";
 import { Logs } from "./Logs";
 import { Alerts } from "./Alerts";
+import { Database } from "./Database";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "alerts" | "map" | "xview";
+type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -32,6 +33,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
     { id: "runtime", label: "런타임", icon: IconGauge },
+    { id: "db", label: "데이터베이스", icon: IconDB },
     { id: "logs", label: "로그", icon: IconLogs },
     { id: "alerts", label: "알림", icon: IconBell },
   ] },
@@ -154,6 +156,8 @@ function Console() {
             <Onboarding />
           ) : view === "runtime" ? (
             <Runtime />
+          ) : view === "db" ? (
+            <Database />
           ) : view === "logs" ? (
             <Logs />
           ) : view === "alerts" ? (

@@ -101,6 +101,13 @@ export async function fetchAlerts(): Promise<Alert[]> {
   return r.json();
 }
 
+export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
+export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
+  const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);
+  if (!r.ok) throw new Error(`db queries ${r.status}`);
+  return r.json();
+}
+
 export type LogLine = { time: string; service: string; severity: string; body: string; traceId: string; spanId: string };
 export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
   const r = await fetch(`${BASE}/api/v1/traces/${traceId}/logs`);

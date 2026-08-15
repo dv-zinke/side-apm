@@ -410,6 +410,12 @@
 .alert-row { grid-template-columns: 150px auto minmax(120px, max-content) 1fr; }
 .alert-thr { color: var(--tx-dim); }
 
+/* Database — query aggregation ────────────────────────────── */
+.db-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.db-tbl { table-layout: fixed; }
+.db-tbl th:first-child { width: 42%; }
+.db-stmt { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* Logs — correlated + search ──────────────────────────────── */
 .logs-view { display: flex; flex-direction: column; }
 .loglist { display: flex; flex-direction: column; font-size: var(--fs-sm); }
