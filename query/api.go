@@ -33,6 +33,10 @@ type Reader interface {
 	ServiceApdex(ctx context.Context, tenant, service string, tMs float64, from, to time.Time) (float64, uint64, bool, error)
 	ServicePercentiles(ctx context.Context, tenant, service string, from, to time.Time) (p50, p95, p99 float64, ok bool, err error)
 	TopQueries(ctx context.Context, tenant, orderBy string, from, to time.Time, limit int) ([]storage.QueryStat, error)
+	RumOverview(ctx context.Context, tenant string, from, to time.Time) (storage.RumOverview, error)
+	TopClicks(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	TopErrors(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	TopResources(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
 }
 
 type TransactionDTO struct {
@@ -113,6 +117,7 @@ func Router(r Reader) http.Handler {
 	registerLogs(mux, r)
 	registerAlerts(mux, r)
 	registerDB(mux, r)
+	registerRum(mux, r)
 	return withCORS(mux)
 }
 

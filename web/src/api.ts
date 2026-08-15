@@ -101,6 +101,19 @@ export async function fetchAlerts(): Promise<Alert[]> {
   return r.json();
 }
 
+export type RumOverview = { sessions: number; pageviews: number; errors: number; lcpP75: number; inpP75: number; clsP75: number };
+export type RumCount = { key: string; sub: string; count: number; avgMs: number };
+export async function fetchRumOverview(): Promise<RumOverview> {
+  const r = await fetch(`${BASE}/api/v1/rum/overview`);
+  if (!r.ok) throw new Error(`rum overview ${r.status}`);
+  return r.json();
+}
+export async function fetchRumGroup(kind: "clicks" | "errors" | "resources", limit = 30): Promise<RumCount[]> {
+  const r = await fetch(`${BASE}/api/v1/rum/${kind}?limit=${limit}`);
+  if (!r.ok) throw new Error(`rum ${kind} ${r.status}`);
+  return r.json();
+}
+
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
 export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
   const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);

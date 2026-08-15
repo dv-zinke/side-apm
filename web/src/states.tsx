@@ -75,3 +75,4 @@ export const IconPlug       = () => <svg {...N}><path d="M12 22v-5" /><path d="M
 export const IconLogs       = () => <svg {...N}><path d="M8 6h11M8 12h11M8 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></svg>;
 export const IconBell       = () => <svg {...N}><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9z" /></svg>;
 export const IconDB         = () => <svg {...N}><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6a8 3 0 0 0 16 0V5" /><path d="M4 11v6a8 3 0 0 0 16 0v-6" /></svg>;
+export const IconRum        = () => <svg {...N}><circle cx="12" cy="12" r="9" /><path d="M3.6 9h16.8M3.6 15h16.8" /><path d="M12 3a14 14 0 0 0 0 18 14 14 0 0 0 0-18z" /></svg>;

@@ -29,11 +29,13 @@ func main() {
 	metricBuf := buffer.NewBatcher("metrics", store.InsertMetrics, opts)
 	histoBuf := buffer.NewBatcher("histograms", store.InsertHistograms, opts)
 	logBuf := buffer.NewBatcher("logs", store.InsertLogs, opts)
+	rumBuf := buffer.NewBatcher("rum", store.InsertRumEvents, opts)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/traces", gateway.TracesHandler(spanBuf))
 	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(metricBuf.Publish, histoBuf.Publish))
 	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
+	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")

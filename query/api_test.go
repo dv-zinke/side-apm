@@ -94,6 +94,19 @@ func (fakeReader) TopQueries(_ context.Context, _, _ string, _, _ time.Time, _ i
 	return nil, nil
 }
 
+func (fakeReader) RumOverview(_ context.Context, _ string, _, _ time.Time) (storage.RumOverview, error) {
+	return storage.RumOverview{}, nil
+}
+func (fakeReader) TopClicks(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+func (fakeReader) TopErrors(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+func (fakeReader) TopResources(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()

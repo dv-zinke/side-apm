@@ -10,19 +10,20 @@ import { Onboarding } from "./Onboarding";
 import { Logs } from "./Logs";
 import { Alerts } from "./Alerts";
 import { Database } from "./Database";
+import { Rum } from "./Rum";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "alerts" | "map" | "xview";
+type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "rum" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -40,6 +41,9 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "토폴로지 · 실시간", items: [
     { id: "map", label: "서비스맵", icon: IconGraphNav },
     { id: "xview", label: "X-View", icon: IconScatter },
+  ] },
+  { label: "사용자", items: [
+    { id: "rum", label: "브라우저(RUM)", icon: IconRum },
   ] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
@@ -166,6 +170,8 @@ function Console() {
             <ServiceMap />
           ) : view === "xview" ? (
             <XView />
+          ) : view === "rum" ? (
+            <Rum />
           ) : view === "red" ? (
             <RedDashboard />
           ) : (
