@@ -36,6 +36,7 @@ func main() {
 	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(metricBuf.Publish, histoBuf.Publish))
 	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
 	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))
+	mux.HandleFunc("/v1/rum/replay", gateway.RumReplayHandler(store))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")

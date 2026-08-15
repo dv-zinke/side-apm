@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRumOverview, fetchRumGroup } from "./api";
-import type { RumCount } from "./api";
+import { fetchRumOverview, fetchRumGroup, fetchReplays } from "./api";
+import type { RumCount, ReplayMeta } from "./api";
 import { EmptyState, Skeleton } from "./states";
+import { ReplayModal } from "./ReplayModal";
 
 function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?: string; tone?: "ok" | "warn" | "err" }) {
   return (
@@ -38,12 +40,39 @@ function GroupCard({ title, kind, valueLabel }: { title: string; kind: "clicks" 
   );
 }
 
+function ReplaysCard({ onPlay }: { onPlay: (m: ReplayMeta) => void }) {
+  const { data, isLoading } = useQuery({ queryKey: ["replays"], queryFn: () => fetchReplays(20), refetchInterval: 10000 });
+  return (
+    <section className="dash-panel span-all">
+      <div className="section-label">세션 리플레이 · 에러 비디오 <span className="hint-inline">행을 클릭하면 재생</span></div>
+      {isLoading ? <Skeleton rows={4} /> : (data ?? []).length === 0 ? (
+        <div className="log-empty">아직 녹화된 리플레이가 없어요. 프론트 에러가 발생하면 직전 화면이 자동 저장돼요.</div>
+      ) : (
+        <table className="tbl">
+          <thead><tr><th>시각</th><th>페이지</th><th>에러</th></tr></thead>
+          <tbody>
+            {(data ?? []).map((m) => (
+              <tr key={m.id} tabIndex={0} onClick={() => onPlay(m)} onKeyDown={(e) => { if (e.key === "Enter") onPlay(m); }}>
+                <td className="log-time">{m.time.slice(0, 19).replace("T", " ")}</td>
+                <td className="svc">{m.page}</td>
+                <td className="db-stmt" style={{ color: "var(--err)" }} title={m.message}>{m.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
 export function Rum() {
   const { data: ov, isLoading } = useQuery({ queryKey: ["rum-overview"], queryFn: fetchRumOverview, refetchInterval: 10000 });
   const empty = ov && ov.sessions === 0 && ov.pageviews === 0;
+  const [replay, setReplay] = useState<ReplayMeta | null>(null);
 
   return (
     <div className="content-scroll">
+      {replay && <ReplayModal meta={replay} onClose={() => setReplay(null)} />}
       <div className="dash">
         {isLoading ? (
           <div className="span-all"><Skeleton rows={4} /></div>
@@ -66,6 +95,7 @@ export function Rum() {
             </section>
             <GroupCard title="많이 클릭한 요소" kind="clicks" valueLabel="클릭" />
             <GroupCard title="프론트엔드 에러" kind="errors" valueLabel="발생" />
+            <ReplaysCard onPlay={setReplay} />
             <section className="span-all"><GroupCard title="HTTP 리소스" kind="resources" valueLabel="호출" /></section>
           </>
         )}

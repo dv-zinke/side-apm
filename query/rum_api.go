@@ -53,4 +53,35 @@ func registerRum(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/rum/clicks", group(r.TopClicks))
 	mux.HandleFunc("GET /api/v1/rum/errors", group(r.TopErrors))
 	mux.HandleFunc("GET /api/v1/rum/resources", group(r.TopResources))
+
+	// Session replays — list metadata, then fetch one replay's rrweb events.
+	mux.HandleFunc("GET /api/v1/rum/replays", func(w http.ResponseWriter, req *http.Request) {
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 7*24*time.Hour)
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		rows, err := r.ListReplays(req.Context(), defaultTenant, from, to, limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]map[string]any, 0, len(rows))
+		for _, m := range rows {
+			out = append(out, map[string]any{
+				"id": m.ID, "time": m.Time.Format(time.RFC3339), "sessionId": m.SessionID,
+				"page": m.Page, "message": m.Message,
+			})
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("GET /api/v1/rum/replays/{id}", func(w http.ResponseWriter, req *http.Request) {
+		events, err := r.GetReplay(req.Context(), defaultTenant, req.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if events == "" {
+			events = "[]"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(events))
+	})
 }

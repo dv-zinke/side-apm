@@ -110,6 +110,63 @@ WHERE tenant_id=? AND event_type='resource' AND url != '' AND ts>=? AND ts<=?
 GROUP BY url ORDER BY count() DESC LIMIT ?`, tenantID, from, to, limit)
 }
 
+type RumReplay struct {
+	ID        string
+	Time      time.Time
+	SessionID string
+	Page      string
+	Message   string
+	Events    string // JSON array of rrweb events
+}
+
+func (s *Store) InsertRumReplay(ctx context.Context, tenantID string, r RumReplay) error {
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO apm.rum_replays (tenant_id,id,ts,session_id,page,message,events) VALUES (?,?,?,?,?,?,?)",
+		tenantID, r.ID, r.Time, r.SessionID, r.Page, r.Message, r.Events)
+	return err
+}
+
+type ReplayMeta struct {
+	ID        string
+	Time      time.Time
+	SessionID string
+	Page      string
+	Message   string
+}
+
+// ListReplays returns replay metadata (without the heavy events payload).
+func (s *Store) ListReplays(ctx context.Context, tenantID string, from, to time.Time, limit int) ([]ReplayMeta, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, ts, session_id, page, message
+FROM apm.rum_replays
+WHERE tenant_id = ? AND ts >= ? AND ts <= ?
+ORDER BY ts DESC LIMIT ?`, tenantID, from, to, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReplayMeta
+	for rows.Next() {
+		var m ReplayMeta
+		if err := rows.Scan(&m.ID, &m.Time, &m.SessionID, &m.Page, &m.Message); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// GetReplay returns the rrweb events JSON for one replay.
+func (s *Store) GetReplay(ctx context.Context, tenantID, id string) (string, error) {
+	var events string
+	err := s.db.QueryRowContext(ctx,
+		"SELECT events FROM apm.rum_replays WHERE tenant_id = ? AND id = ? LIMIT 1", tenantID, id).Scan(&events)
+	return events, err
+}
+
 func (s *Store) rumGroup(ctx context.Context, q, tenantID string, from, to time.Time, limit int) ([]RumCount, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50

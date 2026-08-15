@@ -136,6 +136,9 @@
 /* Trace-detail modal: fixed height so the tab bar never moves — only the body
    below it scrolls/changes as tabs switch. */
 .modal-lg { width: min(960px, 100%); height: min(78vh, 780px); }
+.modal-replay { width: auto; max-width: 96vw; }
+.replay-body { display: flex; align-items: center; justify-content: center; background: var(--bg-base); }
+.replay-host { display: flex; }
 .modal-lg .modal-body { flex: 1; min-height: 0; }
 
 /* Modal tabs — clean underline (not boxed buttons) */

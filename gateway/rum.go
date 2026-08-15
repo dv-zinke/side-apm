@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -70,6 +72,58 @@ func RumHandler(publish func(ctx context.Context, evs []storage.RumEvent) error)
 			})
 		}
 		if err := publish(r.Context(), out); err != nil {
+			http.Error(w, "publish failed", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+type replayPayload struct {
+	SessionID string            `json:"sessionId"`
+	Page      string            `json:"page"`
+	Message   string            `json:"message"`
+	Events    []json.RawMessage `json:"events"`
+}
+
+// RumReplayHandler stores an rrweb event stream (session replay around an error).
+func RumReplayHandler(store interface {
+	InsertRumReplay(ctx context.Context, tenant string, r storage.RumReplay) error
+}) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(r.Body, 16<<20))
+		if err != nil {
+			http.Error(w, "read error", http.StatusBadRequest)
+			return
+		}
+		var p replayPayload
+		if err := json.Unmarshal(body, &p); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		if len(p.Events) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		events, _ := json.Marshal(p.Events)
+		id := make([]byte, 8)
+		_, _ = rand.Read(id)
+		rec := storage.RumReplay{
+			ID: hex.EncodeToString(id), Time: time.Now().UTC(), SessionID: p.SessionID,
+			Page: p.Page, Message: p.Message, Events: string(events),
+		}
+		if err := store.InsertRumReplay(r.Context(), defaultTenant, rec); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}

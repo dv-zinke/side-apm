@@ -106,6 +106,12 @@ func (fakeReader) TopErrors(_ context.Context, _ string, _, _ time.Time, _ int) 
 func (fakeReader) TopResources(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
 	return nil, nil
 }
+func (fakeReader) ListReplays(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ReplayMeta, error) {
+	return nil, nil
+}
+func (fakeReader) GetReplay(_ context.Context, _, _ string) (string, error) {
+	return "", nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

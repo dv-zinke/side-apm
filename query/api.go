@@ -37,6 +37,8 @@ type Reader interface {
 	TopClicks(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
 	TopErrors(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
 	TopResources(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	ListReplays(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ReplayMeta, error)
+	GetReplay(ctx context.Context, tenant, id string) (string, error)
 }
 
 type TransactionDTO struct {

@@ -113,6 +113,17 @@ export async function fetchRumGroup(kind: "clicks" | "errors" | "resources", lim
   if (!r.ok) throw new Error(`rum ${kind} ${r.status}`);
   return r.json();
 }
+export type ReplayMeta = { id: string; time: string; sessionId: string; page: string; message: string };
+export async function fetchReplays(limit = 30): Promise<ReplayMeta[]> {
+  const r = await fetch(`${BASE}/api/v1/rum/replays?limit=${limit}`);
+  if (!r.ok) throw new Error(`replays ${r.status}`);
+  return r.json();
+}
+export async function fetchReplay(id: string): Promise<unknown[]> {
+  const r = await fetch(`${BASE}/api/v1/rum/replays/${id}`);
+  if (!r.ok) throw new Error(`replay ${r.status}`);
+  return r.json();
+}
 
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
 export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {

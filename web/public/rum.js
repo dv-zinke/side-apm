@@ -32,13 +32,53 @@
     if (label) push({ type: "click", target: label });
   }, true);
 
-  // front-end errors
+  // Session replay: record DOM with rrweb, keep the events since the last full
+  // snapshot, and ship that window when an error fires (an "error video").
+  var replayBuf = [];
+  var REPLAY_URL = EP.replace(/\/$/, "") + "/v1/rum/replay";
+  (function loadRrweb() {
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/rrweb@2.0.0-alpha.4/dist/rrweb.min.js";
+    s.crossOrigin = "anonymous";
+    s.onload = function () {
+      if (!window.rrweb || !window.rrweb.record) return;
+      window.rrweb.record({
+        emit: function (event, isCheckout) {
+          if (isCheckout) replayBuf = []; // new full snapshot → start a fresh window
+          replayBuf.push(event);
+          if (replayBuf.length > 800) replayBuf.shift();
+        },
+        checkoutEveryNms: 12000,
+        sampling: { mousemove: 100, scroll: 150 },
+      });
+    };
+    document.head.appendChild(s);
+  })();
+  var lastReplay = 0;
+  function sendReplay(msg) {
+    var now = Date.now();
+    // Cooldown + swallow rejection: a failed replay POST must never re-trigger
+    // the error handler (that would loop forever).
+    if (now - lastReplay < 5000 || replayBuf.length < 3) return;
+    lastReplay = now;
+    var body = JSON.stringify({ sessionId: sid, page: path(), message: (msg || "").slice(0, 200), events: replayBuf.slice() });
+    try {
+      var p = fetch(REPLAY_URL, { method: "POST", body: body, headers: { "Content-Type": "application/json" }, keepalive: true });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+
+  // front-end errors → log event + capture replay
   window.addEventListener("error", function (e) {
-    push({ type: "error", message: (e.message || "Script error").slice(0, 200), stack: (e.error && e.error.stack || "").slice(0, 800) });
+    var msg = (e.message || "Script error").slice(0, 200);
+    push({ type: "error", message: msg, stack: (e.error && e.error.stack || "").slice(0, 800) });
+    sendReplay(msg);
   });
   window.addEventListener("unhandledrejection", function (e) {
     var r = e.reason || {};
-    push({ type: "error", message: ("Unhandled: " + (r.message || r)).slice(0, 200), stack: (r.stack || "").slice(0, 800) });
+    var msg = ("Unhandled: " + (r.message || r)).slice(0, 200);
+    push({ type: "error", message: msg, stack: (r.stack || "").slice(0, 800) });
+    sendReplay(msg);
   });
 
   // Core Web Vitals via PerformanceObserver
