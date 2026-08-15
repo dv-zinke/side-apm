@@ -39,6 +39,8 @@ type Reader interface {
 	TopResources(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
 	ListReplays(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ReplayMeta, error)
 	GetReplay(ctx context.Context, tenant, id string) (string, error)
+	ListContainers(ctx context.Context, tenant string, from, to time.Time) ([]storage.ContainerStat, error)
+	ContainerSeries(ctx context.Context, tenant, container, metric string, from, to time.Time) ([]storage.MetricPoint, error)
 }
 
 type TransactionDTO struct {
@@ -120,6 +122,7 @@ func Router(r Reader) http.Handler {
 	registerAlerts(mux, r)
 	registerDB(mux, r)
 	registerRum(mux, r)
+	registerInfra(mux, r)
 	return withCORS(mux)
 }
 

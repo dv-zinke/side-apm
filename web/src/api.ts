@@ -125,6 +125,20 @@ export async function fetchReplay(id: string): Promise<unknown[]> {
   return r.json();
 }
 
+export type Container = { container: string; image: string; status: string; cpuPct: number; memBytes: number; memLimit: number; memPct: number; netRx: number; netTx: number; time: string };
+export async function fetchContainers(): Promise<Container[]> {
+  const r = await fetch(`${BASE}/api/v1/infra/containers`);
+  if (!r.ok) throw new Error(`containers ${r.status}`);
+  return r.json();
+}
+export async function fetchContainerSeries(name: string, metric: string): Promise<MetricPoint[]> {
+  const to = new Date().toISOString();
+  const from = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const r = await fetch(`${BASE}/api/v1/infra/containers/${encodeURIComponent(name)}/series?metric=${metric}&from=${from}&to=${to}`);
+  if (!r.ok) throw new Error(`series ${r.status}`);
+  return r.json();
+}
+
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
 export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
   const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);

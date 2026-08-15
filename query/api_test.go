@@ -112,6 +112,12 @@ func (fakeReader) ListReplays(_ context.Context, _ string, _, _ time.Time, _ int
 func (fakeReader) GetReplay(_ context.Context, _, _ string) (string, error) {
 	return "", nil
 }
+func (fakeReader) ListContainers(_ context.Context, _ string, _, _ time.Time) ([]storage.ContainerStat, error) {
+	return nil, nil
+}
+func (fakeReader) ContainerSeries(_ context.Context, _, _, _ string, _, _ time.Time) ([]storage.MetricPoint, error) {
+	return nil, nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

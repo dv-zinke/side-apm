@@ -46,6 +46,17 @@ services:
     ports: ["3000:80"]
     depends_on: [query]
 
+  # Docker stats collector — reads the engine socket, ships per-container
+  # CPU/mem/net to the gateway.
+  dockermon:
+    build: { context: .., dockerfile: cmd/dockermon/Dockerfile }
+    environment:
+      APM_GATEWAY: "http://gateway:4318"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [gateway]
+    restart: on-failure
+
   # Multi-service traffic simulator. Off by default; start with:
   #   docker compose -f deploy/docker-compose.yml --profile sim up -d --build sim
   sim:

@@ -30,6 +30,7 @@ func main() {
 	histoBuf := buffer.NewBatcher("histograms", store.InsertHistograms, opts)
 	logBuf := buffer.NewBatcher("logs", store.InsertLogs, opts)
 	rumBuf := buffer.NewBatcher("rum", store.InsertRumEvents, opts)
+	infraBuf := buffer.NewBatcher("infra", store.InsertContainerStats, opts)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/traces", gateway.TracesHandler(spanBuf))
@@ -37,6 +38,7 @@ func main() {
 	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
 	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))
 	mux.HandleFunc("/v1/rum/replay", gateway.RumReplayHandler(store))
+	mux.HandleFunc("/v1/infra", gateway.InfraHandler(infraBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")

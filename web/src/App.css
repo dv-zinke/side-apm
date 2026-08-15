@@ -413,6 +413,18 @@
 .alert-row { grid-template-columns: 150px auto minmax(120px, max-content) 1fr; }
 .alert-thr { color: var(--tx-dim); }
 
+/* Containers — Docker infra ───────────────────────────────── */
+.infra-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.ctr-tbl .ctr-metric { width: 180px; }
+.ctr-cell { display: flex; align-items: center; gap: var(--sp-2); }
+.ctr-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-raised); overflow: hidden; }
+.ctr-bar-fill { height: 100%; border-radius: 3px; }
+.ctr-bar-fill.ok { background: var(--accent); }
+.ctr-bar-fill.warn { background: var(--warn); }
+.ctr-bar-fill.err { background: var(--err); }
+.ctr-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--tx-hi); min-width: 56px; text-align: right; }
+.ctr-net { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); }
+
 /* Database — query aggregation ────────────────────────────── */
 .db-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .db-tbl { table-layout: fixed; }
