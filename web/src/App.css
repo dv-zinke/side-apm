@@ -582,3 +582,5 @@
   .pane-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 52%; }
   .tw-label { min-width: 150px; }
 }
+
+.db-hint { color: var(--tx-dim); font-size: var(--fs-sm); margin: 0 0 var(--sp-3); }

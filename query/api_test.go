@@ -93,6 +93,9 @@ func (fakeReader) ServicePercentiles(_ context.Context, _, _ string, _, _ time.T
 func (fakeReader) TopQueries(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.QueryStat, error) {
 	return nil, nil
 }
+func (fakeReader) NPlusOne(_ context.Context, _ string, _, _ int, _, _ time.Time) ([]storage.NPlusOneStat, error) {
+	return nil, nil
+}
 
 func (fakeReader) RumOverview(_ context.Context, _ string, _, _ time.Time) (storage.RumOverview, error) {
 	return storage.RumOverview{}, nil

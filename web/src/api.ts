@@ -145,6 +145,12 @@ export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<Que
   if (!r.ok) throw new Error(`db queries ${r.status}`);
   return r.json();
 }
+export type NPlusOne = { service: string; statement: string; traces: number; avgRepeats: number; maxRepeats: number; totalMs: number };
+export async function fetchNPlusOne(minRepeats = 5, limit = 50): Promise<NPlusOne[]> {
+  const r = await fetch(`${BASE}/api/v1/db/nplusone?minRepeats=${minRepeats}&limit=${limit}`);
+  if (!r.ok) throw new Error(`nplusone ${r.status}`);
+  return r.json();
+}
 
 export type LogLine = { time: string; service: string; severity: string; body: string; traceId: string; spanId: string };
 export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {

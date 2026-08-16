@@ -20,11 +20,7 @@ const ROUTES = (process.env.SVC_ROUTES || "work").split(",").filter(Boolean);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Emit a child DB span under the active request span (trace context flows in).
-// Occasionally slow to exercise slow-query detection.
-async function dbQuery() {
-  if (QUERIES.length === 0) return;
-  const sql = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+async function oneQuery(sql) {
   const op = sql.trim().split(/\s+/)[0].toUpperCase();
   const dbMs = 4 + Math.random() * 30 + (Math.random() < 0.06 ? 300 + Math.random() * 900 : 0);
   await tracer.startActiveSpan(`${op} appdb`, {
@@ -34,6 +30,19 @@ async function dbQuery() {
     await sleep(dbMs);
     span.end();
   });
+}
+
+// Emit child DB span(s) under the active request span. ~8% of requests exhibit
+// an N+1 pattern (same SELECT looped per row) so N+1 detection has real data.
+async function dbQuery() {
+  if (QUERIES.length === 0) return;
+  const sql = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+  if (sql.startsWith("SELECT") && Math.random() < 0.08) {
+    const n = 5 + Math.floor(Math.random() * 12); // N+1: 5–16 repeats
+    for (let i = 0; i < n; i++) await oneQuery(sql);
+    return;
+  }
+  await oneQuery(sql);
 }
 function latency() {
   let d = BASE + Math.random() * JITTER;
