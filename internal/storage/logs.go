@@ -102,3 +102,61 @@ LIMIT ?`
 	defer rows.Close()
 	return scanLogs(rows)
 }
+
+type LogPattern struct {
+	Pattern  string
+	Sample   string
+	Count    uint64
+	Errors   uint64
+	Services []string
+	LastSeen time.Time
+}
+
+// LogPatterns clusters raw log lines into normalized templates (numbers, hex
+// ids, quoted strings, IPs → placeholders) so millions of lines collapse into a
+// handful of actionable patterns. severity="" scans all levels.
+func (s *Store) LogPatterns(ctx context.Context, tenantID, severity string, from, to time.Time, limit int) ([]LogPattern, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	args := []any{tenantID, from, to}
+	sevFilter := ""
+	if severity != "" {
+		sevFilter = "AND severity = ?"
+		args = append(args, severity)
+	}
+	args = append(args, limit)
+	q := `
+SELECT
+  replaceRegexpAll(
+    replaceRegexpAll(
+      replaceRegexpAll(
+        replaceRegexpAll(body, '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b', '<ip>'),
+        '\b[0-9a-fA-F]{8,}\b', '<id>'),
+      '"[^"]*"', '<str>'),
+    '\b[0-9]+\b', '<n>') AS pattern,
+  count() AS cnt,
+  countIf(severity = 'ERROR') AS errs,
+  argMax(body, ts) AS sample,
+  groupUniqArray(5)(service_name) AS svcs,
+  max(ts) AS last_seen
+FROM apm.logs
+WHERE tenant_id = ? AND ts >= ? AND ts <= ? ` + sevFilter + `
+GROUP BY pattern
+ORDER BY cnt DESC
+LIMIT ?`
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LogPattern
+	for rows.Next() {
+		var p LogPattern
+		if err := rows.Scan(&p.Pattern, &p.Count, &p.Errors, &p.Sample, &p.Services, &p.LastSeen); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}

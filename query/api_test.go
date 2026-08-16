@@ -64,6 +64,9 @@ func (fakeReader) GetTraceLogs(_ context.Context, _, _ string) ([]storage.LogRow
 	return nil, nil
 }
 
+func (fakeReader) LogPatterns(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.LogPattern, error) {
+	return nil, nil
+}
 func (fakeReader) ListLogs(_ context.Context, _ string, _ storage.LogFilter) ([]storage.LogRow, error) {
 	return nil, nil
 }

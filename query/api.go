@@ -26,6 +26,7 @@ type Reader interface {
 	GetServiceMetric(ctx context.Context, tenant, service, name string, from, to time.Time) ([]storage.MetricPoint, error)
 	GetTraceLogs(ctx context.Context, tenant, traceID string) ([]storage.LogRow, error)
 	ListLogs(ctx context.Context, tenant string, f storage.LogFilter) ([]storage.LogRow, error)
+	LogPatterns(ctx context.Context, tenant, severity string, from, to time.Time, limit int) ([]storage.LogPattern, error)
 	ListAlertRules(ctx context.Context, tenant string) ([]storage.AlertRule, error)
 	UpsertAlertRule(ctx context.Context, tenant string, r storage.AlertRule) error
 	DeleteAlertRule(ctx context.Context, tenant, id string) error

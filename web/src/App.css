@@ -696,3 +696,8 @@
 }
 
 .db-hint { color: var(--tx-dim); font-size: var(--fs-sm); margin: 0 0 var(--sp-3); }
+
+/* Log patterns */
+.log-pat-tbl { table-layout: auto; }
+.log-pat { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); max-width: 620px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-pat-time { font-family: var(--mono); color: var(--tx-dim); }

@@ -54,4 +54,24 @@ func registerLogs(mux *http.ServeMux, r Reader) {
 		}
 		writeJSON(w, toLogDTOs(rows))
 	})
+
+	// Log patterns — cluster millions of lines into normalized templates.
+	mux.HandleFunc("GET /api/v1/logs/patterns", func(w http.ResponseWriter, req *http.Request) {
+		q := req.URL.Query()
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
+		pats, err := r.LogPatterns(req.Context(), defaultTenant, q.Get("severity"), from, to, limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]map[string]any, 0, len(pats))
+		for _, p := range pats {
+			out = append(out, map[string]any{
+				"pattern": p.Pattern, "sample": p.Sample, "count": p.Count, "errors": p.Errors,
+				"services": p.Services, "lastSeen": p.LastSeen.Format(time.RFC3339),
+			})
+		}
+		writeJSON(w, out)
+	})
 }

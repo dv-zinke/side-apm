@@ -189,6 +189,15 @@ export async function fetchNPlusOne(minRepeats = 5, limit = 50): Promise<NPlusOn
   return r.json();
 }
 
+export type LogPattern = { pattern: string; sample: string; count: number; errors: number; services: string[]; lastSeen: string };
+export async function fetchLogPatterns(severity = "", limit = 40): Promise<LogPattern[]> {
+  const p = new URLSearchParams({ limit: String(limit) });
+  if (severity) p.set("severity", severity);
+  const r = await fetch(`${BASE}/api/v1/logs/patterns?${p}`);
+  if (!r.ok) throw new Error(`log patterns ${r.status}`);
+  return r.json();
+}
+
 export type LogLine = { time: string; service: string; severity: string; body: string; traceId: string; spanId: string };
 export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
   const r = await fetch(`${BASE}/api/v1/traces/${traceId}/logs`);
