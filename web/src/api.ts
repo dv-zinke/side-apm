@@ -133,6 +133,12 @@ export async function fetchAppGroup(kind: "screens" | "crashes" | "network", lim
   if (!r.ok) throw new Error(`app ${kind} ${r.status}`);
   return r.json();
 }
+export type CrashDetail = { message: string; stack: string; sessions: number; count: number; versions: string[]; devices: string[]; oses: string[]; lastSeen: string };
+export async function fetchCrashDetail(message: string): Promise<CrashDetail> {
+  const r = await fetch(`${BASE}/api/v1/app/crash?message=${encodeURIComponent(message)}`);
+  if (!r.ok) throw new Error(`crash detail ${r.status}`);
+  return r.json();
+}
 
 export type RumOverview = { sessions: number; pageviews: number; errors: number; lcpP75: number; inpP75: number; clsP75: number };
 export type RumCount = { key: string; sub: string; count: number; avgMs: number };

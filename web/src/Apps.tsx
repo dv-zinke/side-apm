@@ -1,7 +1,35 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAppOverview, fetchAppVersions, fetchAppGroup } from "./api";
+import { fetchAppOverview, fetchAppVersions, fetchAppGroup, fetchCrashDetail } from "./api";
 import type { AppGroup } from "./api";
-import { EmptyState, Skeleton } from "./states";
+import { EmptyState, Skeleton, IconX } from "./states";
+
+function CrashModal({ message, onClose }: { message: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery({ queryKey: ["crash", message], queryFn: () => fetchCrashDetail(message) });
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <header className="modal-head">
+          <div className="modal-title"><span className="modal-svc">크래시 · {data ? `${data.sessions}세션 · ${data.count}회` : ""}</span><span className="modal-txn" style={{ fontFamily: "var(--sans)", color: "var(--err)" }}>{message}</span></div>
+          <button className="icon-btn" onClick={onClose} aria-label="닫기"><IconX /></button>
+        </header>
+        <div className="modal-body">
+          {isLoading ? <Skeleton rows={6} /> : !data ? null : (
+            <>
+              <div className="crash-breakdown">
+                <div><span className="crash-bk-label">앱 버전</span><div className="crash-chips">{data.versions.map((v) => <span key={v} className="chip muted">{v}</span>)}</div></div>
+                <div><span className="crash-bk-label">디바이스</span><div className="crash-chips">{data.devices.map((v) => <span key={v} className="chip muted">{v}</span>)}</div></div>
+                <div><span className="crash-bk-label">OS</span><div className="crash-chips">{data.oses.map((v) => <span key={v} className="chip muted">{v}</span>)}</div></div>
+              </div>
+              <div className="section-label" style={{ marginTop: "var(--sp-4)" }}>스택 트레이스</div>
+              <pre className="crash-stack">{data.stack || "(스택 정보 없음)"}</pre>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?: string; tone?: string }) {
   return (
@@ -14,7 +42,7 @@ function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?
 const crashTone = (r: number) => (r >= 99.5 ? "ok" : r >= 99 ? "warn" : "err");
 const startTone = (ms: number) => (ms > 2500 ? "err" : ms > 1500 ? "warn" : "ok");
 
-function GroupCard({ title, kind, valueLabel }: { title: string; kind: "screens" | "crashes" | "network"; valueLabel: string }) {
+function GroupCard({ title, kind, valueLabel, onPick }: { title: string; kind: "screens" | "crashes" | "network"; valueLabel: string; onPick?: (key: string) => void }) {
   const { data, isLoading } = useQuery({ queryKey: ["app", kind], queryFn: () => fetchAppGroup(kind, 20), refetchInterval: 10000 });
   return (
     <section className="dash-panel">
@@ -31,7 +59,9 @@ function GroupCard({ title, kind, valueLabel }: { title: string; kind: "screens"
           </tr></thead>
           <tbody>
             {(data ?? []).map((g: AppGroup, i) => (
-              <tr key={i} style={{ cursor: "default" }}>
+              <tr key={i} style={{ cursor: onPick ? "pointer" : "default" }} tabIndex={onPick ? 0 : undefined}
+                  onClick={onPick ? () => onPick(g.key) : undefined}
+                  onKeyDown={onPick ? (e) => { if (e.key === "Enter") onPick(g.key); } : undefined}>
                 <td className={kind === "screens" ? "svc" : "db-stmt"} title={g.key}>{g.key}</td>
                 <td className="r">{g.count.toLocaleString()}</td>
                 {kind === "crashes" && <td className="r err">{g.sub}</td>}
@@ -48,10 +78,12 @@ function GroupCard({ title, kind, valueLabel }: { title: string; kind: "screens"
 export function Apps() {
   const { data: ov, isLoading } = useQuery({ queryKey: ["app-overview"], queryFn: fetchAppOverview, refetchInterval: 10000 });
   const { data: versions } = useQuery({ queryKey: ["app-versions"], queryFn: fetchAppVersions, refetchInterval: 10000 });
+  const [crash, setCrash] = useState<string | null>(null);
   const empty = ov && ov.sessions === 0;
 
   return (
     <div className="content-scroll">
+      {crash && <CrashModal message={crash} onClose={() => setCrash(null)} />}
       <div className="dash">
         {isLoading ? (
           <div className="span-all"><Skeleton rows={4} /></div>
@@ -91,7 +123,7 @@ export function Apps() {
             </section>
 
             <GroupCard title="많이 본 화면" kind="screens" valueLabel="조회" />
-            <GroupCard title="크래시" kind="crashes" valueLabel="발생" />
+            <GroupCard title="크래시 · 클릭하면 상세" kind="crashes" valueLabel="발생" onPick={setCrash} />
             <section className="span-all"><GroupCard title="네트워크 요청" kind="network" valueLabel="호출" /></section>
           </>
         )}

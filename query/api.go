@@ -52,6 +52,7 @@ type Reader interface {
 	TopScreens(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
 	TopCrashes(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
 	TopAppNetwork(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	CrashDetail(ctx context.Context, tenant, message string, from, to time.Time) (storage.CrashDetail, error)
 }
 
 type TransactionDTO struct {

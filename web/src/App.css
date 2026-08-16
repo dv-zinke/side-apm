@@ -709,3 +709,10 @@
 .toggle-knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 140ms cubic-bezier(0.16,1,0.3,1); box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 .toggle.on .toggle-knob { transform: translateX(16px); }
 .rule-off { opacity: 0.5; }
+
+/* Crash detail modal */
+.crash-breakdown { display: flex; flex-direction: column; gap: var(--sp-3); }
+.crash-breakdown > div { display: flex; align-items: baseline; gap: var(--sp-3); }
+.crash-bk-label { font-size: var(--fs-xs); color: var(--tx-dim); min-width: 60px; }
+.crash-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.crash-stack { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-3); overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }

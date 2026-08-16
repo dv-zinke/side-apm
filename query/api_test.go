@@ -149,6 +149,9 @@ func (fakeReader) TopCrashes(_ context.Context, _ string, _, _ time.Time, _ int)
 func (fakeReader) TopAppNetwork(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
 	return nil, nil
 }
+func (fakeReader) CrashDetail(_ context.Context, _, _ string, _, _ time.Time) (storage.CrashDetail, error) {
+	return storage.CrashDetail{}, nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

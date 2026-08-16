@@ -60,4 +60,23 @@ func registerApp(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/app/screens", group(r.TopScreens))
 	mux.HandleFunc("GET /api/v1/app/crashes", group(r.TopCrashes))
 	mux.HandleFunc("GET /api/v1/app/network", group(r.TopAppNetwork))
+
+	// Crash detail: stack + impact breakdown for one crash signature.
+	mux.HandleFunc("GET /api/v1/app/crash", func(w http.ResponseWriter, req *http.Request) {
+		msg := req.URL.Query().Get("message")
+		if msg == "" {
+			http.Error(w, "message required", http.StatusBadRequest)
+			return
+		}
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 24*time.Hour)
+		d, err := r.CrashDetail(req.Context(), defaultTenant, msg, from, to)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"message": d.Message, "stack": d.Stack, "sessions": d.Sessions, "count": d.Count,
+			"versions": d.Versions, "devices": d.Devices, "oses": d.OSes, "lastSeen": d.LastSeen.Format(time.RFC3339),
+		})
+	})
 }

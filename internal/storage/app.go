@@ -162,3 +162,31 @@ FROM apm.app_events
 WHERE tenant_id=? AND event_type='network' AND url != '' AND ts>=? AND ts<=?
 GROUP BY url ORDER BY count() DESC LIMIT ?`, tenantID, from, to, limit)
 }
+
+type CrashDetail struct {
+	Message  string
+	Stack    string
+	Sessions uint64
+	Count    uint64
+	Versions []string
+	Devices  []string
+	OSes     []string
+	LastSeen time.Time
+}
+
+// CrashDetail returns stack + impact breakdown (versions/devices/os) for one
+// crash signature.
+func (s *Store) CrashDetail(ctx context.Context, tenantID, message string, from, to time.Time) (CrashDetail, error) {
+	var d CrashDetail
+	d.Message = message
+	row := s.db.QueryRowContext(ctx, `
+SELECT argMax(err_stack, ts), uniqExact(session_id), count(),
+       groupUniqArray(8)(app_version), groupUniqArray(8)(device), groupUniqArray(8)(os_version), max(ts)
+FROM apm.app_events
+WHERE tenant_id = ? AND event_type = 'crash' AND message = ? AND ts >= ? AND ts <= ?`,
+		tenantID, message, from, to)
+	if err := row.Scan(&d.Stack, &d.Sessions, &d.Count, &d.Versions, &d.Devices, &d.OSes, &d.LastSeen); err != nil {
+		return d, err
+	}
+	return d, nil
+}
