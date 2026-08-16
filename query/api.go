@@ -81,12 +81,22 @@ func Router(r Reader) http.Handler {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		minMs, _ := strconv.ParseFloat(q.Get("minMs"), 64)
+		var from, to time.Time
+		if t, ok := parseTimeParam(q.Get("from")); ok {
+			from = t
+		}
+		if t, ok := parseTimeParam(q.Get("to")); ok {
+			to = t
+		}
 		rows, err := r.ListTransactions(req.Context(), defaultTenant, storage.Filter{
-			Service:    q.Get("service"),
-			ErrorsOnly: q.Get("errors") == "1" || q.Get("errors") == "true",
-			MinMs:      minMs,
-			Query:      q.Get("q"),
-			Limit:      limit,
+			Service:         q.Get("service"),
+			ErrorsOnly:      q.Get("errors") == "1" || q.Get("errors") == "true",
+			MinMs:           minMs,
+			Query:           q.Get("q"),
+			From:            from,
+			To:              to,
+			OrderByDuration: q.Get("sort") == "duration",
+			Limit:           limit,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

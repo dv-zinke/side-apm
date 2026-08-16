@@ -26,7 +26,7 @@ export type Span = {
   dbStatement?: string;
 };
 
-export type TxnFilter = { service?: string; errorsOnly?: boolean; minMs?: number; q?: string; limit?: number };
+export type TxnFilter = { service?: string; errorsOnly?: boolean; minMs?: number; q?: string; from?: string; to?: string; sort?: "duration"; limit?: number };
 
 export async function fetchTransactions(f: TxnFilter = {}): Promise<Transaction[]> {
   const p = new URLSearchParams({ limit: String(f.limit ?? 100) });
@@ -34,9 +34,16 @@ export async function fetchTransactions(f: TxnFilter = {}): Promise<Transaction[
   if (f.errorsOnly) p.set("errors", "1");
   if (f.minMs) p.set("minMs", String(f.minMs));
   if (f.q) p.set("q", f.q);
+  if (f.from) p.set("from", f.from);
+  if (f.to) p.set("to", f.to);
+  if (f.sort) p.set("sort", f.sort);
   const r = await fetch(`${BASE}/api/v1/transactions?${p}`);
   if (!r.ok) throw new Error(`transactions ${r.status}`);
   return r.json();
+}
+// Slowest example traces from a time window — for metric→trace exemplar drill-down.
+export function fetchExemplars(service: string, fromISO: string, toISO: string): Promise<Transaction[]> {
+  return fetchTransactions({ service, from: fromISO, to: toISO, sort: "duration", limit: 8 });
 }
 
 export async function fetchSpans(traceId: string): Promise<Span[]> {

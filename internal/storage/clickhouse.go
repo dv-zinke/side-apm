@@ -81,11 +81,13 @@ func (s *Store) InsertSpans(ctx context.Context, spans []otlp.Span) error {
 }
 
 type Filter struct {
-	Service    string
-	ErrorsOnly bool
-	MinMs      float64 // minimum duration in ms (0 = no floor)
-	Query      string  // case-insensitive substring on transaction name
-	Limit      int
+	Service         string
+	ErrorsOnly      bool
+	MinMs           float64 // minimum duration in ms (0 = no floor)
+	Query           string  // case-insensitive substring on transaction name
+	From, To        time.Time
+	OrderByDuration bool // slowest-first (exemplars) instead of newest-first
+	Limit           int
 }
 
 type TransactionRow struct {
@@ -110,7 +112,18 @@ func (s *Store) ListTransactions(ctx context.Context, tenantID string, f Filter)
 		minNs = uint64(f.MinMs * 1e6)
 	}
 	like := "%" + f.Query + "%"
-	const q = `
+	// Default to a wide range so an unset window keeps the previous behavior.
+	if f.From.IsZero() {
+		f.From = time.Unix(0, 0)
+	}
+	if f.To.IsZero() {
+		f.To = time.Now().Add(24 * time.Hour)
+	}
+	order := "start_time DESC"
+	if f.OrderByDuration {
+		order = "duration_ns DESC"
+	}
+	q := `
 SELECT trace_id, service_name, span_name, status_code, start_time, duration_ns
 FROM apm.spans
 WHERE tenant_id = ? AND span_kind = 'SERVER'
@@ -118,13 +131,15 @@ WHERE tenant_id = ? AND span_kind = 'SERVER'
   AND (? = 0 OR status_code = 'ERROR')
   AND (? = 0 OR duration_ns >= ?)
   AND (? = '' OR span_name ILIKE ?)
-ORDER BY start_time DESC
+  AND start_time >= ? AND start_time <= ?
+ORDER BY ` + order + `
 LIMIT ?`
 	rows, err := s.db.QueryContext(ctx, q, tenantID,
 		f.Service, f.Service,
 		errFlag,
 		minNs, minNs,
 		f.Query, like,
+		f.From, f.To,
 		f.Limit)
 	if err != nil {
 		return nil, err
