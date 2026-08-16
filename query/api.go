@@ -53,6 +53,9 @@ type Reader interface {
 	TopCrashes(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
 	TopAppNetwork(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
 	CrashDetail(ctx context.Context, tenant, message string, from, to time.Time) (storage.CrashDetail, error)
+	ListDashboards(ctx context.Context, tenant string) ([]storage.Dashboard, error)
+	UpsertDashboard(ctx context.Context, tenant string, d storage.Dashboard) error
+	DeleteDashboard(ctx context.Context, tenant, id string) error
 }
 
 type TransactionDTO struct {
@@ -151,6 +154,7 @@ func Router(r Reader) http.Handler {
 	registerSLO(mux, r)
 	registerDeploys(mux, r)
 	registerApp(mux, r)
+	registerDashboards(mux, r)
 	return withCORS(mux)
 }
 

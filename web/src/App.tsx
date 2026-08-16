@@ -17,6 +17,7 @@ import { Anomalies } from "./Anomalies";
 import { Health } from "./Health";
 import { Slo } from "./Slo";
 import { Apps } from "./Apps";
+import { CustomDash } from "./CustomDash";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
@@ -29,12 +30,13 @@ import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
     { id: "health", label: "서비스 헬스", icon: IconShield },
     { id: "dashboard", label: "대시보드", icon: IconGrid },
+    { id: "custom", label: "커스텀 대시보드", icon: IconGrid },
     { id: "connect", label: "연결하기", icon: IconPlug },
   ] },
   { label: "모니터링", items: [
@@ -168,6 +170,8 @@ function Console() {
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
           {view === "health" ? (
             <Health />
+          ) : view === "custom" ? (
+            <CustomDash />
           ) : view === "dashboard" ? (
             <div className="content-scroll"><Dashboard /></div>
           ) : view === "connect" ? (

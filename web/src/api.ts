@@ -215,6 +215,24 @@ export async function fetchMonitorTimeline(monitor: string): Promise<UptimeBucke
   return r.json();
 }
 
+export type Panel = { id: string; title: string; type: "red" | "apdex" | "container"; target: string };
+export type DashboardSpec = { panels: Panel[] };
+export type Dashboard = { id: string; name: string; spec: DashboardSpec };
+export async function fetchDashboards(): Promise<Dashboard[]> {
+  const r = await fetch(`${BASE}/api/v1/dashboards`);
+  if (!r.ok) throw new Error(`dashboards ${r.status}`);
+  return r.json();
+}
+export async function saveDashboard(d: { id?: string; name: string; spec: DashboardSpec }): Promise<Dashboard> {
+  const r = await fetch(`${BASE}/api/v1/dashboards`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
+  if (!r.ok) throw new Error(await r.text() || `save ${r.status}`);
+  return r.json();
+}
+export async function deleteDashboard(id: string): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/dashboards/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`delete ${r.status}`);
+}
+
 export type Deploy = { time: string; service: string; version: string; description: string };
 export async function fetchDeploys(service = "", limit = 50): Promise<Deploy[]> {
   const p = new URLSearchParams({ limit: String(limit) });

@@ -716,3 +716,23 @@
 .crash-bk-label { font-size: var(--fs-xs); color: var(--tx-dim); min-width: 60px; }
 .crash-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .crash-stack { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-3); overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+
+/* Custom dashboard builder */
+.cd-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.cd-name { font-size: var(--fs-md); font-weight: 600; max-width: 360px; }
+.cd-add { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0; flex-wrap: wrap; align-items: center; }
+.cd-add .input { flex: 1; min-width: 160px; }
+.cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: var(--sp-3); }
+.cd-panel { background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3); box-shadow: var(--shadow-1); }
+.cd-panel-stat { display: flex; flex-direction: column; }
+.cd-panel-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.cd-panel-title { font-weight: 600; color: var(--tx-hi); font-size: var(--fs-sm); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-stat { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 180px; }
+.cd-stat-val { font-size: 48px; font-weight: 700; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--tx-hi); }
+.cd-stat-val.ok { color: var(--ok); } .cd-stat-val.warn { color: var(--warn); } .cd-stat-val.err { color: var(--err); }
+.cd-stat-sub { font-size: var(--fs-xs); color: var(--tx-dim); margin-top: var(--sp-2); }
+.cd-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cd-list-row { display: flex; align-items: center; gap: var(--sp-2); background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }
+.cd-list-open { flex: 1; display: flex; align-items: baseline; gap: var(--sp-3); background: transparent; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.cd-list-name { font-weight: 600; color: var(--tx-hi); }
+.cd-list-meta { font-size: var(--fs-xs); color: var(--tx-dim); }

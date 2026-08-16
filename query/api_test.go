@@ -152,6 +152,11 @@ func (fakeReader) TopAppNetwork(_ context.Context, _ string, _, _ time.Time, _ i
 func (fakeReader) CrashDetail(_ context.Context, _, _ string, _, _ time.Time) (storage.CrashDetail, error) {
 	return storage.CrashDetail{}, nil
 }
+func (fakeReader) ListDashboards(_ context.Context, _ string) ([]storage.Dashboard, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertDashboard(_ context.Context, _ string, _ storage.Dashboard) error { return nil }
+func (fakeReader) DeleteDashboard(_ context.Context, _, _ string) error                   { return nil }
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
