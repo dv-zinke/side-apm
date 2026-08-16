@@ -47,6 +47,11 @@ type Reader interface {
 	MonitorTimeline(ctx context.Context, tenant, monitor string, from, to time.Time, bucketSec int) ([]storage.UptimeBucket, error)
 	InsertDeploy(ctx context.Context, tenant string, d storage.Deploy) error
 	ListDeploys(ctx context.Context, tenant, service string, from, to time.Time, limit int) ([]storage.Deploy, error)
+	AppOverview(ctx context.Context, tenant string, from, to time.Time) (storage.AppOverview, error)
+	AppVersions(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppVersionStat, error)
+	TopScreens(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	TopCrashes(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	TopAppNetwork(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
 }
 
 type TransactionDTO struct {
@@ -144,6 +149,7 @@ func Router(r Reader) http.Handler {
 	registerHealth(mux, r)
 	registerSLO(mux, r)
 	registerDeploys(mux, r)
+	registerApp(mux, r)
 	return withCORS(mux)
 }
 

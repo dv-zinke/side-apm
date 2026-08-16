@@ -120,3 +120,27 @@ function seedReplay() {
   postJSON("/v1/rum/replay", { sessionId: "sim" + rint(1, 1e9), page: "/checkout", message, events: buildReplay(message) });
 }
 setTimeout(() => { console.log("[sim] seeding session replays"); setInterval(seedReplay, 15000); }, 9000);
+
+// Mobile app monitoring: post launches / screens / crashes / network / errors.
+const APP_SCREENS = ["홈", "상품목록", "상품상세", "장바구니", "결제", "주문내역", "마이페이지", "검색", "리뷰"];
+const APP_VERSIONS = ["3.2.0", "3.2.0", "3.2.0", "3.1.5", "3.3.0-beta"];
+const APP_DEVICES = ["iPhone 15", "iPhone 14", "Galaxy S24", "Galaxy S23", "Pixel 8"];
+const APP_CRASHES = ["NSInvalidArgumentException: -[__NSCFString objectForKey:]",
+  "java.lang.NullPointerException: Attempt to invoke on a null object reference",
+  "Fatal Exception: java.lang.OutOfMemoryError", "EXC_BAD_ACCESS (SIGSEGV) at 0x0000000000000010"];
+const APP_NET = ["/api/v1/products", "/api/v1/cart", "/api/v1/checkout", "/api/v1/orders", "/api/v1/search"];
+function appSession() {
+  const now = Date.now();
+  const ios = Math.random() < 0.55;
+  const platform = ios ? "ios" : "android";
+  const device = ios ? pick(["iPhone 15", "iPhone 14"]) : pick(["Galaxy S24", "Galaxy S23", "Pixel 8"]);
+  const ev = [{ type: "launch", ts: now, launchType: Math.random() < 0.6 ? "cold" : "warm", durationMs: rint(350, 2600) }];
+  for (let i = 0; i < rint(2, 8); i++) ev.push({ type: "screen", ts: now, screen: pick(APP_SCREENS), durationMs: rint(20, 700) });
+  for (let i = 0; i < rint(2, 7); i++) ev.push({ type: "network", ts: now, url: pick(APP_NET), status: pick([200, 200, 200, 200, 404, 500]), durationMs: rint(30, 1800) });
+  if (Math.random() < 0.06) ev.push({ type: "crash", ts: now, message: pick(APP_CRASHES), stack: "at MainActivity.onCreate", fatal: true });
+  postJSON("/v1/app", {
+    sessionId: "app" + rint(1, 1e9), appVersion: pick(APP_VERSIONS), platform,
+    osVersion: ios ? "iOS 17.5" : "Android 14", device, events: ev,
+  });
+}
+setTimeout(() => { console.log("[sim] seeding mobile app sessions"); setInterval(appSession, 1000); }, 7000);

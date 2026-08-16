@@ -134,6 +134,21 @@ func (fakeReader) InsertDeploy(_ context.Context, _ string, _ storage.Deploy) er
 func (fakeReader) ListDeploys(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.Deploy, error) {
 	return nil, nil
 }
+func (fakeReader) AppOverview(_ context.Context, _ string, _, _ time.Time) (storage.AppOverview, error) {
+	return storage.AppOverview{}, nil
+}
+func (fakeReader) AppVersions(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppVersionStat, error) {
+	return nil, nil
+}
+func (fakeReader) TopScreens(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
+func (fakeReader) TopCrashes(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
+func (fakeReader) TopAppNetwork(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

@@ -115,6 +115,25 @@ export async function fetchAlerts(): Promise<Alert[]> {
   return r.json();
 }
 
+export type AppOverview = { sessions: number; crashSessions: number; crashFreeRate: number; coldStartP75: number; warmStartP75: number; networkErrRate: number };
+export type AppVersion = { version: string; platform: string; sessions: number; crashFreeRate: number };
+export type AppGroup = { key: string; sub: string; count: number; avgMs: number };
+export async function fetchAppOverview(): Promise<AppOverview> {
+  const r = await fetch(`${BASE}/api/v1/app/overview`);
+  if (!r.ok) throw new Error(`app overview ${r.status}`);
+  return r.json();
+}
+export async function fetchAppVersions(): Promise<AppVersion[]> {
+  const r = await fetch(`${BASE}/api/v1/app/versions`);
+  if (!r.ok) throw new Error(`app versions ${r.status}`);
+  return r.json();
+}
+export async function fetchAppGroup(kind: "screens" | "crashes" | "network", limit = 20): Promise<AppGroup[]> {
+  const r = await fetch(`${BASE}/api/v1/app/${kind}?limit=${limit}`);
+  if (!r.ok) throw new Error(`app ${kind} ${r.status}`);
+  return r.json();
+}
+
 export type RumOverview = { sessions: number; pageviews: number; errors: number; lcpP75: number; inpP75: number; clsP75: number };
 export type RumCount = { key: string; sub: string; count: number; avgMs: number };
 export async function fetchRumOverview(): Promise<RumOverview> {

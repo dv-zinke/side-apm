@@ -16,19 +16,20 @@ import { Synthetics } from "./Synthetics";
 import { Anomalies } from "./Anomalies";
 import { Health } from "./Health";
 import { Slo } from "./Slo";
+import { Apps } from "./Apps";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -54,6 +55,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   ] },
   { label: "사용자", items: [
     { id: "rum", label: "브라우저(RUM)", icon: IconRum },
+    { id: "app", label: "모바일 앱", icon: IconMobile },
   ] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
@@ -184,6 +186,8 @@ function Console() {
             <XView />
           ) : view === "rum" ? (
             <Rum />
+          ) : view === "app" ? (
+            <Apps />
           ) : view === "infra" ? (
             <Infra />
           ) : view === "synth" ? (
