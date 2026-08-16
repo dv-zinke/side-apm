@@ -474,6 +474,13 @@
 .slo-budget-fill.ok { background: var(--ok); } .slo-budget-fill.warn { background: var(--warn); } .slo-budget-fill.err { background: var(--err); }
 .slo-budget-label { font-size: var(--fs-xs); color: var(--tx-dim); margin-top: 5px; }
 .slo-budget-label b { color: var(--tx-hi); font-family: var(--mono); }
+.slo-lat { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.slo-lat-label { font-size: var(--fs-xs); color: var(--tx-dim); }
+.slo-lat-val { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 600; }
+.slo-lat-val.ok { color: var(--ok); } .slo-lat-val.warn { color: var(--warn); } .slo-lat-val.err { color: var(--err); }
+.slo-lat-flag { margin-left: auto; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.slo-lat-flag.warn { background: var(--warn-wash); color: var(--warn); }
+.slo-lat-flag.err { background: var(--err-wash); color: var(--err); }
 .slo-foot { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--tx-dim); margin-top: var(--sp-3); }
 
 /* Anomaly detection — auto-baseline ───────────────────────── */

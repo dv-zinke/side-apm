@@ -7,9 +7,9 @@ import { EmptyState, Skeleton } from "./states";
 const WINDOWS = [{ h: 1, label: "1시간" }, { h: 24, label: "24시간" }, { h: 168, label: "7일" }];
 const STATUS_LABEL: Record<string, string> = { healthy: "정상", at_risk: "주의", breached: "위반" };
 
-function budgetTone(s: SLOStatus) {
-  if (s.status === "breached") return "err";
-  if (s.status === "at_risk") return "warn";
+function toneOf(status: string) {
+  if (status === "breached") return "err";
+  if (status === "at_risk") return "warn";
   return "ok";
 }
 
@@ -38,7 +38,7 @@ export function Slo() {
             {breached > 0 && <p className="slo-alert">⚠ {breached}개 서비스가 SLO를 위반해 에러 버짓을 모두 소진했어요.</p>}
             <div className="slo-grid">
               {(data ?? []).map((s: SLOStatus) => {
-                const tone = budgetTone(s);
+                const availTone = toneOf(s.availStatus);
                 return (
                   <div key={s.service} className={`slo-card ${s.status}`}>
                     <div className="slo-head">
@@ -46,20 +46,26 @@ export function Slo() {
                       <span className={`slo-badge ${s.status}`}>{STATUS_LABEL[s.status]}</span>
                     </div>
                     <div className="slo-attain">
-                      <span className={`slo-rate ${tone}`}>{s.successRate.toFixed(3)}<i>%</i></span>
-                      <span className="slo-target">목표 {s.target}%</span>
+                      <span className={`slo-rate ${availTone}`}>{s.successRate.toFixed(3)}<i>%</i></span>
+                      <span className="slo-target">가용성 목표 {s.target}%</span>
                     </div>
                     <div className="slo-budget">
-                      <div className="slo-budget-bar"><div className={`slo-budget-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(100, s.budgetRemaining))}%` }} /></div>
+                      <div className="slo-budget-bar"><div className={`slo-budget-fill ${availTone}`} style={{ width: `${Math.max(0, Math.min(100, s.budgetRemaining))}%` }} /></div>
                       <div className="slo-budget-label">
-                        {s.status === "breached"
-                          ? <>에러 버짓 <b>소진</b> · 목표 미달</>
+                        {s.availStatus === "breached"
+                          ? <>에러 버짓 <b>소진</b> · 가용성 목표 미달</>
                           : <>에러 버짓 <b>{s.budgetRemaining.toFixed(0)}%</b> 남음</>}
                       </div>
                     </div>
+                    {s.hasApdex && (
+                      <div className="slo-lat">
+                        <span className="slo-lat-label">지연 SLI</span>
+                        <span className={`slo-lat-val ${toneOf(s.latencyStatus)}`}>Apdex {s.apdex.toFixed(2)}</span>
+                        {s.latencyStatus !== "healthy" && <span className={`slo-lat-flag ${toneOf(s.latencyStatus)}`}>{s.latencyStatus === "breached" ? "지연 목표 미달" : "지연 주의"}</span>}
+                      </div>
+                    )}
                     <div className="slo-foot">
                       <span>{s.totalReq.toLocaleString()} 요청 · 오류 {s.totalErr.toLocaleString()}</span>
-                      {s.hasApdex && <span>Apdex {s.apdex.toFixed(2)}</span>}
                     </div>
                   </div>
                 );
