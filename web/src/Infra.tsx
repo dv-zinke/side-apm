@@ -49,6 +49,11 @@ export function Infra() {
   const { data, isLoading } = useQuery({ queryKey: ["containers"], queryFn: fetchContainers, refetchInterval: 5000 });
   const [sel, setSel] = useState<string | null>(null);
 
+  const fleet = (data ?? []).reduce(
+    (a, c) => { a.cpu += c.cpuPct; a.mem += c.memBytes; a.running += c.status === "running" ? 1 : 0; return a; },
+    { cpu: 0, mem: 0, running: 0 },
+  );
+
   return (
     <div className="content-scroll">
       {sel && <SeriesModal name={sel} onClose={() => setSel(null)} />}
@@ -57,6 +62,14 @@ export function Infra() {
           <span className="pane-title">컨테이너 · Docker <span className="hint-inline">행을 클릭하면 시계열</span></span>
           {data && <span className="chip muted" style={{ marginLeft: "auto" }}><span className="dot" />{data.length}개</span>}
         </div>
+        {data && data.length > 0 && (
+          <section className="kpi-grid" style={{ marginBottom: "var(--sp-3)" }}>
+            <div className="kpi-card"><div className="kpi-label">컨테이너</div><div className="kpi-value">{data.length}<span className="kpi-unit">개</span></div></div>
+            <div className="kpi-card"><div className="kpi-label">실행 중</div><div className={`kpi-value${fleet.running < data.length ? " warn" : " ok"}`}>{fleet.running}/{data.length}</div></div>
+            <div className="kpi-card"><div className="kpi-label">총 CPU</div><div className={`kpi-value${fleet.cpu > 200 ? " warn" : ""}`}>{fleet.cpu.toFixed(1)}<span className="kpi-unit">%</span></div></div>
+            <div className="kpi-card"><div className="kpi-label">총 메모리</div><div className="kpi-value">{mb(fleet.mem)}</div></div>
+          </section>
+        )}
         {isLoading ? (
           <Skeleton rows={8} />
         ) : (data ?? []).length === 0 ? (
