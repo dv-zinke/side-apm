@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts } from "./api";
+import { fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts, upsertAlertRule } from "./api";
 import type { AlertRule } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
 
-const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연" };
-const unitOf = (m: string) => (m === "p95_ms" ? "ms" : "%");
+const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연", uptime: "가동", throughput: "처리량" };
+const unitOf = (m: string) => (m === "p95_ms" ? "ms" : m === "throughput" ? "/분" : "%");
 
 function RuleForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
@@ -65,17 +65,23 @@ function RuleForm({ onDone }: { onDone: () => void }) {
 
 function RuleRow({ rule }: { rule: AlertRule }) {
   const qc = useQueryClient();
-  const del = useMutation({
-    mutationFn: () => deleteAlertRule(rule.id!),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["alert-rules"] }),
-  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["alert-rules"] });
+  const del = useMutation({ mutationFn: () => deleteAlertRule(rule.id!), onSuccess: invalidate });
+  const toggle = useMutation({ mutationFn: () => upsertAlertRule({ ...rule, enabled: !rule.enabled }), onSuccess: invalidate });
   return (
-    <tr>
+    <tr className={rule.enabled ? "" : "rule-off"}>
       <td className="svc">{rule.name}</td>
       <td>{rule.service}</td>
       <td>{METRIC_LABEL[rule.metric] ?? rule.metric}</td>
       <td className="r">&gt; {rule.threshold} {unitOf(rule.metric)}</td>
       <td>최근 {rule.windowMin}분</td>
+      <td>
+        <button className={`toggle ${rule.enabled ? "on" : ""}`} role="switch" aria-checked={rule.enabled}
+          onClick={() => toggle.mutate()} disabled={toggle.isPending}
+          aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"} title={rule.enabled ? "켜짐 — 클릭해 일시중지" : "꺼짐 — 클릭해 활성화"}>
+          <span className="toggle-knob" />
+        </button>
+      </td>
       <td>
         <button className="icon-btn sm" onClick={() => del.mutate()} aria-label="규칙 삭제" title="삭제"><IconX /></button>
       </td>
@@ -107,7 +113,7 @@ export function Alerts() {
           />
         ) : (rules ?? []).length > 0 ? (
           <table className="tbl">
-            <thead><tr><th>규칙</th><th>서비스</th><th>지표</th><th className="r">조건</th><th>구간</th><th></th></tr></thead>
+            <thead><tr><th>규칙</th><th>서비스</th><th>지표</th><th className="r">조건</th><th>구간</th><th>사용</th><th></th></tr></thead>
             <tbody>{(rules ?? []).map((r) => <RuleRow key={r.id} rule={r} />)}</tbody>
           </table>
         ) : null}

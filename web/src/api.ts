@@ -91,6 +91,13 @@ export async function createAlertRule(rule: AlertRule): Promise<AlertRule> {
   if (!r.ok) throw new Error(await r.text() || `create ${r.status}`);
   return r.json();
 }
+// Upsert (create or update) — the POST handler keys on id, so passing an
+// existing id updates that rule (used for the enable/disable toggle).
+export async function upsertAlertRule(rule: AlertRule): Promise<AlertRule> {
+  const r = await fetch(`${BASE}/api/v1/alert-rules`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rule) });
+  if (!r.ok) throw new Error(await r.text() || `upsert ${r.status}`);
+  return r.json();
+}
 export async function deleteAlertRule(id: string): Promise<void> {
   const r = await fetch(`${BASE}/api/v1/alert-rules/${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error(`delete ${r.status}`);

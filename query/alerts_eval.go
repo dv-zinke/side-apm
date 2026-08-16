@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ type AlertStore interface {
 	InsertAlert(ctx context.Context, tenant string, a storage.Alert) error
 	EvalServiceMetric(ctx context.Context, tenant, service, metric string, windowMin uint16) (float64, bool, error)
 	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
+	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
 }
 
 // Evaluator periodically checks alert rules and fires on breaches. It tracks
@@ -46,6 +48,7 @@ func NewEvaluator(store AlertStore, interval time.Duration, webhookURL string) *
 }
 
 func (e *Evaluator) Run(ctx context.Context) {
+	e.restore(ctx)
 	t := time.NewTicker(e.interval)
 	defer t.Stop()
 	for {
@@ -55,6 +58,38 @@ func (e *Evaluator) Run(ctx context.Context) {
 		case <-t.C:
 			e.tick(ctx)
 		}
+	}
+}
+
+// restore rebuilds in-memory firing state from the alerts table on startup so a
+// query restart doesn't re-fire (and re-notify) alerts that are already active.
+func (e *Evaluator) restore(ctx context.Context) {
+	alerts, err := e.store.ListAlerts(ctx, defaultTenant, 500)
+	if err != nil {
+		return
+	}
+	seen := map[string]bool{}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, a := range alerts { // newest first
+		if seen[a.RuleID] {
+			continue
+		}
+		seen[a.RuleID] = true
+		if a.State != "firing" {
+			continue
+		}
+		if mon, ok := strings.CutPrefix(a.RuleID, "synthetic:"); ok {
+			e.monDown[mon] = true
+		} else {
+			e.firing[a.RuleID] = firingState{
+				rule: storage.AlertRule{ID: a.RuleID, Name: a.RuleName, Service: a.Service, Metric: a.Metric, Threshold: a.Threshold},
+				val:  a.Value,
+			}
+		}
+	}
+	if len(e.firing) > 0 || len(e.monDown) > 0 {
+		log.Printf("alerts: restored %d firing rules + %d down monitors", len(e.firing), len(e.monDown))
 	}
 }
 
