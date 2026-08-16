@@ -215,32 +215,43 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 	}
 	to := time.Now().UTC()
 	from := to.Add(-60 * time.Minute)
+	// Scan services concurrently so the anomaly pass doesn't push the tick past
+	// its interval as the fleet grows.
 	current := map[string]Anomaly{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	for _, svc := range services {
-		red, err := e.store.GetServiceRED(ctx, defaultTenant, svc, from, to)
-		if err != nil || len(red) < 12 {
-			continue
-		}
-		var p95, errRate, thr []float64
-		for _, p := range red {
-			p95 = append(p95, p.P95Ms)
-			er := 0.0
-			if p.RequestCount > 0 {
-				er = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
+		wg.Add(1)
+		go func(svc string) {
+			defer wg.Done()
+			red, err := e.store.GetServiceRED(ctx, defaultTenant, svc, from, to)
+			if err != nil || len(red) < 12 {
+				return
 			}
-			errRate = append(errRate, er)
-			thr = append(thr, float64(p.RequestCount))
-		}
-		if a, ok := detect(svc, "p95_ms", p95, 300, 0.5, false); ok {
-			current[svc+":p95_ms"] = a
-		}
-		if a, ok := detect(svc, "error_rate", errRate, 1, 0.5, false); ok {
-			current[svc+":error_rate"] = a
-		}
-		if a, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
-			current[svc+":throughput"] = a
-		}
+			var p95, errRate, thr []float64
+			for _, p := range red {
+				p95 = append(p95, p.P95Ms)
+				er := 0.0
+				if p.RequestCount > 0 {
+					er = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
+				}
+				errRate = append(errRate, er)
+				thr = append(thr, float64(p.RequestCount))
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if a, ok := detect(svc, "p95_ms", p95, 300, 0.5, false); ok {
+				current[svc+":p95_ms"] = a
+			}
+			if a, ok := detect(svc, "error_rate", errRate, 1, 0.5, false); ok {
+				current[svc+":error_rate"] = a
+			}
+			if a, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
+				current[svc+":throughput"] = a
+			}
+		}(svc)
 	}
+	wg.Wait()
 
 	e.mu.Lock()
 	var toFire, toResolve []Anomaly
