@@ -139,6 +139,13 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
+export type SLOStatus = { service: string; windowHours: number; totalReq: number; totalErr: number; successRate: number; target: number; budgetConsumed: number; budgetRemaining: number; apdex: number; hasApdex: boolean; status: "healthy" | "at_risk" | "breached" };
+export async function fetchSLO(windowHours = 24): Promise<SLOStatus[]> {
+  const r = await fetch(`${BASE}/api/v1/slo?windowHours=${windowHours}`);
+  if (!r.ok) throw new Error(`slo ${r.status}`);
+  return r.json();
+}
+
 export type ServiceHealth = { service: string; status: "healthy" | "degraded" | "down" | "idle"; reqRate: number; errorRate: number; p95Ms: number; apdex: number; hasApdex: boolean; anomalies: number; alerting: boolean };
 export type HealthSummary = { healthy: number; degraded: number; down: number; idle: number; activeAlerts: number; anomalies: number; monitorsUp: number; monitorsDown: number; monitorsTotal: number };
 export async function fetchHealth(): Promise<{ services: ServiceHealth[]; summary: HealthSummary }> {

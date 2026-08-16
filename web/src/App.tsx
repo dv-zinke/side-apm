@@ -15,19 +15,20 @@ import { Infra } from "./Infra";
 import { Synthetics } from "./Synthetics";
 import { Anomalies } from "./Anomalies";
 import { Health } from "./Health";
+import { Slo } from "./Slo";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "rum" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -43,6 +44,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "infra", label: "컨테이너", icon: IconContainer },
     { id: "synth", label: "가동 모니터링", icon: IconHeartbeat },
     { id: "anomaly", label: "이상탐지", icon: IconAnomaly },
+    { id: "slo", label: "SLO", icon: IconTarget },
     { id: "logs", label: "로그", icon: IconLogs },
     { id: "alerts", label: "알림", icon: IconBell },
   ] },
@@ -188,6 +190,8 @@ function Console() {
             <Synthetics />
           ) : view === "anomaly" ? (
             <Anomalies />
+          ) : view === "slo" ? (
+            <Slo />
           ) : view === "red" ? (
             <RedDashboard />
           ) : (

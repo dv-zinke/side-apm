@@ -451,6 +451,31 @@
 .hz-flag.err { color: var(--err); } .hz-flag.warn { color: var(--warn); }
 @media (max-width: 900px) { .hz-summary { grid-template-columns: repeat(3, 1fr); } }
 
+/* SLO — error budgets ─────────────────────────────────────── */
+.slo-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.slo-alert { color: var(--err); font-size: var(--fs-sm); margin: 0 0 var(--sp-3); }
+.slo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-3); }
+.slo-card { background: var(--bg-panel); border: 1px solid var(--line); border-top: 3px solid var(--ok); border-radius: var(--r-md); padding: var(--sp-4); box-shadow: var(--shadow-1); }
+.slo-card.at_risk { border-top-color: var(--warn); }
+.slo-card.breached { border-top-color: var(--err); }
+.slo-head { display: flex; align-items: center; gap: var(--sp-2); }
+.slo-name { font-weight: 600; color: var(--tx-hi); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slo-badge { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.slo-badge.healthy { background: var(--ok-wash); color: var(--ok); }
+.slo-badge.at_risk { background: var(--warn-wash); color: var(--warn); }
+.slo-badge.breached { background: var(--err-wash); color: var(--err); }
+.slo-attain { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-3) 0 var(--sp-2); }
+.slo-rate { font-family: var(--mono); font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tx-hi); }
+.slo-rate i { font-style: normal; font-size: 16px; color: var(--tx-dim); margin-left: 2px; }
+.slo-rate.ok { color: var(--ok); } .slo-rate.warn { color: var(--warn); } .slo-rate.err { color: var(--err); }
+.slo-target { font-size: var(--fs-xs); color: var(--tx-dim); margin-left: auto; }
+.slo-budget-bar { height: 8px; border-radius: 4px; background: var(--bg-raised); overflow: hidden; }
+.slo-budget-fill { height: 100%; border-radius: 4px; }
+.slo-budget-fill.ok { background: var(--ok); } .slo-budget-fill.warn { background: var(--warn); } .slo-budget-fill.err { background: var(--err); }
+.slo-budget-label { font-size: var(--fs-xs); color: var(--tx-dim); margin-top: 5px; }
+.slo-budget-label b { color: var(--tx-hi); font-family: var(--mono); }
+.slo-foot { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--tx-dim); margin-top: var(--sp-3); }
+
 /* Anomaly detection — auto-baseline ───────────────────────── */
 .anom-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .anom-list { display: flex; flex-direction: column; gap: var(--sp-2); }
