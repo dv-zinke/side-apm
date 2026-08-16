@@ -130,6 +130,10 @@ func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]s
 func (fakeReader) MonitorTimeline(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.UptimeBucket, error) {
 	return nil, nil
 }
+func (fakeReader) InsertDeploy(_ context.Context, _ string, _ storage.Deploy) error { return nil }
+func (fakeReader) ListDeploys(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.Deploy, error) {
+	return nil, nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

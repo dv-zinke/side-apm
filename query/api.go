@@ -45,6 +45,8 @@ type Reader interface {
 	ContainerSeries(ctx context.Context, tenant, container, metric string, from, to time.Time) ([]storage.MetricPoint, error)
 	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
 	MonitorTimeline(ctx context.Context, tenant, monitor string, from, to time.Time, bucketSec int) ([]storage.UptimeBucket, error)
+	InsertDeploy(ctx context.Context, tenant string, d storage.Deploy) error
+	ListDeploys(ctx context.Context, tenant, service string, from, to time.Time, limit int) ([]storage.Deploy, error)
 }
 
 type TransactionDTO struct {
@@ -131,6 +133,7 @@ func Router(r Reader) http.Handler {
 	registerAnomalies(mux, r)
 	registerHealth(mux, r)
 	registerSLO(mux, r)
+	registerDeploys(mux, r)
 	return withCORS(mux)
 }
 

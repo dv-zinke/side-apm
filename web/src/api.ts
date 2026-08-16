@@ -183,6 +183,19 @@ export async function fetchMonitorTimeline(monitor: string): Promise<UptimeBucke
   return r.json();
 }
 
+export type Deploy = { time: string; service: string; version: string; description: string };
+export async function fetchDeploys(service = "", limit = 50): Promise<Deploy[]> {
+  const p = new URLSearchParams({ limit: String(limit) });
+  if (service) p.set("service", service);
+  const r = await fetch(`${BASE}/api/v1/deploys?${p}`);
+  if (!r.ok) throw new Error(`deploys ${r.status}`);
+  return r.json();
+}
+export async function recordDeploy(d: { service: string; version: string; description?: string }): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/deploys`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
+  if (!r.ok) throw new Error(await r.text() || `deploy ${r.status}`);
+}
+
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
 export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
   const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);
