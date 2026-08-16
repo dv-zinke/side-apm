@@ -79,3 +79,4 @@ export const IconRum        = () => <svg {...N}><circle cx="12" cy="12" r="9" />
 export const IconContainer  = () => <svg {...N}><path d="M3 8l9-4 9 4v8l-9 4-9-4z" /><path d="M3 8l9 4 9-4M12 12v8" /></svg>;
 export const IconHeartbeat  = () => <svg {...N}><path d="M22 12h-4l-3 8-4-16-3 8H2" /></svg>;
 export const IconAnomaly    = () => <svg {...N}><path d="M3 15l4-6 4 4 3-7 3 5" /><path d="M18 3v4M18 10v.01" /></svg>;
+export const IconShield     = () => <svg {...N}><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>;

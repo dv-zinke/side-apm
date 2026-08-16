@@ -14,22 +14,24 @@ import { Rum } from "./Rum";
 import { Infra } from "./Infra";
 import { Synthetics } from "./Synthetics";
 import { Anomalies } from "./Anomalies";
+import { Health } from "./Health";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "rum" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "rum" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
+    { id: "health", label: "서비스 헬스", icon: IconShield },
     { id: "dashboard", label: "대시보드", icon: IconGrid },
     { id: "connect", label: "연결하기", icon: IconPlug },
   ] },
@@ -147,7 +149,7 @@ function Console() {
   // Service map node → jump to the transaction list filtered to that service.
   const openService = (name: string) => { setSvcFilter(name); setView("trace"); };
   return (
-    <NavCtx.Provider value={{ openTrace, openService }}>
+    <NavCtx.Provider value={{ openTrace, openService, setView: (id) => setView(id as View) }}>
     <div className="shell">
       <Sidebar view={view} setView={setView} />
       <div className="main">
@@ -160,7 +162,9 @@ function Console() {
           <ThemeToggle />
         </header>
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
-          {view === "dashboard" ? (
+          {view === "health" ? (
+            <Health />
+          ) : view === "dashboard" ? (
             <div className="content-scroll"><Dashboard /></div>
           ) : view === "connect" ? (
             <Onboarding />

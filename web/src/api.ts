@@ -139,6 +139,14 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
+export type ServiceHealth = { service: string; status: "healthy" | "degraded" | "down" | "idle"; reqRate: number; errorRate: number; p95Ms: number; apdex: number; hasApdex: boolean; anomalies: number; alerting: boolean };
+export type HealthSummary = { healthy: number; degraded: number; down: number; idle: number; activeAlerts: number; anomalies: number; monitorsUp: number; monitorsDown: number; monitorsTotal: number };
+export async function fetchHealth(): Promise<{ services: ServiceHealth[]; summary: HealthSummary }> {
+  const r = await fetch(`${BASE}/api/v1/health`);
+  if (!r.ok) throw new Error(`health ${r.status}`);
+  return r.json();
+}
+
 export type Anomaly = { service: string; metric: string; current: number; baseline: number; stddev: number; z: number; direction: "up" | "down"; severity: "warning" | "critical" };
 export async function fetchAnomalies(windowMin = 60): Promise<Anomaly[]> {
   const r = await fetch(`${BASE}/api/v1/anomalies?windowMin=${windowMin}`);

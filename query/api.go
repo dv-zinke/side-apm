@@ -128,6 +128,7 @@ func Router(r Reader) http.Handler {
 	registerInfra(mux, r)
 	registerSynthetics(mux, r)
 	registerAnomalies(mux, r)
+	registerHealth(mux, r)
 	return withCORS(mux)
 }
 
