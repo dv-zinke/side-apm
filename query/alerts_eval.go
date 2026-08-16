@@ -18,6 +18,7 @@ type AlertStore interface {
 	ListAlertRules(ctx context.Context, tenant string) ([]storage.AlertRule, error)
 	InsertAlert(ctx context.Context, tenant string, a storage.Alert) error
 	EvalServiceMetric(ctx context.Context, tenant, service, metric string, windowMin uint16) (float64, bool, error)
+	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
 }
 
 // Evaluator periodically checks alert rules and fires on breaches. It tracks
@@ -34,13 +35,14 @@ type Evaluator struct {
 	webhookURL string
 	mu         sync.Mutex
 	firing     map[string]firingState // rule id -> last-firing snapshot
+	monDown    map[string]bool        // monitor -> currently-down (transition tracking)
 }
 
 func NewEvaluator(store AlertStore, interval time.Duration, webhookURL string) *Evaluator {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]firingState{}}
+	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]firingState{}, monDown: map[string]bool{}}
 }
 
 func (e *Evaluator) Run(ctx context.Context) {
@@ -57,6 +59,8 @@ func (e *Evaluator) Run(ctx context.Context) {
 }
 
 func (e *Evaluator) tick(ctx context.Context) {
+	e.checkSynthetics(ctx)
+
 	rules, err := e.store.ListAlertRules(ctx, defaultTenant)
 	if err != nil {
 		log.Printf("alerts: list rules: %v", err)
@@ -113,6 +117,70 @@ func (e *Evaluator) tick(ctx context.Context) {
 	}
 }
 
+// checkSynthetics fires (and resolves) alerts when a synthetic monitor goes
+// down — no rule config needed, an unreachable endpoint is inherently alertable.
+func (e *Evaluator) checkSynthetics(ctx context.Context) {
+	to := time.Now().UTC()
+	monitors, err := e.store.ListMonitors(ctx, defaultTenant, to.Add(-90*time.Second), to)
+	if err != nil {
+		return
+	}
+	seen := make(map[string]storage.MonitorStatus, len(monitors))
+	for _, m := range monitors {
+		seen[m.Monitor] = m
+		e.mu.Lock()
+		wasDown := e.monDown[m.Monitor]
+		e.mu.Unlock()
+		if !m.Up && !wasDown {
+			e.fireSynthetic(ctx, m, "firing")
+			e.mu.Lock()
+			e.monDown[m.Monitor] = true
+			e.mu.Unlock()
+		} else if m.Up && wasDown {
+			e.fireSynthetic(ctx, m, "resolved")
+			e.mu.Lock()
+			delete(e.monDown, m.Monitor)
+			e.mu.Unlock()
+		}
+	}
+	// Auto-resolve monitors that dropped out of the window while marked down
+	// (removed from config or no longer reporting) so alerts don't linger.
+	e.mu.Lock()
+	var vanished []string
+	for name := range e.monDown {
+		if _, ok := seen[name]; !ok {
+			vanished = append(vanished, name)
+		}
+	}
+	for _, name := range vanished {
+		delete(e.monDown, name)
+	}
+	e.mu.Unlock()
+	for _, name := range vanished {
+		e.fireSynthetic(ctx, storage.MonitorStatus{Monitor: name, Uptime: 100}, "resolved")
+	}
+}
+
+func (e *Evaluator) fireSynthetic(ctx context.Context, m storage.MonitorStatus, state string) {
+	a := storage.Alert{
+		FiredAt: time.Now().UTC(), RuleID: "synthetic:" + m.Monitor, RuleName: "가동 실패: " + m.Monitor,
+		Service: m.Monitor, Metric: "uptime", Value: m.Uptime, Threshold: 100, State: state,
+	}
+	if err := e.store.InsertAlert(ctx, defaultTenant, a); err != nil {
+		log.Printf("alerts: insert synthetic: %v", err)
+	}
+	if e.webhookURL != "" {
+		icon := "🔴"
+		verb := "다운"
+		if state == "resolved" {
+			icon, verb = "✅", "복구"
+		}
+		text := fmt.Sprintf("%s [%s] 가동 %s · %s (%s) · 업타임 %.1f%%", icon, state, verb, m.Monitor, m.URL, m.Uptime)
+		e.postWebhook(text)
+	}
+	log.Printf("alerts: synthetic [%s] %s (%s)", state, m.Monitor, m.URL)
+}
+
 func (e *Evaluator) fire(ctx context.Context, r storage.AlertRule, val float64, state string) {
 	a := storage.Alert{
 		FiredAt: time.Now().UTC(), RuleID: r.ID, RuleName: r.Name, Service: r.Service,
@@ -139,6 +207,14 @@ func (e *Evaluator) notify(r storage.AlertRule, val float64, state string) {
 	}
 	text := fmt.Sprintf("%s [%s] %s · %s = %.1f%s (임계 %.1f%s, 최근 %d분)",
 		icon, state, r.Name, r.Service, val, unit, r.Threshold, unit, r.WindowMin)
+	e.postWebhook(text)
+}
+
+// postWebhook sends a Slack-compatible {"text":…} payload to the configured URL.
+func (e *Evaluator) postWebhook(text string) {
+	if e.webhookURL == "" {
+		return
+	}
 	body, _ := json.Marshal(map[string]string{"text": text})
 	req, err := http.NewRequest(http.MethodPost, e.webhookURL, bytes.NewReader(body))
 	if err != nil {
@@ -154,7 +230,5 @@ func (e *Evaluator) notify(r storage.AlertRule, val float64, state string) {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		log.Printf("alerts: webhook returned %d", resp.StatusCode)
-		return
 	}
-	log.Printf("alerts: notified [%s] %s (%s)", state, r.Name, r.Service)
 }

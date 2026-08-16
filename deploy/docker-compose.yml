@@ -39,6 +39,8 @@ services:
       # Optional Slack-compatible alert webhook. Set your Slack Incoming Webhook
       # URL (or leave unset to disable delivery).
       APM_ALERT_WEBHOOK: "${APM_ALERT_WEBHOOK:-}"
+      # Synthetic monitors: "name|url,name|url" (unset = default local+external set).
+      APM_SYNTHETICS: "${APM_SYNTHETICS:-}"
     ports: ["8080:8080"]
     depends_on:
       clickhouse:
