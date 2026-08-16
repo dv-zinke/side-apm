@@ -157,12 +157,21 @@ func (fakeReader) ListDashboards(_ context.Context, _ string) ([]storage.Dashboa
 }
 func (fakeReader) UpsertDashboard(_ context.Context, _ string, _ storage.Dashboard) error { return nil }
 func (fakeReader) DeleteDashboard(_ context.Context, _, _ string) error                   { return nil }
+func (fakeReader) Authenticate(_ context.Context, _, _ string) (storage.User, bool, error) {
+	return storage.User{}, false, nil
+}
+
+func authGet(url string) (*http.Response, error) {
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+signToken(Principal{Tenant: "default", User: "t", Role: "admin", Exp: time.Now().Add(time.Hour).Unix()}))
+	return http.DefaultClient.Do(req)
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/api/v1/transactions?limit=10")
+	resp, err := authGet(srv.URL + "/api/v1/transactions?limit=10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +190,7 @@ func TestTraceSpansEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/api/v1/traces/aa11/spans")
+	resp, err := authGet(srv.URL + "/api/v1/traces/aa11/spans")
 	if err != nil {
 		t.Fatal(err)
 	}

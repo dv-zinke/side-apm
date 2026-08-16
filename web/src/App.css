@@ -736,3 +736,21 @@
 .cd-list-open { flex: 1; display: flex; align-items: baseline; gap: var(--sp-3); background: transparent; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .cd-list-name { font-weight: 600; color: var(--tx-hi); }
 .cd-list-meta { font-size: var(--fs-xs); color: var(--tx-dim); }
+
+/* Login screen */
+.login-shell { display: flex; align-items: center; justify-content: center; min-height: 100svh; background: var(--bg-base); padding: var(--sp-4); }
+.login-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: var(--sp-3); background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-6); box-shadow: var(--shadow-2); }
+.login-brand { display: flex; align-items: center; gap: var(--sp-2); color: var(--accent); font-weight: 600; }
+.login-title { font-size: var(--fs-lg); font-weight: 700; color: var(--tx-hi); margin: var(--sp-2) 0 0; }
+.login-sub { font-size: var(--fs-sm); color: var(--tx-dim); margin: 0 0 var(--sp-2); }
+.login-btn { width: 100%; justify-content: center; margin-top: var(--sp-2); }
+.login-hint { font-size: var(--fs-xs); color: var(--tx-dim); text-align: center; margin: var(--sp-2) 0 0; }
+.login-hint b { color: var(--tx); font-family: var(--mono); }
+
+/* User menu (topbar) */
+.usermenu { display: flex; align-items: center; gap: var(--sp-2); }
+.usermenu-name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--tx-hi); }
+.usermenu-role { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--accent-wash); color: var(--accent); }
+.btn-sm { padding: 4px 10px; font-size: var(--fs-xs); }
+
+.login-card .onboard-field { flex: none; display: flex; flex-direction: column; gap: 4px; }

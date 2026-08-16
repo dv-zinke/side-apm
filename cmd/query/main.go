@@ -17,6 +17,11 @@ func main() {
 		log.Fatalf("clickhouse: %v", err)
 	}
 
+	// Seed default console users (admin/admin, viewer/viewer) on first boot.
+	if err := store.SeedDefaultUsers(context.Background()); err != nil {
+		log.Printf("users: seed: %v", err)
+	}
+
 	// Background alert evaluator: checks rules on an interval, fires on breach,
 	// optional Slack-compatible webhook via APM_ALERT_WEBHOOK.
 	webhook := os.Getenv("APM_ALERT_WEBHOOK")

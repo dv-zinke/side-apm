@@ -9,6 +9,7 @@ import type { Dashboard, Panel } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
+import { useAuth } from "./auth";
 
 const PANEL_TYPES = [
   { id: "red", label: "RED 시계열" },
@@ -105,6 +106,8 @@ function AddPanel({ onAdd }: { onAdd: (p: Panel) => void }) {
 
 export function CustomDash() {
   const qc = useQueryClient();
+  const { auth } = useAuth();
+  const canEdit = auth?.role !== "viewer";
   const { data: dashboards, isLoading } = useQuery({ queryKey: ["dashboards"], queryFn: fetchDashboards, refetchInterval: 20000 });
   const [editing, setEditing] = useState<Dashboard | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["dashboards"] });
@@ -139,8 +142,8 @@ export function CustomDash() {
     <div className="content-scroll">
       <div className="cd-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">커스텀 대시보드</span>
-          <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setEditing({ id: "", name: "새 대시보드", spec: { panels: [] } })}>새 대시보드</button>
+          <span className="pane-title">커스텀 대시보드 {!canEdit && <span className="chip muted" style={{ marginLeft: 6 }}>읽기 전용</span>}</span>
+          {canEdit && <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setEditing({ id: "", name: "새 대시보드", spec: { panels: [] } })}>새 대시보드</button>}
         </div>
         {isLoading ? <Skeleton rows={4} /> : (dashboards ?? []).length === 0 ? (
           <EmptyState title="아직 대시보드가 없어요" body="RED·Apdex·컨테이너 패널을 조합해 팀·서비스별 관제 화면을 직접 만들어요." />

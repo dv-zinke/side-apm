@@ -56,6 +56,7 @@ type Reader interface {
 	ListDashboards(ctx context.Context, tenant string) ([]storage.Dashboard, error)
 	UpsertDashboard(ctx context.Context, tenant string, d storage.Dashboard) error
 	DeleteDashboard(ctx context.Context, tenant, id string) error
+	Authenticate(ctx context.Context, username, password string) (storage.User, bool, error)
 }
 
 type TransactionDTO struct {
@@ -155,7 +156,8 @@ func Router(r Reader) http.Handler {
 	registerDeploys(mux, r)
 	registerApp(mux, r)
 	registerDashboards(mux, r)
-	return withCORS(mux)
+	registerAuth(mux, r)
+	return withCORS(authMiddleware(mux))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -167,7 +169,7 @@ func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

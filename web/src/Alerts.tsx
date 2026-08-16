@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts, upsertAlertRule } from "./api";
 import type { AlertRule } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
+import { useAuth } from "./auth";
 
 const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연", uptime: "가동", throughput: "처리량" };
 const unitOf = (m: string) => (m === "p95_ms" ? "ms" : m === "throughput" ? "/분" : "%");
@@ -65,6 +66,8 @@ function RuleForm({ onDone }: { onDone: () => void }) {
 
 function RuleRow({ rule }: { rule: AlertRule }) {
   const qc = useQueryClient();
+  const { auth } = useAuth();
+  const canEdit = auth?.role !== "viewer";
   const invalidate = () => qc.invalidateQueries({ queryKey: ["alert-rules"] });
   const del = useMutation({ mutationFn: () => deleteAlertRule(rule.id!), onSuccess: invalidate });
   const toggle = useMutation({ mutationFn: () => upsertAlertRule({ ...rule, enabled: !rule.enabled }), onSuccess: invalidate });
@@ -77,13 +80,13 @@ function RuleRow({ rule }: { rule: AlertRule }) {
       <td>최근 {rule.windowMin}분</td>
       <td>
         <button className={`toggle ${rule.enabled ? "on" : ""}`} role="switch" aria-checked={rule.enabled}
-          onClick={() => toggle.mutate()} disabled={toggle.isPending}
+          onClick={() => toggle.mutate()} disabled={toggle.isPending || !canEdit}
           aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"} title={rule.enabled ? "켜짐 — 클릭해 일시중지" : "꺼짐 — 클릭해 활성화"}>
           <span className="toggle-knob" />
         </button>
       </td>
       <td>
-        <button className="icon-btn sm" onClick={() => del.mutate()} aria-label="규칙 삭제" title="삭제"><IconX /></button>
+        {canEdit && <button className="icon-btn sm" onClick={() => del.mutate()} aria-label="규칙 삭제" title="삭제"><IconX /></button>}
       </td>
     </tr>
   );
@@ -91,6 +94,8 @@ function RuleRow({ rule }: { rule: AlertRule }) {
 
 export function Alerts() {
   const [adding, setAdding] = useState(false);
+  const { auth } = useAuth();
+  const canEdit = auth?.role !== "viewer";
   const { data: rules, isLoading: rulesLoading } = useQuery({ queryKey: ["alert-rules"], queryFn: fetchAlertRules, refetchInterval: 10000 });
   const { data: alerts } = useQuery({ queryKey: ["alerts"], queryFn: fetchAlerts, refetchInterval: 5000 });
 
@@ -98,8 +103,8 @@ export function Alerts() {
     <div className="content-scroll">
       <div className="alerts-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">알림 규칙</span>
-          {!adding && <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setAdding(true)}>규칙 추가</button>}
+          <span className="pane-title">알림 규칙 {!canEdit && <span className="chip muted" style={{ marginLeft: 6 }}>읽기 전용</span>}</span>
+          {canEdit && !adding && <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setAdding(true)}>규칙 추가</button>}
         </div>
 
         {adding && <RuleForm onDone={() => setAdding(false)} />}

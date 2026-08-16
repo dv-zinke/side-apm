@@ -22,6 +22,8 @@ import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
+import { AuthProvider, useAuth, installAuthFetch } from "./auth";
+import { Login } from "./Login";
 import {
   IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon,
 } from "./states";
@@ -145,6 +147,18 @@ function ThemeToggle() {
   );
 }
 
+const ROLE_LABEL: Record<string, string> = { admin: "관리자", editor: "편집자", viewer: "뷰어" };
+function UserMenu() {
+  const { auth, setAuth } = useAuth();
+  if (!auth) return null;
+  return (
+    <div className="usermenu">
+      <span className="usermenu-name">{auth.user}<span className="usermenu-role">{ROLE_LABEL[auth.role] ?? auth.role}</span></span>
+      <button className="btn btn-sm" onClick={() => setAuth(null)}>로그아웃</button>
+    </div>
+  );
+}
+
 function Console() {
   const [view, setView] = useState<View>("dashboard");
   const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
@@ -166,6 +180,7 @@ function Console() {
             <span className="live-dot" /><span className="live-text">live</span>
           </span>
           <ThemeToggle />
+          <UserMenu />
         </header>
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
           {view === "health" ? (
@@ -215,13 +230,24 @@ function Console() {
   );
 }
 
+function Gate() {
+  const { auth, setAuth } = useAuth();
+  useEffect(() => { installAuthFetch(() => setAuth(null)); }, [setAuth]);
+  if (!auth) return <Login />;
+  return (
+    <LiveProvider>
+      <Console />
+    </LiveProvider>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={qc}>
-        <LiveProvider>
-          <Console />
-        </LiveProvider>
+        <AuthProvider>
+          <Gate />
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
