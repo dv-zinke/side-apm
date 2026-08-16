@@ -58,8 +58,10 @@ services:
     build: { context: .., dockerfile: cmd/dockermon/Dockerfile }
     environment:
       APM_GATEWAY: "http://gateway:4318"
+      HOST_PROC: "/host/proc"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
     depends_on: [gateway]
     restart: on-failure
 

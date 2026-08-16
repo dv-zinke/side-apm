@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -39,13 +40,122 @@ func main() {
 	}}
 	out := &http.Client{Timeout: 5 * time.Second}
 
-	log.Printf("dockermon: socket=%s gateway=%s interval=%s prefixes=%v", sock, gateway, interval, prefixes)
+	procPath := getenv("HOST_PROC", "/host/proc")
+	hostURL := getenv("APM_GATEWAY", "http://gateway:4318") + "/v1/infra/host"
+
+	log.Printf("dockermon: socket=%s gateway=%s interval=%s prefixes=%v proc=%s", sock, gateway, interval, prefixes, procPath)
+	var prevIdle, prevTotal uint64
 	for {
 		if err := collect(docker, out, gateway, prefixes); err != nil {
 			log.Printf("dockermon: %v", err)
 		}
+		if pi, pt, err := collectHost(docker, out, hostURL, procPath, prevIdle, prevTotal); err != nil {
+			log.Printf("dockermon: host: %v", err)
+		} else {
+			prevIdle, prevTotal = pi, pt
+		}
 		time.Sleep(interval)
 	}
+}
+
+type dockerInfo struct {
+	NCPU               int `json:"NCPU"`
+	Containers         int `json:"Containers"`
+	ContainersRunning  int `json:"ContainersRunning"`
+}
+
+// collectHost reads host CPU/memory/load from /proc and container counts from
+// the Docker daemon, then posts one host snapshot.
+func collectHost(docker, out *http.Client, hostURL, procPath string, prevIdle, prevTotal uint64) (uint64, uint64, error) {
+	idle, total, err := readCPU(procPath)
+	if err != nil {
+		return prevIdle, prevTotal, err
+	}
+	cpuPct := 0.0
+	if prevTotal > 0 && total > prevTotal {
+		cpuPct = (1 - float64(idle-prevIdle)/float64(total-prevTotal)) * 100
+	}
+	memTotal, memAvail := readMem(procPath)
+	memUsed := uint64(0)
+	memPct := 0.0
+	if memTotal > memAvail {
+		memUsed = memTotal - memAvail
+		memPct = float64(memUsed) / float64(memTotal) * 100
+	}
+	load1 := readLoad(procPath)
+	var info dockerInfo
+	_ = getJSON(docker, "http://d/"+apiVer+"/info", &info)
+
+	body, _ := json.Marshal(map[string]any{
+		"ts": time.Now().UnixMilli(), "cpuPct": cpuPct, "memUsed": memUsed, "memTotal": memTotal,
+		"memPct": memPct, "ncpu": info.NCPU, "load1": load1,
+		"containersRunning": info.ContainersRunning, "containersTotal": info.Containers,
+	})
+	if prevTotal > 0 { // skip the first tick (no delta yet)
+		resp, err := out.Post(hostURL, "application/json", bytes.NewReader(body))
+		if err != nil {
+			return idle, total, err
+		}
+		_ = resp.Body.Close()
+	}
+	return idle, total, nil
+}
+
+func readCPU(procPath string) (idle, total uint64, err error) {
+	b, err := os.ReadFile(procPath + "/stat")
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if !strings.HasPrefix(line, "cpu ") {
+			continue
+		}
+		fields := strings.Fields(line)[1:]
+		for i, f := range fields {
+			v, _ := strconv.ParseUint(f, 10, 64)
+			total += v
+			if i == 3 || i == 4 { // idle + iowait
+				idle += v
+			}
+		}
+		return idle, total, nil
+	}
+	return 0, 0, nil
+}
+
+func readMem(procPath string) (total, avail uint64) {
+	b, err := os.ReadFile(procPath + "/meminfo")
+	if err != nil {
+		return 0, 0
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		v, _ := strconv.ParseUint(f[1], 10, 64)
+		v *= 1024 // kB → bytes
+		switch f[0] {
+		case "MemTotal:":
+			total = v
+		case "MemAvailable:":
+			avail = v
+		}
+	}
+	return total, avail
+}
+
+func readLoad(procPath string) float64 {
+	b, err := os.ReadFile(procPath + "/loadavg")
+	if err != nil {
+		return 0
+	}
+	f := strings.Fields(string(b))
+	if len(f) == 0 {
+		return 0
+	}
+	v, _ := strconv.ParseFloat(f[0], 64)
+	return v
 }
 
 func splitCSV(s string) []string {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { fetchContainers, fetchContainerSeries } from "./api";
+import { fetchContainers, fetchContainerSeries, fetchHost } from "./api";
 import type { Container } from "./api";
 import { EmptyState, Skeleton } from "./states";
 import { useTheme } from "./theme";
@@ -47,27 +47,23 @@ function SeriesModal({ name, onClose }: { name: string; onClose: () => void }) {
 
 export function Infra() {
   const { data, isLoading } = useQuery({ queryKey: ["containers"], queryFn: fetchContainers, refetchInterval: 5000 });
+  const { data: host } = useQuery({ queryKey: ["host"], queryFn: fetchHost, refetchInterval: 5000 });
   const [sel, setSel] = useState<string | null>(null);
-
-  const fleet = (data ?? []).reduce(
-    (a, c) => { a.cpu += c.cpuPct; a.mem += c.memBytes; a.running += c.status === "running" ? 1 : 0; return a; },
-    { cpu: 0, mem: 0, running: 0 },
-  );
 
   return (
     <div className="content-scroll">
       {sel && <SeriesModal name={sel} onClose={() => setSel(null)} />}
       <div className="infra-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">컨테이너 · Docker <span className="hint-inline">행을 클릭하면 시계열</span></span>
+          <span className="pane-title">인프라 · 호스트 & 컨테이너 <span className="hint-inline">행을 클릭하면 시계열</span></span>
           {data && <span className="chip muted" style={{ marginLeft: "auto" }}><span className="dot" />{data.length}개</span>}
         </div>
-        {data && data.length > 0 && (
+        {host && host.hasData && (
           <section className="kpi-grid" style={{ marginBottom: "var(--sp-3)" }}>
-            <div className="kpi-card"><div className="kpi-label">컨테이너</div><div className="kpi-value">{data.length}<span className="kpi-unit">개</span></div></div>
-            <div className="kpi-card"><div className="kpi-label">실행 중</div><div className={`kpi-value${fleet.running < data.length ? " warn" : " ok"}`}>{fleet.running}/{data.length}</div></div>
-            <div className="kpi-card"><div className="kpi-label">총 CPU</div><div className={`kpi-value${fleet.cpu > 200 ? " warn" : ""}`}>{fleet.cpu.toFixed(1)}<span className="kpi-unit">%</span></div></div>
-            <div className="kpi-card"><div className="kpi-label">총 메모리</div><div className="kpi-value">{mb(fleet.mem)}</div></div>
+            <div className="kpi-card"><div className="kpi-label">호스트 CPU</div><div className={`kpi-value${host.cpuPct > 85 ? " err" : host.cpuPct > 60 ? " warn" : ""}`}>{host.cpuPct.toFixed(1)}<span className="kpi-unit">% · {host.ncpu} CPU</span></div></div>
+            <div className="kpi-card"><div className="kpi-label">호스트 메모리</div><div className={`kpi-value${host.memPct > 85 ? " err" : host.memPct > 70 ? " warn" : ""}`}>{host.memPct.toFixed(0)}<span className="kpi-unit">% · {mb(host.memUsed)}/{mb(host.memTotal)}</span></div></div>
+            <div className="kpi-card"><div className="kpi-label">Load (1m)</div><div className={`kpi-value${host.load1 > host.ncpu ? " warn" : ""}`}>{host.load1.toFixed(2)}</div></div>
+            <div className="kpi-card"><div className="kpi-label">컨테이너</div><div className={`kpi-value${host.containersRunning < host.containersTotal ? " warn" : " ok"}`}>{host.containersRunning}/{host.containersTotal}<span className="kpi-unit">실행</span></div></div>
           </section>
         )}
         {isLoading ? (

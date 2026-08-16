@@ -105,3 +105,36 @@ GROUP BY bucket ORDER BY bucket`
 	}
 	return out, rows.Err()
 }
+
+type HostStat struct {
+	TenantID          string
+	Time              time.Time
+	CPUPct            float64
+	MemUsed           uint64
+	MemTotal          uint64
+	MemPct            float64
+	NCPU              uint16
+	Load1             float64
+	ContainersRunning uint16
+	ContainersTotal   uint16
+}
+
+func (s *Store) InsertHostStat(ctx context.Context, h HostStat) error {
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO apm.host_stats (tenant_id,ts,cpu_pct,mem_used,mem_total,mem_pct,ncpu,load1,containers_running,containers_total) VALUES (?,?,?,?,?,?,?,?,?,?)",
+		h.TenantID, h.Time, h.CPUPct, h.MemUsed, h.MemTotal, h.MemPct, h.NCPU, h.Load1, h.ContainersRunning, h.ContainersTotal)
+	return err
+}
+
+// LatestHost returns the most recent host stats snapshot.
+func (s *Store) LatestHost(ctx context.Context, tenantID string) (HostStat, bool, error) {
+	var h HostStat
+	h.TenantID = tenantID
+	row := s.db.QueryRowContext(ctx, `
+SELECT ts, cpu_pct, mem_used, mem_total, mem_pct, ncpu, load1, containers_running, containers_total
+FROM apm.host_stats WHERE tenant_id = ? ORDER BY ts DESC LIMIT 1`, tenantID)
+	if err := row.Scan(&h.Time, &h.CPUPct, &h.MemUsed, &h.MemTotal, &h.MemPct, &h.NCPU, &h.Load1, &h.ContainersRunning, &h.ContainersTotal); err != nil {
+		return h, false, nil
+	}
+	return h, true, nil
+}

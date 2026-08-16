@@ -164,6 +164,13 @@ export async function fetchReplay(id: string): Promise<unknown[]> {
   return r.json();
 }
 
+export type HostStat = { hasData: boolean; cpuPct: number; memUsed: number; memTotal: number; memPct: number; ncpu: number; load1: number; containersRunning: number; containersTotal: number; time?: string };
+export async function fetchHost(): Promise<HostStat> {
+  const r = await fetch(`${BASE}/api/v1/infra/host`);
+  if (!r.ok) throw new Error(`host ${r.status}`);
+  return r.json();
+}
+
 export type Container = { container: string; image: string; status: string; cpuPct: number; memBytes: number; memLimit: number; memPct: number; netRx: number; netTx: number; time: string };
 export async function fetchContainers(): Promise<Container[]> {
   const r = await fetch(`${BASE}/api/v1/infra/containers`);

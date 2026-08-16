@@ -40,6 +40,7 @@ func main() {
 	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))
 	mux.HandleFunc("/v1/rum/replay", gateway.RumReplayHandler(store))
 	mux.HandleFunc("/v1/infra", gateway.InfraHandler(infraBuf.Publish))
+	mux.HandleFunc("/v1/infra/host", gateway.HostHandler(store))
 	mux.HandleFunc("/v1/app", gateway.AppHandler(appBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 

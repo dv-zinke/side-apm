@@ -43,6 +43,7 @@ type Reader interface {
 	GetReplay(ctx context.Context, tenant, id string) (string, error)
 	ListContainers(ctx context.Context, tenant string, from, to time.Time) ([]storage.ContainerStat, error)
 	ContainerSeries(ctx context.Context, tenant, container, metric string, from, to time.Time) ([]storage.MetricPoint, error)
+	LatestHost(ctx context.Context, tenant string) (storage.HostStat, bool, error)
 	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
 	MonitorTimeline(ctx context.Context, tenant, monitor string, from, to time.Time, bucketSec int) ([]storage.UptimeBucket, error)
 	InsertDeploy(ctx context.Context, tenant string, d storage.Deploy) error

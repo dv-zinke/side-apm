@@ -124,6 +124,9 @@ func (fakeReader) ListContainers(_ context.Context, _ string, _, _ time.Time) ([
 func (fakeReader) ContainerSeries(_ context.Context, _, _, _ string, _, _ time.Time) ([]storage.MetricPoint, error) {
 	return nil, nil
 }
+func (fakeReader) LatestHost(_ context.Context, _ string) (storage.HostStat, bool, error) {
+	return storage.HostStat{}, false, nil
+}
 func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]storage.MonitorStatus, error) {
 	return nil, nil
 }
