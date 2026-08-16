@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import { fetchReplay } from "./api";
-import { IconX } from "./states";
+import { IconX, Skeleton } from "./states";
 import type { ReplayMeta } from "./api";
 
 // Session replay ("error video") — replays the rrweb DOM stream captured when
@@ -41,7 +41,7 @@ export function ReplayModal({ meta, onClose }: { meta: ReplayMeta; onClose: () =
         </header>
         <div className="modal-body replay-body">
           {isLoading ? (
-            <div className="log-empty">리플레이를 불러오는 중…</div>
+            <div style={{ width: 900, maxWidth: "100%" }}><Skeleton rows={8} /></div>
           ) : !enough ? (
             <div className="log-empty">재생할 이벤트가 부족해요 (에러 직전 화면이 기록되지 않았어요).</div>
           ) : (

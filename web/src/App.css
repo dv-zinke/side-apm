@@ -193,6 +193,7 @@
   padding: var(--sp-4);
   box-shadow: var(--shadow-1);
   min-width: 0;
+  align-self: start; /* don't stretch to the tallest grid sibling */
 }
 .dash-panel .section-label { margin-top: 0; }
 .hm-fixed { height: 340px; display: flex; flex-direction: column; }
