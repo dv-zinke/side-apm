@@ -21,6 +21,8 @@ type AlertStore interface {
 	EvalServiceMetric(ctx context.Context, tenant, service, metric string, windowMin uint16) (float64, bool, error)
 	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
 	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
+	ListServices(ctx context.Context, tenant string) ([]string, error)
+	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
 }
 
 // Evaluator periodically checks alert rules and fires on breaches. It tracks
@@ -38,13 +40,14 @@ type Evaluator struct {
 	mu         sync.Mutex
 	firing     map[string]firingState // rule id -> last-firing snapshot
 	monDown    map[string]bool        // monitor -> currently-down (transition tracking)
+	anomActive map[string]Anomaly     // "service:metric" -> current anomaly (transition tracking)
 }
 
 func NewEvaluator(store AlertStore, interval time.Duration, webhookURL string) *Evaluator {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]firingState{}, monDown: map[string]bool{}}
+	return &Evaluator{store: store, interval: interval, webhookURL: webhookURL, firing: map[string]firingState{}, monDown: map[string]bool{}, anomActive: map[string]Anomaly{}}
 }
 
 func (e *Evaluator) Run(ctx context.Context) {
@@ -81,6 +84,8 @@ func (e *Evaluator) restore(ctx context.Context) {
 		}
 		if mon, ok := strings.CutPrefix(a.RuleID, "synthetic:"); ok {
 			e.monDown[mon] = true
+		} else if strings.HasPrefix(a.RuleID, "anomaly:") {
+			e.anomActive[a.Service+":"+a.Metric] = Anomaly{Service: a.Service, Metric: a.Metric, Current: a.Value, Baseline: a.Threshold}
 		} else {
 			e.firing[a.RuleID] = firingState{
 				rule: storage.AlertRule{ID: a.RuleID, Name: a.RuleName, Service: a.Service, Metric: a.Metric, Threshold: a.Threshold},
@@ -88,13 +93,14 @@ func (e *Evaluator) restore(ctx context.Context) {
 			}
 		}
 	}
-	if len(e.firing) > 0 || len(e.monDown) > 0 {
-		log.Printf("alerts: restored %d firing rules + %d down monitors", len(e.firing), len(e.monDown))
+	if len(e.firing) > 0 || len(e.monDown) > 0 || len(e.anomActive) > 0 {
+		log.Printf("alerts: restored %d firing rules + %d down monitors + %d anomalies", len(e.firing), len(e.monDown), len(e.anomActive))
 	}
 }
 
 func (e *Evaluator) tick(ctx context.Context) {
 	e.checkSynthetics(ctx)
+	e.checkAnomalies(ctx)
 
 	rules, err := e.store.ListAlertRules(ctx, defaultTenant)
 	if err != nil {
@@ -194,6 +200,83 @@ func (e *Evaluator) checkSynthetics(ctx context.Context) {
 	for _, name := range vanished {
 		e.fireSynthetic(ctx, storage.MonitorStatus{Monitor: name, Uptime: 100}, "resolved")
 	}
+}
+
+// checkAnomalies scans services for z-score anomalies and fires/resolves alerts
+// on transitions — making anomaly detection actionable (on-call), not just a view.
+func (e *Evaluator) checkAnomalies(ctx context.Context) {
+	services, err := e.store.ListServices(ctx, defaultTenant)
+	if err != nil {
+		return
+	}
+	to := time.Now().UTC()
+	from := to.Add(-60 * time.Minute)
+	current := map[string]Anomaly{}
+	for _, svc := range services {
+		red, err := e.store.GetServiceRED(ctx, defaultTenant, svc, from, to)
+		if err != nil || len(red) < 12 {
+			continue
+		}
+		var p95, errRate []float64
+		for _, p := range red {
+			p95 = append(p95, p.P95Ms)
+			er := 0.0
+			if p.RequestCount > 0 {
+				er = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
+			}
+			errRate = append(errRate, er)
+		}
+		if a, ok := detect(svc, "p95_ms", p95, 300, 0.5, false); ok {
+			current[svc+":p95_ms"] = a
+		}
+		if a, ok := detect(svc, "error_rate", errRate, 1, 0.5, false); ok {
+			current[svc+":error_rate"] = a
+		}
+	}
+
+	e.mu.Lock()
+	var toFire, toResolve []Anomaly
+	for key, a := range current {
+		if _, was := e.anomActive[key]; !was {
+			toFire = append(toFire, a)
+		}
+		e.anomActive[key] = a
+	}
+	for key, a := range e.anomActive {
+		if _, still := current[key]; !still {
+			toResolve = append(toResolve, a)
+			delete(e.anomActive, key)
+		}
+	}
+	e.mu.Unlock()
+
+	for _, a := range toFire {
+		e.fireAnomaly(ctx, a, "firing")
+	}
+	for _, a := range toResolve {
+		e.fireAnomaly(ctx, a, "resolved")
+	}
+}
+
+func (e *Evaluator) fireAnomaly(ctx context.Context, a Anomaly, state string) {
+	al := storage.Alert{
+		FiredAt: time.Now().UTC(), RuleID: "anomaly:" + a.Service + ":" + a.Metric,
+		RuleName: "이상 감지: " + a.Service + " " + a.Metric, Service: a.Service,
+		Metric: a.Metric, Value: a.Current, Threshold: a.Baseline, State: state,
+	}
+	if err := e.store.InsertAlert(ctx, defaultTenant, al); err != nil {
+		log.Printf("alerts: insert anomaly: %v", err)
+	}
+	if e.webhookURL != "" {
+		icon, verb := "🔴", "이상 급변"
+		if state == "resolved" {
+			icon, verb = "✅", "이상 해소"
+		}
+		text := fmt.Sprintf("%s [%s] %s · %s %s = %.1f (평소 %.1f, %.1fσ)",
+			icon, state, verb, a.Service, a.Metric, a.Current, a.Baseline, a.Z)
+		e.postWebhook(text)
+	}
+	log.Printf("alerts: anomaly [%s] %s %s (%.1fσ)", state, a.Service, a.Metric, a.Z)
 }
 
 func (e *Evaluator) fireSynthetic(ctx context.Context, m storage.MonitorStatus, state string) {
