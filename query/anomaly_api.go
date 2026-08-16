@@ -91,7 +91,9 @@ func registerAnomalies(mux *http.ServeMux, r Reader) {
 		out := make([]Anomaly, 0)
 		for _, svc := range services {
 			red, err := r.GetServiceRED(req.Context(), defaultTenant, svc, from, to)
-			if err != nil || len(red) < 11 {
+			// detect() drops the incomplete current bucket then needs recentN+8=11,
+			// so it needs 12 raw buckets — align the guard to avoid silent skips.
+			if err != nil || len(red) < 12 {
 				continue
 			}
 			var p95, errRate, thr []float64

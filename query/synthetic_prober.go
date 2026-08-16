@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/heejune/apm/internal/storage"
@@ -81,10 +82,18 @@ func (p *SyntheticProber) Run(ctx context.Context) {
 }
 
 func (p *SyntheticProber) tick(ctx context.Context) {
-	checks := make([]storage.SyntheticCheck, 0, len(p.monitors))
-	for _, m := range p.monitors {
-		checks = append(checks, p.probe(ctx, m))
+	// Probe concurrently so one slow/timing-out monitor doesn't push the tick
+	// past its interval and drop checks for the others.
+	checks := make([]storage.SyntheticCheck, len(p.monitors))
+	var wg sync.WaitGroup
+	for i, m := range p.monitors {
+		wg.Add(1)
+		go func(i int, m Monitor) {
+			defer wg.Done()
+			checks[i] = p.probe(ctx, m)
+		}(i, m)
 	}
+	wg.Wait()
 	if err := p.store.InsertSyntheticChecks(ctx, checks); err != nil {
 		log.Printf("synthetics: insert: %v", err)
 	}

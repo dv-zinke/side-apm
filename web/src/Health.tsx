@@ -58,7 +58,7 @@ export function Health() {
                     <span className={`hz-badge ${h.status}`}>{STATUS_LABEL[h.status]}</span>
                   </div>
                   <div className="hz-metrics">
-                    <span><b>{h.reqRate.toFixed(0)}</b><i>req/분</i></span>
+                    <span><b>{h.reqPerMin.toFixed(0)}</b><i>req/분</i></span>
                     <span className={h.errorRate >= 5 ? "err" : h.errorRate >= 1 ? "warn" : ""}><b>{h.errorRate.toFixed(1)}%</b><i>에러</i></span>
                     <span className={h.p95Ms >= 1500 ? "err" : h.p95Ms >= 600 ? "warn" : ""}><b>{ms(h.p95Ms)}</b><i>p95</i></span>
                     {h.hasApdex && <span className={apdexTone(h.apdex)}><b>{h.apdex.toFixed(2)}</b><i>apdex</i></span>}

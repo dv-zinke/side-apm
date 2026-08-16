@@ -8,7 +8,7 @@ import (
 type ServiceHealth struct {
 	Service   string  `json:"service"`
 	Status    string  `json:"status"` // healthy | degraded | down | idle
-	ReqRate   float64 `json:"reqRate"`
+	ReqPerMin float64 `json:"reqPerMin"`
 	ErrorRate float64 `json:"errorRate"`
 	P95Ms     float64 `json:"p95Ms"`
 	Apdex     float64 `json:"apdex"`
@@ -63,17 +63,29 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 		for _, svc := range services {
 			red, err := r.GetServiceRED(ctx, defaultTenant, svc, from, to)
 			if err != nil || len(red) == 0 {
-				continue // no recent traffic — not part of the live fleet
+				continue // never active in the window — not part of the live fleet
 			}
 			h := ServiceHealth{Service: svc, Status: "idle"}
+
+			// A service that WAS reporting but whose latest bucket is stale has
+			// gone silent (crashed / traffic cut) — surface it as down instead of
+			// letting it vanish or computing on stale numbers.
+			if to.Sub(red[len(red)-1].Minute) > 3*time.Minute {
+				h.Status = "down"
+				h.Alerting = alertingSvc[svc]
+				sum.Down++
+				out = append(out, h)
+				continue
+			}
+
 			{
-				// most recent complete minute
+				// most recent complete minute (skip the in-progress current one)
 				idx := len(red) - 1
 				if len(red) >= 2 {
 					idx = len(red) - 2
 				}
 				p := red[idx]
-				h.ReqRate = float64(p.RequestCount)
+				h.ReqPerMin = float64(p.RequestCount)
 				if p.RequestCount > 0 {
 					h.ErrorRate = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
 				}
@@ -137,7 +149,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 }
 
 func classify(h ServiceHealth) string {
-	if h.ReqRate == 0 {
+	if h.ReqPerMin == 0 {
 		return "idle"
 	}
 	if h.ErrorRate >= 25 {

@@ -51,7 +51,11 @@ export function Slo() {
                     </div>
                     <div className="slo-budget">
                       <div className="slo-budget-bar"><div className={`slo-budget-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(100, s.budgetRemaining))}%` }} /></div>
-                      <div className="slo-budget-label">에러 버짓 <b>{s.budgetRemaining.toFixed(0)}%</b> 남음</div>
+                      <div className="slo-budget-label">
+                        {s.status === "breached"
+                          ? <>에러 버짓 <b>소진</b> · 목표 미달</>
+                          : <>에러 버짓 <b>{s.budgetRemaining.toFixed(0)}%</b> 남음</>}
+                      </div>
                     </div>
                     <div className="slo-foot">
                       <span>{s.totalReq.toLocaleString()} 요청 · 오류 {s.totalErr.toLocaleString()}</span>
