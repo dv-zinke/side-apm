@@ -81,8 +81,12 @@ type REDPoint struct {
 }
 
 func (s *Store) ListServices(ctx context.Context, tenantID string) ([]string, error) {
+	// Only services with traffic in the last 24h — stale/test services from long
+	// ago shouldn't pollute dropdowns or become the default selection.
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT DISTINCT service_name FROM apm.red_rollup WHERE tenant_id = ? ORDER BY service_name`, tenantID)
+		`SELECT DISTINCT service_name FROM apm.red_rollup
+		 WHERE tenant_id = ? AND minute >= now() - INTERVAL 24 HOUR
+		 ORDER BY service_name`, tenantID)
 	if err != nil {
 		return nil, err
 	}
