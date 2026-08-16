@@ -417,6 +417,24 @@
 .alert-row { grid-template-columns: 150px auto minmax(120px, max-content) 1fr; }
 .alert-thr { color: var(--tx-dim); }
 
+/* Anomaly detection — auto-baseline ───────────────────────── */
+.anom-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.anom-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.anom-card {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--bg-panel); border: 1px solid var(--line); border-left: 3px solid var(--warn);
+  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+}
+.anom-card.critical { border-left-color: var(--err); }
+.anom-sev { flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.anom-sev.warning { background: var(--warn-wash); color: var(--warn); }
+.anom-sev.critical { background: var(--err-wash); color: var(--err); }
+.anom-body { min-width: 0; flex: 1; }
+.anom-svc { font-weight: 600; color: var(--tx-hi); }
+.anom-desc { font-size: var(--fs-sm); color: var(--tx-dim); }
+.anom-z { flex: none; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.anom-z.up { color: var(--err); } .anom-z.down { color: var(--warn); }
+
 /* Synthetics — uptime monitoring ──────────────────────────── */
 .synth-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .synth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: var(--sp-3); }

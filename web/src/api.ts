@@ -139,6 +139,13 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
+export type Anomaly = { service: string; metric: string; current: number; baseline: number; stddev: number; z: number; direction: "up" | "down"; severity: "warning" | "critical" };
+export async function fetchAnomalies(windowMin = 60): Promise<Anomaly[]> {
+  const r = await fetch(`${BASE}/api/v1/anomalies?windowMin=${windowMin}`);
+  if (!r.ok) throw new Error(`anomalies ${r.status}`);
+  return r.json();
+}
+
 export type Monitor = { monitor: string; url: string; up: boolean; status: number; latencyMs: number; uptime: number; avgLatencyMs: number; checks: number; lastErr: string; lastAt: string };
 export async function fetchMonitors(): Promise<Monitor[]> {
   const r = await fetch(`${BASE}/api/v1/synthetics`);
