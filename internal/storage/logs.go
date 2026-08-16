@@ -122,7 +122,7 @@ func (s *Store) LogPatterns(ctx context.Context, tenantID, severity string, from
 	args := []any{tenantID, from, to}
 	sevFilter := ""
 	if severity != "" {
-		sevFilter = "AND severity = ?"
+		sevFilter = "AND upper(severity) = upper(?)"
 		args = append(args, severity)
 	}
 	args = append(args, limit)

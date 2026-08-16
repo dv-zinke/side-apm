@@ -71,14 +71,18 @@ func (e *Evaluator) restore(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	seen := map[string]bool{}
+	// Compute the latest state per rule. On an equal timestamp (second-resolution
+	// ties) prefer "resolved" so we never restore a firing that already recovered.
+	latest := map[string]storage.Alert{}
+	for _, a := range alerts {
+		cur, ok := latest[a.RuleID]
+		if !ok || a.FiredAt.After(cur.FiredAt) || (a.FiredAt.Equal(cur.FiredAt) && a.State == "resolved") {
+			latest[a.RuleID] = a
+		}
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, a := range alerts { // newest first
-		if seen[a.RuleID] {
-			continue
-		}
-		seen[a.RuleID] = true
+	for _, a := range latest {
 		if a.State != "firing" {
 			continue
 		}
@@ -217,7 +221,7 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 		if err != nil || len(red) < 12 {
 			continue
 		}
-		var p95, errRate []float64
+		var p95, errRate, thr []float64
 		for _, p := range red {
 			p95 = append(p95, p.P95Ms)
 			er := 0.0
@@ -225,12 +229,16 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 				er = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
 			}
 			errRate = append(errRate, er)
+			thr = append(thr, float64(p.RequestCount))
 		}
 		if a, ok := detect(svc, "p95_ms", p95, 300, 0.5, false); ok {
 			current[svc+":p95_ms"] = a
 		}
 		if a, ok := detect(svc, "error_rate", errRate, 1, 0.5, false); ok {
 			current[svc+":error_rate"] = a
+		}
+		if a, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
+			current[svc+":throughput"] = a
 		}
 	}
 

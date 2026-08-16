@@ -91,7 +91,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 				}
 				h.P95Ms = p.P95Ms
 
-				var p95s, errs []float64
+				var p95s, errs, thr []float64
 				for _, x := range red {
 					p95s = append(p95s, x.P95Ms)
 					er := 0.0
@@ -99,11 +99,15 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 						er = 100 * float64(x.ErrorCount) / float64(x.RequestCount)
 					}
 					errs = append(errs, er)
+					thr = append(thr, float64(x.RequestCount))
 				}
 				if _, ok := detect(svc, "p95_ms", p95s, 300, 0.5, false); ok {
 					h.Anomalies++
 				}
 				if _, ok := detect(svc, "error_rate", errs, 1, 0.5, false); ok {
+					h.Anomalies++
+				}
+				if _, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
 					h.Anomalies++
 				}
 			}

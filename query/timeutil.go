@@ -39,5 +39,13 @@ func resolveWindow(fromParam, toParam string, defaultDur time.Duration) (from, t
 	if f, ok := parseTimeParam(fromParam); ok {
 		from = f
 	}
+	// Clamp the window so a pathological `from` can't trigger a table-wide scan.
+	const maxWindow = 31 * 24 * time.Hour
+	if to.Sub(from) > maxWindow {
+		from = to.Add(-maxWindow)
+	}
+	if from.After(to) {
+		from = to.Add(-defaultDur)
+	}
 	return from, to
 }

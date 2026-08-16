@@ -53,6 +53,9 @@ ORDER BY service_name`
 	}
 
 	// Edges: caller(parent span's service) -> callee(child SERVER span's service).
+	// Both sides are time-windowed so the JOIN's right table (parent) is pruned to
+	// the window instead of scanning the whole spans table (was OOM at 80M+ rows).
+	// Parents start before their child, so widen the parent window by a margin.
 	const edgeQ = `
 SELECT parent.service_name AS from_service,
        child.service_name  AS to_service,
@@ -66,9 +69,11 @@ INNER JOIN apm.spans AS parent
      AND child.parent_span_id = parent.span_id
 WHERE child.tenant_id = ? AND child.span_kind = 'SERVER' AND child.parent_span_id != ''
   AND child.start_time >= ? AND child.start_time <= ?
+  AND parent.tenant_id = ? AND parent.start_time >= ? AND parent.start_time <= ?
 GROUP BY from_service, to_service
 ORDER BY calls DESC`
-	erows, err := s.db.QueryContext(ctx, edgeQ, tenantID, from, to)
+	parentFrom := from.Add(-10 * time.Minute)
+	erows, err := s.db.QueryContext(ctx, edgeQ, tenantID, from, to, tenantID, parentFrom, to)
 	if err != nil {
 		return sm, err
 	}
