@@ -159,7 +159,7 @@
   cursor: pointer; transition: color 120ms ease;
 }
 .modal-tabs .tab:hover { background: transparent; color: var(--tx); }
-.modal-tabs .tab:focus-visible { outline: none; box-shadow: none; color: var(--tx-hi); }
+.modal-tabs .tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); border-radius: 4px; color: var(--tx-hi); }
 .modal-tabs .tab[aria-selected="true"] { color: var(--tx-hi); border-bottom-color: var(--accent); }
 .modal-tabs .tab[aria-selected="true"]::after { content: none; }
 .tab-badge {
@@ -288,6 +288,9 @@
 .tbl td.r { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--tx-hi); }
 .tbl td.r.dur-slow { color: var(--warn); }
 .tbl td.r.dur-vslow { color: var(--err); font-weight: 600; }
+/* Latency signal for DB / SQL / N+1 tables (durClass emits warn|err). */
+.tbl td.r.warn { color: var(--warn); }
+.tbl td.r.err  { color: var(--err); font-weight: 600; }
 .tbl td.svc { color: var(--tx-hi); font-weight: 500; }
 
 /* Status chip — dot + label, never color alone */
@@ -422,7 +425,7 @@
 .ctr-bar-fill.ok { background: var(--accent); }
 .ctr-bar-fill.warn { background: var(--warn); }
 .ctr-bar-fill.err { background: var(--err); }
-.ctr-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--tx-hi); min-width: 56px; text-align: right; }
+.ctr-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--tx-hi); min-width: 96px; text-align: right; white-space: nowrap; }
 .ctr-net { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); }
 
 /* Database — query aggregation ────────────────────────────── */
@@ -563,6 +566,11 @@
 
 /* Responsive — below tablet the sidebar folds to a top strip ── */
 @media (max-width: 768px) {
+  /* Wide data tables scroll horizontally instead of crushing columns. */
+  .db-view, .infra-view { overflow-x: auto; }
+  .db-tbl { table-layout: auto; min-width: 620px; }
+  .db-tbl th:first-child { width: auto; }
+  .ctr-tbl { min-width: 640px; }
   .shell { flex-direction: column; height: auto; min-height: 100svh; }
   .sidebar {
     width: 100%;

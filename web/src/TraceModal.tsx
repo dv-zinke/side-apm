@@ -29,7 +29,9 @@ export function TraceModal({ txn, onClose }: { txn: Transaction; onClose: () => 
   const { data: spans } = useQuery({ queryKey: ["spans", txn.traceId], queryFn: () => fetchSpans(txn.traceId) });
 
   const sqlSpans = (spans ?? []).filter((s) => s.dbStatement || s.dbSystem);
-  const httpSpans = (spans ?? []).filter((s) => s.spanKind === "CLIENT");
+  // DB spans are also CLIENT kind — exclude them so the HTTP tab (and its count)
+  // reflects real outbound HTTP calls only, matching the record summary.
+  const httpSpans = (spans ?? []).filter((s) => s.spanKind === "CLIENT" && !s.dbStatement && !s.dbSystem);
 
   const TABS: { id: Tab; label: string; n?: number }[] = [
     { id: "summary", label: "레코드 요약" },

@@ -75,7 +75,7 @@ export function Infra() {
                   <td className="svc" title={c.image}>{c.container}</td>
                   <td><span className={`chip ${c.status === "running" ? "ok" : c.status === "exited" ? "err" : "muted"}`}><span className="dot" />{c.status}</span></td>
                   <td className="ctr-metric"><div className="ctr-cell">{bar(c.cpuPct, cpuTone(c.cpuPct))}<span className="ctr-val">{c.cpuPct.toFixed(1)}%</span></div></td>
-                  <td className="ctr-metric"><div className="ctr-cell">{bar(c.memPct, cpuTone(c.memPct))}<span className="ctr-val">{mb(c.memBytes)}</span></div></td>
+                  <td className="ctr-metric"><div className="ctr-cell">{bar(c.memPct, cpuTone(c.memPct))}<span className="ctr-val">{mb(c.memBytes)} · {c.memPct.toFixed(0)}%</span></div></td>
                   <td className="r ctr-net">↓{mb(c.netRx)} ↑{mb(c.netTx)}</td>
                 </tr>
               ))}
