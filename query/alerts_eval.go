@@ -151,5 +151,10 @@ func (e *Evaluator) notify(r storage.AlertRule, val float64, state string) {
 		log.Printf("alerts: webhook: %v", err)
 		return
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		log.Printf("alerts: webhook returned %d", resp.StatusCode)
+		return
+	}
+	log.Printf("alerts: notified [%s] %s (%s)", state, r.Name, r.Service)
 }

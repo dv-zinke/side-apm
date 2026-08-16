@@ -19,7 +19,13 @@ func main() {
 
 	// Background alert evaluator: checks rules on an interval, fires on breach,
 	// optional Slack-compatible webhook via APM_ALERT_WEBHOOK.
-	eval := query.NewEvaluator(store, 0, os.Getenv("APM_ALERT_WEBHOOK"))
+	webhook := os.Getenv("APM_ALERT_WEBHOOK")
+	if webhook != "" {
+		log.Printf("alerts: webhook delivery enabled")
+	} else {
+		log.Printf("alerts: webhook delivery disabled (set APM_ALERT_WEBHOOK)")
+	}
+	eval := query.NewEvaluator(store, 0, webhook)
 	go eval.Run(context.Background())
 
 	addr := getenv("APM_QUERY_ADDR", ":8080")

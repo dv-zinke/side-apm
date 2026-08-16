@@ -34,7 +34,11 @@ services:
 
   query:
     build: { context: .., dockerfile: cmd/query/Dockerfile }
-    environment: { APM_CH_DSN: "clickhouse://clickhouse:9000/apm" }
+    environment:
+      APM_CH_DSN: "clickhouse://clickhouse:9000/apm"
+      # Optional Slack-compatible alert webhook. Set your Slack Incoming Webhook
+      # URL (or leave unset to disable delivery).
+      APM_ALERT_WEBHOOK: "${APM_ALERT_WEBHOOK:-}"
     ports: ["8080:8080"]
     depends_on:
       clickhouse:
