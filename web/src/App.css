@@ -417,6 +417,25 @@
 .alert-row { grid-template-columns: 150px auto minmax(120px, max-content) 1fr; }
 .alert-thr { color: var(--tx-dim); }
 
+/* Synthetics — uptime monitoring ──────────────────────────── */
+.synth-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.synth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: var(--sp-3); }
+.synth-card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); box-shadow: var(--shadow-1); }
+.synth-head { display: flex; align-items: center; gap: var(--sp-3); }
+.synth-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.synth-name { font-weight: 600; color: var(--tx-hi); }
+.synth-url { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.synth-uptime { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+.synth-uptime.ok { color: var(--ok); } .synth-uptime.warn { color: var(--warn); } .synth-uptime.err { color: var(--err); }
+.up-bar { display: flex; gap: 2px; height: 26px; margin: var(--sp-3) 0; }
+.up-bar-empty { border: 1px dashed var(--line); border-radius: var(--r-sm); }
+.up-seg { flex: 1; border-radius: 2px; min-width: 2px; }
+.up-seg.ok { background: color-mix(in srgb, var(--ok) 70%, transparent); }
+.up-seg.down { background: var(--err); }
+.synth-foot { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--tx-dim); }
+.synth-foot b { color: var(--tx-hi); font-family: var(--mono); }
+.synth-err { margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--err); font-family: var(--mono); word-break: break-all; }
+
 /* Containers — Docker infra ───────────────────────────────── */
 .infra-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .ctr-tbl .ctr-metric { width: 180px; }

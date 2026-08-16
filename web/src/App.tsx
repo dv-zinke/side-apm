@@ -12,19 +12,20 @@ import { Alerts } from "./Alerts";
 import { Database } from "./Database";
 import { Rum } from "./Rum";
 import { Infra } from "./Infra";
+import { Synthetics } from "./Synthetics";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconSun, IconMoon,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "rum" | "infra" | "alerts" | "map" | "xview";
+type View = "dashboard" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "rum" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -37,6 +38,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "runtime", label: "런타임", icon: IconGauge },
     { id: "db", label: "데이터베이스", icon: IconDB },
     { id: "infra", label: "컨테이너", icon: IconContainer },
+    { id: "synth", label: "가동 모니터링", icon: IconHeartbeat },
     { id: "logs", label: "로그", icon: IconLogs },
     { id: "alerts", label: "알림", icon: IconBell },
   ] },
@@ -176,6 +178,8 @@ function Console() {
             <Rum />
           ) : view === "infra" ? (
             <Infra />
+          ) : view === "synth" ? (
+            <Synthetics />
           ) : view === "red" ? (
             <RedDashboard />
           ) : (

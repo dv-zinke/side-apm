@@ -42,6 +42,8 @@ type Reader interface {
 	GetReplay(ctx context.Context, tenant, id string) (string, error)
 	ListContainers(ctx context.Context, tenant string, from, to time.Time) ([]storage.ContainerStat, error)
 	ContainerSeries(ctx context.Context, tenant, container, metric string, from, to time.Time) ([]storage.MetricPoint, error)
+	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
+	MonitorTimeline(ctx context.Context, tenant, monitor string, from, to time.Time, bucketSec int) ([]storage.UptimeBucket, error)
 }
 
 type TransactionDTO struct {
@@ -124,6 +126,7 @@ func Router(r Reader) http.Handler {
 	registerDB(mux, r)
 	registerRum(mux, r)
 	registerInfra(mux, r)
+	registerSynthetics(mux, r)
 	return withCORS(mux)
 }
 

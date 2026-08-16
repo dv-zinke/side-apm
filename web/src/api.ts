@@ -139,6 +139,21 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
+export type Monitor = { monitor: string; url: string; up: boolean; status: number; latencyMs: number; uptime: number; avgLatencyMs: number; checks: number; lastErr: string; lastAt: string };
+export async function fetchMonitors(): Promise<Monitor[]> {
+  const r = await fetch(`${BASE}/api/v1/synthetics`);
+  if (!r.ok) throw new Error(`synthetics ${r.status}`);
+  return r.json();
+}
+export type UptimeBucket = { time: string; up: boolean; latencyMs: number };
+export async function fetchMonitorTimeline(monitor: string): Promise<UptimeBucket[]> {
+  const to = new Date().toISOString();
+  const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const r = await fetch(`${BASE}/api/v1/synthetics/${encodeURIComponent(monitor)}/timeline?bucketSec=60&from=${from}&to=${to}`);
+  if (!r.ok) throw new Error(`timeline ${r.status}`);
+  return r.json();
+}
+
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
 export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
   const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);

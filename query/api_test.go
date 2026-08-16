@@ -121,6 +121,12 @@ func (fakeReader) ListContainers(_ context.Context, _ string, _, _ time.Time) ([
 func (fakeReader) ContainerSeries(_ context.Context, _, _, _ string, _, _ time.Time) ([]storage.MetricPoint, error) {
 	return nil, nil
 }
+func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]storage.MonitorStatus, error) {
+	return nil, nil
+}
+func (fakeReader) MonitorTimeline(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.UptimeBucket, error) {
+	return nil, nil
+}
 
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))

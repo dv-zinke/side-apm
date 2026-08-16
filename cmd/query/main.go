@@ -28,6 +28,11 @@ func main() {
 	eval := query.NewEvaluator(store, 0, webhook)
 	go eval.Run(context.Background())
 
+	// Synthetic uptime prober — probes monitors from APM_SYNTHETICS
+	// ("name|url,name|url") or a default local+external set.
+	prober := query.NewSyntheticProber(store, query.ParseMonitors(os.Getenv("APM_SYNTHETICS")), 0)
+	go prober.Run(context.Background())
+
 	addr := getenv("APM_QUERY_ADDR", ":8080")
 	log.Printf("query service listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, query.Router(store)))
