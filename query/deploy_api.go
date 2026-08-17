@@ -32,7 +32,7 @@ func registerDeploys(mux *http.ServeMux, r Reader) {
 		if in.TS > 0 {
 			ts = time.UnixMilli(in.TS).UTC()
 		}
-		if err := r.InsertDeploy(req.Context(), defaultTenant, storage.Deploy{
+		if err := r.InsertDeploy(req.Context(), tenantOf(req), storage.Deploy{
 			Time: ts, Service: in.Service, Version: in.Version, Description: in.Description,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -46,7 +46,7 @@ func registerDeploys(mux *http.ServeMux, r Reader) {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		from, to := resolveWindow(q.Get("from"), q.Get("to"), 24*time.Hour)
-		ds, err := r.ListDeploys(req.Context(), defaultTenant, q.Get("service"), from, to, limit)
+		ds, err := r.ListDeploys(req.Context(), tenantOf(req), q.Get("service"), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

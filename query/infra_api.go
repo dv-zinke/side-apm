@@ -21,7 +21,7 @@ type ContainerDTO struct {
 func registerInfra(mux *http.ServeMux, r Reader) {
 	// Host-level metrics snapshot (CPU/mem/load + container counts).
 	mux.HandleFunc("GET /api/v1/infra/host", func(w http.ResponseWriter, req *http.Request) {
-		h, ok, err := r.LatestHost(req.Context(), defaultTenant)
+		h, ok, err := r.LatestHost(req.Context(), tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -39,7 +39,7 @@ func registerInfra(mux *http.ServeMux, r Reader) {
 
 	mux.HandleFunc("GET /api/v1/infra/containers", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 5*time.Minute)
-		cs, err := r.ListContainers(req.Context(), defaultTenant, from, to)
+		cs, err := r.ListContainers(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -67,7 +67,7 @@ func registerInfra(mux *http.ServeMux, r Reader) {
 			return
 		}
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		pts, err := r.ContainerSeries(req.Context(), defaultTenant, req.PathValue("name"), metric, from, to)
+		pts, err := r.ContainerSeries(req.Context(), tenantOf(req), req.PathValue("name"), metric, from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

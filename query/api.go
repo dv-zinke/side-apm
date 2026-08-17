@@ -101,7 +101,7 @@ func Router(r Reader) http.Handler {
 		if t, ok := parseTimeParam(q.Get("to")); ok {
 			to = t
 		}
-		rows, err := r.ListTransactions(req.Context(), defaultTenant, storage.Filter{
+		rows, err := r.ListTransactions(req.Context(), tenantOf(req), storage.Filter{
 			Service:         q.Get("service"),
 			ErrorsOnly:      q.Get("errors") == "1" || q.Get("errors") == "true",
 			MinMs:           minMs,
@@ -126,7 +126,7 @@ func Router(r Reader) http.Handler {
 		writeJSON(w, out)
 	})
 	mux.HandleFunc("GET /api/v1/traces/{traceID}/spans", func(w http.ResponseWriter, req *http.Request) {
-		spans, err := r.GetTraceSpans(req.Context(), defaultTenant, req.PathValue("traceID"))
+		spans, err := r.GetTraceSpans(req.Context(), tenantOf(req), req.PathValue("traceID"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

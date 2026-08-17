@@ -83,14 +83,14 @@ func registerAnomalies(mux *http.ServeMux, r Reader) {
 		}
 		to := time.Now().UTC()
 		from := to.Add(-time.Duration(windowMin) * time.Minute)
-		services, err := r.ListServices(req.Context(), defaultTenant)
+		services, err := r.ListServices(req.Context(), tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		out := make([]Anomaly, 0)
 		for _, svc := range services {
-			red, err := r.GetServiceRED(req.Context(), defaultTenant, svc, from, to)
+			red, err := r.GetServiceRED(req.Context(), tenantOf(req), svc, from, to)
 			// detect() drops the incomplete current bucket then needs recentN+8=11,
 			// so it needs 12 raw buckets — align the guard to avoid silent skips.
 			if err != nil || len(red) < 12 {

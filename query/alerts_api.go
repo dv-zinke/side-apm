@@ -40,7 +40,7 @@ func newID() string {
 
 func registerAlerts(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/alert-rules", func(w http.ResponseWriter, req *http.Request) {
-		rules, err := r.ListAlertRules(req.Context(), defaultTenant)
+		rules, err := r.ListAlertRules(req.Context(), tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -68,7 +68,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		if dto.WindowMin <= 0 {
 			dto.WindowMin = 5
 		}
-		if err := r.UpsertAlertRule(req.Context(), defaultTenant, storage.AlertRule{
+		if err := r.UpsertAlertRule(req.Context(), tenantOf(req), storage.AlertRule{
 			ID: dto.ID, Name: dto.Name, Service: dto.Service, Metric: dto.Metric,
 			Threshold: dto.Threshold, WindowMin: uint16(dto.WindowMin), Enabled: dto.Enabled,
 		}); err != nil {
@@ -79,7 +79,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 	})
 
 	mux.HandleFunc("DELETE /api/v1/alert-rules/{id}", func(w http.ResponseWriter, req *http.Request) {
-		if err := r.DeleteAlertRule(req.Context(), defaultTenant, req.PathValue("id")); err != nil {
+		if err := r.DeleteAlertRule(req.Context(), tenantOf(req), req.PathValue("id")); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -88,7 +88,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 
 	mux.HandleFunc("GET /api/v1/alerts", func(w http.ResponseWriter, req *http.Request) {
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
-		alerts, err := r.ListAlerts(req.Context(), defaultTenant, limit)
+		alerts, err := r.ListAlerts(req.Context(), tenantOf(req), limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

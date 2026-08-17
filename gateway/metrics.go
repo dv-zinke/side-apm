@@ -24,12 +24,12 @@ func MetricsHandler(
 			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
 			return
 		}
-		metrics := otlp.MapMetrics(&req, defaultTenant)
+		metrics := otlp.MapMetrics(&req, tenantFromReq(r))
 		if err := publishMetrics(r.Context(), metrics); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}
-		if hs := otlp.MapHistograms(&req, defaultTenant); len(hs) > 0 {
+		if hs := otlp.MapHistograms(&req, tenantFromReq(r)); len(hs) > 0 {
 			if err := publishHistograms(r.Context(), hs); err != nil {
 				http.Error(w, "publish failed", http.StatusServiceUnavailable)
 				return

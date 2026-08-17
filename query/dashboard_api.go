@@ -17,7 +17,7 @@ type dashboardDTO struct {
 
 func registerDashboards(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/dashboards", func(w http.ResponseWriter, req *http.Request) {
-		ds, err := r.ListDashboards(req.Context(), defaultTenant)
+		ds, err := r.ListDashboards(req.Context(), tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -52,7 +52,7 @@ func registerDashboards(mux *http.ServeMux, r Reader) {
 		if spec == "" {
 			spec = "{}"
 		}
-		if err := r.UpsertDashboard(req.Context(), defaultTenant, storage.Dashboard{ID: dto.ID, Name: dto.Name, Spec: spec}); err != nil {
+		if err := r.UpsertDashboard(req.Context(), tenantOf(req), storage.Dashboard{ID: dto.ID, Name: dto.Name, Spec: spec}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -60,7 +60,7 @@ func registerDashboards(mux *http.ServeMux, r Reader) {
 	})
 
 	mux.HandleFunc("DELETE /api/v1/dashboards/{id}", func(w http.ResponseWriter, req *http.Request) {
-		if err := r.DeleteDashboard(req.Context(), defaultTenant, req.PathValue("id")); err != nil {
+		if err := r.DeleteDashboard(req.Context(), tenantOf(req), req.PathValue("id")); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

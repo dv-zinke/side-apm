@@ -31,7 +31,7 @@ func toLogDTOs(rows []storage.LogRow) []LogDTO {
 func registerLogs(mux *http.ServeMux, r Reader) {
 	// Logs correlated to a trace (3-pillars drill-down).
 	mux.HandleFunc("GET /api/v1/traces/{traceID}/logs", func(w http.ResponseWriter, req *http.Request) {
-		rows, err := r.GetTraceLogs(req.Context(), defaultTenant, req.PathValue("traceID"))
+		rows, err := r.GetTraceLogs(req.Context(), tenantOf(req), req.PathValue("traceID"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -44,7 +44,7 @@ func registerLogs(mux *http.ServeMux, r Reader) {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
-		rows, err := r.ListLogs(req.Context(), defaultTenant, storage.LogFilter{
+		rows, err := r.ListLogs(req.Context(), tenantOf(req), storage.LogFilter{
 			Service: q.Get("service"), Severity: q.Get("severity"), Query: q.Get("q"),
 			Limit: limit, From: from, To: to,
 		})
@@ -60,7 +60,7 @@ func registerLogs(mux *http.ServeMux, r Reader) {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
-		pats, err := r.LogPatterns(req.Context(), defaultTenant, q.Get("severity"), from, to, limit)
+		pats, err := r.LogPatterns(req.Context(), tenantOf(req), q.Get("severity"), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

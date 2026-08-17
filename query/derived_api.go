@@ -31,7 +31,7 @@ type REDPointDTO struct {
 
 func registerDerived(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/transactions/{traceID}/summary", func(w http.ResponseWriter, req *http.Request) {
-		s, err := r.GetTraceSummary(req.Context(), defaultTenant, req.PathValue("traceID"))
+		s, err := r.GetTraceSummary(req.Context(), tenantOf(req), req.PathValue("traceID"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -45,7 +45,7 @@ func registerDerived(mux *http.ServeMux, r Reader) {
 		})
 	})
 	mux.HandleFunc("GET /api/v1/services", func(w http.ResponseWriter, req *http.Request) {
-		svcs, err := r.ListServices(req.Context(), defaultTenant)
+		svcs, err := r.ListServices(req.Context(), tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -57,7 +57,7 @@ func registerDerived(mux *http.ServeMux, r Reader) {
 	})
 	mux.HandleFunc("GET /api/v1/services/{name}/red", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		pts, err := r.GetServiceRED(req.Context(), defaultTenant, req.PathValue("name"), from, to)
+		pts, err := r.GetServiceRED(req.Context(), tenantOf(req), req.PathValue("name"), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

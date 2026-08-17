@@ -66,7 +66,7 @@ func RumHandler(publish func(ctx context.Context, evs []storage.RumEvent) error)
 				page = p.Page
 			}
 			out = append(out, storage.RumEvent{
-				TenantID: defaultTenant, Time: ts, SessionID: p.SessionID, Type: e.Type,
+				TenantID: tenantFromReq(r), Time: ts, SessionID: p.SessionID, Type: e.Type,
 				Page: page, Target: e.Target, Message: e.Message, ErrStack: e.Stack,
 				Metric: e.Metric, Value: e.Value, URL: e.URL, Status: e.Status, UA: p.UA,
 			})
@@ -123,7 +123,7 @@ func RumReplayHandler(store interface {
 			ID: hex.EncodeToString(id), Time: time.Now().UTC(), SessionID: p.SessionID,
 			Page: p.Page, Message: p.Message, Events: string(events),
 		}
-		if err := store.InsertRumReplay(r.Context(), defaultTenant, rec); err != nil {
+		if err := store.InsertRumReplay(r.Context(), tenantFromReq(r), rec); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return
 		}

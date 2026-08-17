@@ -10,7 +10,7 @@ func registerSynthetics(mux *http.ServeMux, r Reader) {
 	// Monitor list with latest status + windowed uptime.
 	mux.HandleFunc("GET /api/v1/synthetics", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		ms, err := r.ListMonitors(req.Context(), defaultTenant, from, to)
+		ms, err := r.ListMonitors(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -30,7 +30,7 @@ func registerSynthetics(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/synthetics/{monitor}/timeline", func(w http.ResponseWriter, req *http.Request) {
 		bucketSec, _ := strconv.Atoi(req.URL.Query().Get("bucketSec"))
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		ts, err := r.MonitorTimeline(req.Context(), defaultTenant, req.PathValue("monitor"), from, to, bucketSec)
+		ts, err := r.MonitorTimeline(req.Context(), tenantOf(req), req.PathValue("monitor"), from, to, bucketSec)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -66,7 +66,7 @@ func AppHandler(publish func(ctx context.Context, evs []storage.AppEvent) error)
 				fatal = 1
 			}
 			out = append(out, storage.AppEvent{
-				TenantID: defaultTenant, Time: ts, SessionID: p.SessionID, AppVersion: p.AppVersion,
+				TenantID: tenantFromReq(r), Time: ts, SessionID: p.SessionID, AppVersion: p.AppVersion,
 				Platform: p.Platform, OSVersion: p.OSVersion, Device: p.Device, Type: e.Type,
 				Screen: e.Screen, DurationMs: e.DurationMs, LaunchType: e.LaunchType,
 				Message: e.Message, ErrStack: e.Stack, URL: e.URL, Status: e.Status, Fatal: fatal,

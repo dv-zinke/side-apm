@@ -11,7 +11,7 @@ func registerProfiles(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/profiles", func(w http.ResponseWriter, req *http.Request) {
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 6*time.Hour)
-		ms, err := r.ListProfiles(req.Context(), defaultTenant, from, to, limit)
+		ms, err := r.ListProfiles(req.Context(), tenantOf(req), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -28,7 +28,7 @@ func registerProfiles(mux *http.ServeMux, r Reader) {
 
 	// One profile's flame tree + top functions.
 	mux.HandleFunc("GET /api/v1/profiles/{id}", func(w http.ResponseWriter, req *http.Request) {
-		tree, top, unit, ptype, err := r.GetProfile(req.Context(), defaultTenant, req.PathValue("id"))
+		tree, top, unit, ptype, err := r.GetProfile(req.Context(), tenantOf(req), req.PathValue("id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -62,7 +62,7 @@ func HostHandler(store interface {
 			ts = time.Now().UTC()
 		}
 		if err := store.InsertHostStat(r.Context(), storage.HostStat{
-			TenantID: defaultTenant, Time: ts, CPUPct: p.CPUPct, MemUsed: p.MemUsed, MemTotal: p.MemTotal,
+			TenantID: tenantFromReq(r), Time: ts, CPUPct: p.CPUPct, MemUsed: p.MemUsed, MemTotal: p.MemTotal,
 			MemPct: p.MemPct, NCPU: p.NCPU, Load1: p.Load1, ContainersRunning: p.ContainersRunning, ContainersTotal: p.ContainersTotal,
 		}); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
@@ -95,7 +95,7 @@ func InfraHandler(publish func(ctx context.Context, cs []storage.ContainerStat) 
 				ts = time.Now().UTC()
 			}
 			out = append(out, storage.ContainerStat{
-				TenantID: defaultTenant, Time: ts, Container: c.Container, Image: c.Image, Status: c.Status,
+				TenantID: tenantFromReq(r), Time: ts, Container: c.Container, Image: c.Image, Status: c.Status,
 				CPUPct: c.CPUPct, MemBytes: c.MemBytes, MemLimit: c.MemLimit, MemPct: c.MemPct, NetRx: c.NetRx, NetTx: c.NetTx,
 			})
 		}

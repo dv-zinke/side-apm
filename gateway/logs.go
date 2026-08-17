@@ -20,7 +20,7 @@ func LogsHandler(publishLogs func(ctx context.Context, ls []otlp.LogRecord) erro
 			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
 			return
 		}
-		logs := otlp.MapLogs(&req, defaultTenant)
+		logs := otlp.MapLogs(&req, tenantFromReq(r))
 		if err := publishLogs(r.Context(), logs); err != nil {
 			http.Error(w, "publish failed", http.StatusServiceUnavailable)
 			return

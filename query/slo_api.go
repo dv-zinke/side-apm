@@ -48,14 +48,14 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 		to := time.Now().UTC()
 		from := to.Add(-time.Duration(windowHours) * time.Hour)
 
-		services, err := r.ListServices(ctx, defaultTenant)
+		services, err := r.ListServices(ctx, tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		out := make([]SLOStatus, 0)
 		for _, svc := range services {
-			red, err := r.GetServiceRED(ctx, defaultTenant, svc, from, to)
+			red, err := r.GetServiceRED(ctx, tenantOf(req), svc, from, to)
 			if err != nil || len(red) == 0 {
 				continue
 			}
@@ -81,7 +81,7 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 			if s.BudgetRemaining < 0 {
 				s.BudgetRemaining = 0
 			}
-			if score, _, ok, err := r.ServiceApdex(ctx, defaultTenant, svc, 500, from, to); err == nil && ok {
+			if score, _, ok, err := r.ServiceApdex(ctx, tenantOf(req), svc, 500, from, to); err == nil && ok {
 				s.Apdex, s.HasApdex = score, true
 			}
 			// Availability SLI (error budget) …

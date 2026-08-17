@@ -27,7 +27,7 @@ func toRumCounts(rows []storage.RumCount) []RumCountDTO {
 func registerRum(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/rum/overview", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		o, err := r.RumOverview(req.Context(), defaultTenant, from, to)
+		o, err := r.RumOverview(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -42,7 +42,7 @@ func registerRum(mux *http.ServeMux, r Reader) {
 		return func(w http.ResponseWriter, req *http.Request) {
 			from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
 			limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
-			rows, err := fn(req.Context(), defaultTenant, from, to, limit)
+			rows, err := fn(req.Context(), tenantOf(req), from, to, limit)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -58,7 +58,7 @@ func registerRum(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/rum/replays", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 7*24*time.Hour)
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
-		rows, err := r.ListReplays(req.Context(), defaultTenant, from, to, limit)
+		rows, err := r.ListReplays(req.Context(), tenantOf(req), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -73,7 +73,7 @@ func registerRum(mux *http.ServeMux, r Reader) {
 		writeJSON(w, out)
 	})
 	mux.HandleFunc("GET /api/v1/rum/replays/{id}", func(w http.ResponseWriter, req *http.Request) {
-		events, err := r.GetReplay(req.Context(), defaultTenant, req.PathValue("id"))
+		events, err := r.GetReplay(req.Context(), tenantOf(req), req.PathValue("id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

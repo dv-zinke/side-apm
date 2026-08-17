@@ -39,7 +39,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 
 		// firing alerts by service (latest event per rule that is still firing).
 		alertingSvc := map[string]bool{}
-		if alerts, err := r.ListAlerts(ctx, defaultTenant, 200); err == nil {
+		if alerts, err := r.ListAlerts(ctx, tenantOf(req), 200); err == nil {
 			latest := map[string]string{} // ruleID -> latest state
 			seen := map[string]bool{}
 			for _, a := range alerts { // newest first
@@ -53,7 +53,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 			}
 		}
 
-		services, err := r.ListServices(ctx, defaultTenant)
+		services, err := r.ListServices(ctx, tenantOf(req))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -61,7 +61,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 		out := make([]ServiceHealth, 0, len(services))
 		var sum HealthSummary
 		for _, svc := range services {
-			red, err := r.GetServiceRED(ctx, defaultTenant, svc, from, to)
+			red, err := r.GetServiceRED(ctx, tenantOf(req), svc, from, to)
 			if err != nil || len(red) == 0 {
 				continue // never active in the window — not part of the live fleet
 			}
@@ -111,7 +111,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 					h.Anomalies++
 				}
 			}
-			if score, _, ok, err := r.ServiceApdex(ctx, defaultTenant, svc, 500, from, to); err == nil && ok {
+			if score, _, ok, err := r.ServiceApdex(ctx, tenantOf(req), svc, 500, from, to); err == nil && ok {
 				h.Apdex = score
 				h.HasApdex = true
 			}
@@ -137,7 +137,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 			}
 		}
 
-		if monitors, err := r.ListMonitors(ctx, defaultTenant, to.Add(-5*time.Minute), to); err == nil {
+		if monitors, err := r.ListMonitors(ctx, tenantOf(req), to.Add(-5*time.Minute), to); err == nil {
 			for _, m := range monitors {
 				sum.MonitorsTotal++
 				if m.Up {

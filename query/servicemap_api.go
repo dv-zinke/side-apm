@@ -37,7 +37,7 @@ type LiveTxnDTO struct {
 func registerServiceMap(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/servicemap", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 15*time.Minute)
-		sm, err := r.GetServiceMap(req.Context(), defaultTenant, from, to)
+		sm, err := r.GetServiceMap(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -80,7 +80,7 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				txns, err := r.RecentRootTxns(ctx, defaultTenant, since, 500)
+				txns, err := r.RecentRootTxns(ctx, tenantOf(req), since, 500)
 				if err == nil {
 					for _, x := range txns {
 						if _, dup := seen[x.TraceID]; dup {
@@ -122,7 +122,7 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 			}
 		}
 		since := time.Now().UTC().Add(-time.Duration(sinceMin) * time.Minute)
-		txns, err := r.BackfillTxns(req.Context(), defaultTenant, since, 5000)
+		txns, err := r.BackfillTxns(req.Context(), tenantOf(req), since, 5000)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

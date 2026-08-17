@@ -20,7 +20,7 @@ func toAppGroups(rows []storage.AppGroup) []map[string]any {
 func registerApp(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/app/overview", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		o, err := r.AppOverview(req.Context(), defaultTenant, from, to)
+		o, err := r.AppOverview(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -33,7 +33,7 @@ func registerApp(mux *http.ServeMux, r Reader) {
 
 	mux.HandleFunc("GET /api/v1/app/versions", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		vs, err := r.AppVersions(req.Context(), defaultTenant, from, to, 10)
+		vs, err := r.AppVersions(req.Context(), tenantOf(req), from, to, 10)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -49,7 +49,7 @@ func registerApp(mux *http.ServeMux, r Reader) {
 		return func(w http.ResponseWriter, req *http.Request) {
 			from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
 			limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
-			rows, err := fn(req.Context(), defaultTenant, from, to, limit)
+			rows, err := fn(req.Context(), tenantOf(req), from, to, limit)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -69,7 +69,7 @@ func registerApp(mux *http.ServeMux, r Reader) {
 			return
 		}
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 24*time.Hour)
-		d, err := r.CrashDetail(req.Context(), defaultTenant, msg, from, to)
+		d, err := r.CrashDetail(req.Context(), tenantOf(req), msg, from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
