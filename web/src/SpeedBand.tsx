@@ -22,9 +22,10 @@ function tierOf(durationMs: number, isError: boolean): Tier {
 /* WhaTap-style live "active transaction speed" lane.
    Each streamed transaction spawns a dot that flows across the lane;
    colour = speed tier, size = duration. Pure canvas + rAF. */
-export function SpeedBand({ service }: { service?: string } = {}) {
+export function SpeedBand({ services }: { services?: string[] } = {}) {
   const { theme } = useTheme();
   const { openTrace } = useNav();
+  const scopeKey = services ? services.join(",") : "";
   const c = chartColors(theme);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particles = useRef<P[]>([]);
@@ -43,7 +44,7 @@ export function SpeedBand({ service }: { service?: string } = {}) {
     });
   };
   useLiveTxns((t) => {
-    if (service && t.service !== service) return; // scoped to one service
+    if (services && !services.includes(t.service)) return; // scoped to enabled services
     // stagger entry across ~1s so 1-second SSE batches read as a continuous
     // stream instead of vertical columns.
     spawn(t, reduce ? Math.random() : 1 + Math.random() * 0.18);
@@ -51,7 +52,7 @@ export function SpeedBand({ service }: { service?: string } = {}) {
     const tier = tierOf(t.durationMs, t.isError);
     setTally((s) => ({ ...s, [tier]: s[tier] + 1 }));
   });
-  useEffect(() => { particles.current = []; setTally({ ok: 0, slow: 0, err: 0 }); }, [service]); // reset on scope change
+  useEffect(() => { particles.current = []; setTally({ ok: 0, slow: 0, err: 0 }); }, [scopeKey]); // reset on scope change
   // Backfill the lane on mount so it's full of flowing dots immediately.
   useEffect(() => {
     let alive = true;

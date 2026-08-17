@@ -31,7 +31,7 @@ const rankOf = (t: Tier) => (t === "err" ? 2 : t === "slow" ? 1 : 0);
 
 type Cell = { xi: number; yi: number; rank: number; tier: Tier; t: LiveTxn; n: number };
 
-export function Heatmap({ service }: { service?: string } = {}) {
+export function Heatmap({ services }: { services?: string[] } = {}) {
   const { theme } = useTheme();
   const { openTrace } = useNav();
   const c = chartColors(theme);
@@ -39,14 +39,15 @@ export function Heatmap({ service }: { service?: string } = {}) {
   const [points, setPoints] = useState<Point[]>([]);
   const [selection, setSelection] = useState<{ txns: LiveTxn[]; label: string } | null>(null);
   const buf = useRef<Point[]>([]);
+  const scopeKey = services ? services.join(",") : "";
 
   const add = (t: LiveTxn) => {
-    if (service && t.service !== service) return; // scoped to one service
+    if (services && !services.includes(t.service)) return; // scoped to enabled services
     const ts = new Date(t.startTime).getTime();
     buf.current.push({ value: [ts, t.durationMs], tier: tierOf(t.durationMs, t.isError), t });
   };
   useLiveTxns(add);
-  useEffect(() => { buf.current = []; setPoints([]); }, [service]); // reset on scope change
+  useEffect(() => { buf.current = []; setPoints([]); }, [scopeKey]); // reset on scope change
   useEffect(() => {
     let alive = true;
     fetchRecentTxns(5).then((txns) => { if (alive) { txns.forEach(add); setPoints([...buf.current]); } }).catch(() => {});

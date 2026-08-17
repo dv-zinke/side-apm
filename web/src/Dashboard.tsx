@@ -95,7 +95,7 @@ const SVC_PALETTE = ["#38bdf8", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#60
 export function Dashboard() {
   const { theme } = useTheme();
   const c = chartColors(theme);
-  const [svc, setSvc] = useState(""); // "" = 전체
+  const [off, setOff] = useState<Set<string>>(new Set()); // services toggled OFF
   const minute = Math.floor(Date.now() / 60000);
   const { data, isLoading } = useQuery({
     queryKey: ["overview", minute],
@@ -106,64 +106,60 @@ export function Dashboard() {
   const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
   const x = data ? data.minutes.map(hm) : [];
 
-  // Scope KPIs/table to the selected service (or all).
-  const sel = svc ? data?.perSvcSeries.find((s) => s.service === svc) : null;
-  const scopedReq = sel ? sel.requests.reduce((a, b) => a + b, 0) : data?.totalReq ?? 0;
-  const scopedErr = sel ? sel.errors.reduce((a, b) => a + b, 0) : data?.totalErr ?? 0;
-  const scopedP95 = sel ? Math.max(0, ...sel.p95) : data?.maxP95 ?? 0;
-  const errRate = scopedReq > 0 ? (scopedErr / scopedReq) * 100 : 0;
-  const rows = svc ? data?.perSvc.filter((s) => s.service === svc) ?? [] : data?.perSvc ?? [];
+  // Multi-select: every service shown, individually toggled on/off. A stable
+  // color per service (by rank) keeps the toggle chips and chart bands aligned.
+  const ranked = (data?.perSvcSeries ?? []).slice().sort((a, b) => b.requests.reduce((s, v) => s + v, 0) - a.requests.reduce((s, v) => s + v, 0));
+  const colorOf = (svc: string) => SVC_PALETTE[Math.max(0, ranked.findIndex((s) => s.service === svc)) % SVC_PALETTE.length];
+  const on = (svc: string) => !off.has(svc);
+  const enabled = (data?.perSvc ?? []).map((s) => s.service).filter(on);
+  const toggle = (svc: string) => setOff((prev) => { const n = new Set(prev); n.has(svc) ? n.delete(svc) : n.add(svc); return n; });
+  const setAll = (allOn: boolean) => setOff(allOn ? new Set() : new Set((data?.perSvc ?? []).map((s) => s.service)));
 
-  // Throughput chart: composition (stacked-by-service) for the whole fleet, or a
-  // single service's requests/errors/p95 detail when one is selected.
-  const stacked = !svc;
-  const top = (data?.perSvcSeries ?? []).slice().sort((a, b) => b.requests.reduce((x, y) => x + y, 0) - a.requests.reduce((x, y) => x + y, 0)).slice(0, 8);
-  const chartOption = stacked
-    ? {
-        backgroundColor: "transparent", color: SVC_PALETTE,
-        tooltip: { trigger: "axis", backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
-        legend: { textStyle: { color: c.legend }, top: 0, icon: "roundRect", type: "scroll" },
-        grid: { left: 48, right: 16, top: 32, bottom: 26 },
-        xAxis: { type: "category", data: x, axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } } },
-        yAxis: { type: "value", axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
-        series: top.map((s, i) => ({
-          name: s.service, type: "line", stack: "req", areaStyle: { opacity: 0.75 },
-          smooth: true, symbol: "none", lineStyle: { width: 0 }, color: SVC_PALETTE[i % SVC_PALETTE.length],
-          emphasis: { focus: "series" }, data: s.requests,
-        })),
-      }
-    : {
-        backgroundColor: "transparent", color: [c.accent, c.err, c.warn],
-        tooltip: { trigger: "axis", backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
-        legend: { textStyle: { color: c.legend }, top: 0, icon: "roundRect" },
-        grid: { left: 48, right: 16, top: 32, bottom: 26 },
-        xAxis: { type: "category", data: x, axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } } },
-        yAxis: [
-          { type: "value", axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
-          { type: "value", position: "right", axisLabel: { color: c.axis, formatter: "{value} ms" }, splitLine: { show: false } },
-        ],
-        series: [
-          { name: "요청", type: "bar", data: sel?.requests ?? [], itemStyle: { borderRadius: [2, 2, 0, 0] } },
-          { name: "에러", type: "bar", data: sel?.errors ?? [], itemStyle: { borderRadius: [2, 2, 0, 0] } },
-          { name: "p95 ms", type: "line", yAxisIndex: 1, smooth: true, symbol: "none", data: sel?.p95 ?? [] },
-        ],
-      };
+  // KPIs/table aggregate over the enabled services only.
+  const enSeries = ranked.filter((s) => on(s.service));
+  const scopedReq = enSeries.reduce((a, s) => a + s.requests.reduce((x, y) => x + y, 0), 0);
+  const scopedErr = enSeries.reduce((a, s) => a + s.errors.reduce((x, y) => x + y, 0), 0);
+  const scopedP95 = enSeries.reduce((m, s) => Math.max(m, ...s.p95), 0);
+  const errRate = scopedReq > 0 ? (scopedErr / scopedReq) * 100 : 0;
+  const rows = (data?.perSvc ?? []).filter((s) => on(s.service));
+
+  // Throughput = stacked-by-service composition of the ENABLED services (clearly
+  // distinct from the RED dashboard's single-service bars+line).
+  const chartOption = {
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis", backgroundColor: c.tip, borderColor: c.tipBorder, textStyle: { color: c.tipText } },
+    legend: { show: false },
+    grid: { left: 48, right: 16, top: 12, bottom: 26 },
+    xAxis: { type: "category", data: x, axisLabel: { color: c.axis }, axisLine: { lineStyle: { color: c.split } } },
+    yAxis: { type: "value", axisLabel: { color: c.axis }, splitLine: { lineStyle: { color: c.split } } },
+    series: enSeries.slice(0, 8).map((s) => ({
+      name: s.service, type: "line", stack: "req", areaStyle: { opacity: 0.75 },
+      smooth: true, symbol: "none", lineStyle: { width: 0 }, color: colorOf(s.service),
+      emphasis: { focus: "series" }, data: s.requests,
+    })),
+  };
 
   return (
     <div className="dash">
       <div className="span-all dash-toolbar">
-        <span className="pane-title">대시보드 {svc && <span className="chip muted">{svc}만 보기</span>}</span>
-        <label className="bar" style={{ marginLeft: "auto" }}>
-          <span className="field-label">서비스</span>
-          <select className="select" value={svc} onChange={(e) => setSvc(e.target.value)} aria-label="서비스 필터">
-            <option value="">전체 서비스</option>
-            {(data?.perSvc ?? []).map((s) => <option key={s.service} value={s.service}>{s.service}</option>)}
-          </select>
-        </label>
+        <span className="pane-title">대시보드</span>
+        {data && data.perSvc.length > 0 && (
+          <div className="svc-toggles">
+            {data.perSvc.map((s) => (
+              <button key={s.service} className={`svc-toggle${on(s.service) ? " on" : ""}`} onClick={() => toggle(s.service)} aria-pressed={on(s.service)}>
+                <span className="svc-swatch" style={{ background: on(s.service) ? colorOf(s.service) : "var(--tx-faint)" }} />
+                {s.service}
+              </button>
+            ))}
+            <button className="svc-toggle-all" onClick={() => setAll(enabled.length < (data.perSvc.length))}>
+              {enabled.length < data.perSvc.length ? "전체 켜기" : "전체 끄기"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Live hero — scoped to the selected service. */}
-      <div className="span-all"><SpeedBand service={svc || undefined} /></div>
+      {/* Live hero — scoped to the enabled services. */}
+      <div className="span-all"><SpeedBand services={enabled.length === (data?.perSvc.length ?? 0) ? undefined : enabled} /></div>
 
       {isLoading || !data ? (
         <div className="span-all"><Skeleton rows={6} /></div>
@@ -178,36 +174,36 @@ export function Dashboard() {
       ) : (
         <>
           <section className="kpi-grid span-all">
-            <Kpi label={`총 요청 · ${svc || "전체"} · 최근 1시간`} value={scopedReq.toLocaleString()} />
+            <Kpi label={`총 요청 · ${enabled.length === data.perSvc.length ? "전체" : `${enabled.length}개 서비스`} · 최근 1시간`} value={scopedReq.toLocaleString()} />
             <Kpi label="에러율" value={errRate.toFixed(errRate < 10 ? 2 : 1)} unit="%" tone={errRate > 5 ? "err" : errRate > 1 ? "warn" : "ok"} />
-            <ApdexCard service={svc || data.perSvc[0]?.service} />
-            <Kpi label="활성 서비스" value={svc ? "1" : String(data.perSvc.length)} />
+            <ApdexCard service={rows[0]?.service} />
+            <Kpi label="켜진 서비스" value={`${enabled.length}/${data.perSvc.length}`} />
             <Kpi label="최대 p95" value={scopedP95.toLocaleString()} unit="ms" tone={scopedP95 > 1000 ? "warn" : undefined} />
           </section>
 
           <section className="dash-panel">
-            <div className="hm-fixed"><Heatmap service={svc || undefined} /></div>
+            <div className="hm-fixed"><Heatmap services={enabled.length === data.perSvc.length ? undefined : enabled} /></div>
           </section>
           <section className="dash-panel">
-            <div className="section-label">{stacked ? "처리량 구성 · 서비스별" : `${svc} · 요청·에러·지연`}</div>
+            <div className="section-label">처리량 구성 · 켜진 서비스 {enabled.length}개</div>
             <div style={{ height: 260 }}>
               <ReactECharts option={chartOption} style={{ height: "100%" }} notMerge />
             </div>
           </section>
 
           <section className="dash-panel span-all">
-            <div className="section-label">서비스 헬스</div>
+            <div className="section-label">서비스 헬스 <span className="hint-inline">행을 클릭하면 켜기/끄기</span></div>
             <table className="tbl">
               <thead>
                 <tr><th>서비스</th><th className="r">요청</th><th className="r">에러</th><th className="r">p95</th><th>상태</th></tr>
               </thead>
               <tbody>
-                {rows.map((s) => {
+                {(data.perSvc).map((s) => {
                   const er = s.requests > 0 ? (s.errors / s.requests) * 100 : 0;
                   const tone = er > 5 ? "err" : er > 1 ? "warn" : "ok";
                   return (
-                    <tr key={s.service} tabIndex={0} onClick={() => setSvc(s.service === svc ? "" : s.service)} style={{ cursor: "pointer" }}>
-                      <td className="svc">{s.service}</td>
+                    <tr key={s.service} tabIndex={0} onClick={() => toggle(s.service)} className={on(s.service) ? "" : "row-off"} style={{ cursor: "pointer" }}>
+                      <td className="svc"><span className="svc-swatch" style={{ background: on(s.service) ? colorOf(s.service) : "var(--tx-faint)", marginRight: 6 }} />{s.service}</td>
                       <td className="r">{s.requests.toLocaleString()}</td>
                       <td className="r">{s.errors.toLocaleString()}</td>
                       <td className="r">{Math.round(s.p95).toLocaleString()} ms</td>
