@@ -65,6 +65,22 @@ services:
     depends_on: [gateway]
     restart: on-failure
 
+  # A REAL (non-simulated) OpenTelemetry-instrumented app that calls a real
+  # public API. Off by default; start with:
+  #   docker compose -f deploy/docker-compose.yml --profile realapp up -d --build realapp
+  realapp:
+    build: { context: ../demo/realapp }
+    profiles: ["realapp"]
+    environment:
+      OTEL_SERVICE_NAME: "shop-web"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_LOGS_EXPORTER: "otlp"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+    depends_on: [gateway]
+    restart: on-failure
+
   # Multi-service traffic simulator. Off by default; start with:
   #   docker compose -f deploy/docker-compose.yml --profile sim up -d --build sim
   sim:

@@ -1,0 +1,13 @@
+{
+  "name": "apm-realapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A real (non-simulated) Node app instrumented with OpenTelemetry, calling real external APIs — proves the console ingests real third-party workloads.",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.60.0",
+    "express": "^4.21.2",
+    "pino": "^9.5.0"
+  }
+}
