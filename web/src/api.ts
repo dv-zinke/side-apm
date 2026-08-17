@@ -192,7 +192,7 @@ export async function fetchSLO(windowHours = 24): Promise<SLOStatus[]> {
   return r.json();
 }
 
-export type ServiceHealth = { service: string; status: "healthy" | "degraded" | "down" | "idle"; reqPerMin: number; errorRate: number; p95Ms: number; apdex: number; hasApdex: boolean; anomalies: number; alerting: boolean };
+export type ServiceHealth = { service: string; status: "healthy" | "degraded" | "down" | "idle"; reqPerMin: number; errorRate: number; p95Ms: number; anomalies: number; alerting: boolean };
 export type HealthSummary = { healthy: number; degraded: number; down: number; idle: number; activeAlerts: number; anomalies: number; monitorsUp: number; monitorsDown: number; monitorsTotal: number };
 export async function fetchHealth(): Promise<{ services: ServiceHealth[]; summary: HealthSummary }> {
   const r = await fetch(`${BASE}/api/v1/health`);

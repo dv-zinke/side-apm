@@ -2,6 +2,7 @@ package query
 
 import (
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -11,8 +12,6 @@ type ServiceHealth struct {
 	ReqPerMin float64 `json:"reqPerMin"`
 	ErrorRate float64 `json:"errorRate"`
 	P95Ms     float64 `json:"p95Ms"`
-	Apdex     float64 `json:"apdex"`
-	HasApdex  bool    `json:"hasApdex"`
 	Anomalies int     `json:"anomalies"`
 	Alerting  bool    `json:"alerting"`
 }
@@ -53,69 +52,61 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 			}
 		}
 
-		services, err := r.ListServices(ctx, tenantOf(req))
+		// All services' RED series in ONE query (was ListServices + N per-service
+		// RED + N Apdex — a slow path self-tracing found). Anomaly detection runs
+		// in-memory on the series; latency signal uses p95 (no Apdex fan-out).
+		allRed, err := r.AllServicesRED(ctx, tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		out := make([]ServiceHealth, 0, len(services))
+		out := make([]ServiceHealth, 0, len(allRed))
 		var sum HealthSummary
-		for _, svc := range services {
-			red, err := r.GetServiceRED(ctx, tenantOf(req), svc, from, to)
-			if err != nil || len(red) == 0 {
-				continue // never active in the window — not part of the live fleet
+		for svc, red := range allRed {
+			if len(red) == 0 {
+				continue
 			}
-			h := ServiceHealth{Service: svc, Status: "idle"}
+			h := ServiceHealth{Service: svc, Status: "idle", Alerting: alertingSvc[svc]}
 
-			// A service that WAS reporting but whose latest bucket is stale has
-			// gone silent (crashed / traffic cut) — surface it as down instead of
-			// letting it vanish or computing on stale numbers.
+			// A service that WAS reporting but whose latest bucket is stale has gone
+			// silent (crashed / traffic cut) — surface it as down.
 			if to.Sub(red[len(red)-1].Minute) > 3*time.Minute {
 				h.Status = "down"
-				h.Alerting = alertingSvc[svc]
 				sum.Down++
 				out = append(out, h)
 				continue
 			}
 
-			{
-				// most recent complete minute (skip the in-progress current one)
-				idx := len(red) - 1
-				if len(red) >= 2 {
-					idx = len(red) - 2
-				}
-				p := red[idx]
-				h.ReqPerMin = float64(p.RequestCount)
-				if p.RequestCount > 0 {
-					h.ErrorRate = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
-				}
-				h.P95Ms = p.P95Ms
+			idx := len(red) - 1
+			if len(red) >= 2 {
+				idx = len(red) - 2 // most recent complete minute
+			}
+			p := red[idx]
+			h.ReqPerMin = float64(p.RequestCount)
+			if p.RequestCount > 0 {
+				h.ErrorRate = 100 * float64(p.ErrorCount) / float64(p.RequestCount)
+			}
+			h.P95Ms = p.P95Ms
 
-				var p95s, errs, thr []float64
-				for _, x := range red {
-					p95s = append(p95s, x.P95Ms)
-					er := 0.0
-					if x.RequestCount > 0 {
-						er = 100 * float64(x.ErrorCount) / float64(x.RequestCount)
-					}
-					errs = append(errs, er)
-					thr = append(thr, float64(x.RequestCount))
+			var p95s, errs, thr []float64
+			for _, x := range red {
+				p95s = append(p95s, x.P95Ms)
+				er := 0.0
+				if x.RequestCount > 0 {
+					er = 100 * float64(x.ErrorCount) / float64(x.RequestCount)
 				}
-				if _, ok := detect(svc, "p95_ms", p95s, 300, 0.5, false); ok {
-					h.Anomalies++
-				}
-				if _, ok := detect(svc, "error_rate", errs, 1, 0.5, false); ok {
-					h.Anomalies++
-				}
-				if _, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
-					h.Anomalies++
-				}
+				errs = append(errs, er)
+				thr = append(thr, float64(x.RequestCount))
 			}
-			if score, _, ok, err := r.ServiceApdex(ctx, tenantOf(req), svc, 500, from, to); err == nil && ok {
-				h.Apdex = score
-				h.HasApdex = true
+			if _, ok := detect(svc, "p95_ms", p95s, 300, 0.5, false); ok {
+				h.Anomalies++
 			}
-			h.Alerting = alertingSvc[svc]
+			if _, ok := detect(svc, "error_rate", errs, 1, 0.5, false); ok {
+				h.Anomalies++
+			}
+			if _, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
+				h.Anomalies++
+			}
 
 			h.Status = classify(h)
 			switch h.Status {
@@ -131,6 +122,7 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 			sum.Anomalies += h.Anomalies
 			out = append(out, h)
 		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Service < out[j].Service })
 		for _, a := range alertingSvc {
 			if a {
 				sum.ActiveAlerts++
@@ -159,7 +151,7 @@ func classify(h ServiceHealth) string {
 	if h.ErrorRate >= 25 {
 		return "down"
 	}
-	if h.Alerting || h.Anomalies > 0 || h.ErrorRate >= 5 || (h.HasApdex && h.Apdex < 0.85) {
+	if h.Alerting || h.Anomalies > 0 || h.ErrorRate >= 5 || h.P95Ms >= 600 {
 		return "degraded"
 	}
 	return "healthy"

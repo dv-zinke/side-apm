@@ -16,7 +16,6 @@ function Stat({ label, value, tone }: { label: string; value: React.ReactNode; t
 }
 
 function ms(v: number) { return v >= 1000 ? (v / 1000).toFixed(1) + "s" : v.toFixed(0) + "ms"; }
-function apdexTone(a: number) { return a >= 0.94 ? "ok" : a >= 0.85 ? "warn" : "err"; }
 
 export function Health() {
   const { setView } = useNav();
@@ -61,7 +60,6 @@ export function Health() {
                     <span><b>{h.reqPerMin.toFixed(0)}</b><i>req/분</i></span>
                     <span className={h.errorRate >= 5 ? "err" : h.errorRate >= 1 ? "warn" : ""}><b>{h.errorRate.toFixed(1)}%</b><i>에러</i></span>
                     <span className={h.p95Ms >= 1500 ? "err" : h.p95Ms >= 600 ? "warn" : ""}><b>{ms(h.p95Ms)}</b><i>p95</i></span>
-                    {h.hasApdex && <span className={apdexTone(h.apdex)}><b>{h.apdex.toFixed(2)}</b><i>apdex</i></span>}
                   </div>
                   {(h.alerting || h.anomalies > 0) && (
                     <div className="hz-flags">

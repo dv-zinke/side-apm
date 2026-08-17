@@ -130,6 +130,9 @@ func (fakeReader) LatestHost(_ context.Context, _ string) (storage.HostStat, boo
 func (fakeReader) ServiceAvailabilities(_ context.Context, _ string, _, _ time.Time) ([]storage.ServiceAvail, error) {
 	return nil, nil
 }
+func (fakeReader) AllServicesRED(_ context.Context, _ string, _, _ time.Time) (map[string][]storage.REDPoint, error) {
+	return nil, nil
+}
 func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]storage.MonitorStatus, error) {
 	return nil, nil
 }

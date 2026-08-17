@@ -170,3 +170,35 @@ ORDER BY service_name`, tenantID, from, to)
 	}
 	return out, rows.Err()
 }
+
+// AllServicesRED returns every service's per-minute RED series in ONE query,
+// grouped by service — so views that scan all services (health, anomalies) run a
+// single aggregate instead of N per-service queries.
+func (s *Store) AllServicesRED(ctx context.Context, tenantID string, from, to time.Time) (map[string][]REDPoint, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT service_name, minute,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name, minute
+ORDER BY service_name, minute`, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
+	}
+	return out, rows.Err()
+}
