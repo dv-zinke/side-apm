@@ -185,7 +185,7 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
-export type SLOStatus = { service: string; windowHours: number; totalReq: number; totalErr: number; successRate: number; target: number; budgetConsumed: number; budgetRemaining: number; apdex: number; hasApdex: boolean; availStatus: "healthy" | "at_risk" | "breached"; latencyStatus: "healthy" | "at_risk" | "breached"; status: "healthy" | "at_risk" | "breached" };
+export type SLOStatus = { service: string; windowHours: number; totalReq: number; totalErr: number; successRate: number; target: number; budgetConsumed: number; budgetRemaining: number; p95Ms: number; hasLatency: boolean; availStatus: "healthy" | "at_risk" | "breached"; latencyStatus: "healthy" | "at_risk" | "breached"; status: "healthy" | "at_risk" | "breached" };
 export async function fetchSLO(windowHours = 24): Promise<SLOStatus[]> {
   const r = await fetch(`${BASE}/api/v1/slo?windowHours=${windowHours}`);
   if (!r.ok) throw new Error(`slo ${r.status}`);

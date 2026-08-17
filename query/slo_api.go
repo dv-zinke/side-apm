@@ -15,10 +15,10 @@ type SLOStatus struct {
 	Target          float64 `json:"target"`
 	BudgetConsumed  float64 `json:"budgetConsumed"`  // % of the error budget used
 	BudgetRemaining float64 `json:"budgetRemaining"` // %
-	Apdex           float64 `json:"apdex"`
-	HasApdex        bool    `json:"hasApdex"`
+	P95Ms           float64 `json:"p95Ms"`
+	HasLatency      bool    `json:"hasLatency"`
 	AvailStatus     string  `json:"availStatus"`   // availability SLI
-	LatencyStatus   string  `json:"latencyStatus"` // latency SLI (Apdex)
+	LatencyStatus   string  `json:"latencyStatus"` // latency SLI (p95)
 	Status          string  `json:"status"`        // worst of the two
 }
 
@@ -48,43 +48,33 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 		to := time.Now().UTC()
 		from := to.Add(-time.Duration(windowHours) * time.Hour)
 
-		services, err := r.ListServices(ctx, tenantOf(req))
+		// The entire SLO view is now ONE aggregate query (availability + p95 per
+		// service) — no per-service loop, no Apdex fan-out. Fast under load.
+		avails, err := r.ServiceAvailabilities(ctx, tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		out := make([]SLOStatus, 0)
-		for _, svc := range services {
-			red, err := r.GetServiceRED(ctx, tenantOf(req), svc, from, to)
-			if err != nil || len(red) == 0 {
+		res := make([]SLOStatus, 0, len(avails))
+		for _, a := range avails {
+			if a.TotalReq == 0 {
 				continue
 			}
-			var totalReq, totalErr uint64
-			for _, p := range red {
-				totalReq += p.RequestCount
-				totalErr += p.ErrorCount
-			}
-			if totalReq == 0 {
-				continue
-			}
-			success := 100 * float64(totalReq-totalErr) / float64(totalReq)
+			success := 100 * float64(a.TotalReq-a.TotalErr) / float64(a.TotalReq)
 			budget := 100 - target // allowed error %
-			errPct := 100 * float64(totalErr) / float64(totalReq)
+			errPct := 100 * float64(a.TotalErr) / float64(a.TotalReq)
 			consumed := 0.0
 			if budget > 0 {
 				consumed = 100 * errPct / budget
 			}
 			s := SLOStatus{
-				Service: svc, WindowHours: windowHours, TotalReq: totalReq, TotalErr: totalErr,
+				Service: a.Service, WindowHours: windowHours, TotalReq: a.TotalReq, TotalErr: a.TotalErr,
 				SuccessRate: success, Target: target, BudgetConsumed: consumed, BudgetRemaining: 100 - consumed,
+				P95Ms: a.P95Ms, HasLatency: a.P95Ms > 0,
 			}
 			if s.BudgetRemaining < 0 {
 				s.BudgetRemaining = 0
 			}
-			if score, _, ok, err := r.ServiceApdex(ctx, tenantOf(req), svc, 500, from, to); err == nil && ok {
-				s.Apdex, s.HasApdex = score, true
-			}
-			// Availability SLI (error budget) …
 			switch {
 			case success < target:
 				s.AvailStatus = "breached"
@@ -93,20 +83,19 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 			default:
 				s.AvailStatus = "healthy"
 			}
-			// … and latency SLI (Apdex ≥ 0.9 target) so a latency-degraded service
-			// doesn't read as fully healthy here while the health view flags it.
+			// Latency SLI from p95 (objective: p95 < 500ms).
 			s.LatencyStatus = "healthy"
-			if s.HasApdex {
+			if s.HasLatency {
 				switch {
-				case s.Apdex < 0.8:
+				case s.P95Ms >= 1000:
 					s.LatencyStatus = "breached"
-				case s.Apdex < 0.9:
+				case s.P95Ms >= 500:
 					s.LatencyStatus = "at_risk"
 				}
 			}
 			s.Status = worstStatus(s.AvailStatus, s.LatencyStatus)
-			out = append(out, s)
+			res = append(res, s)
 		}
-		writeJSON(w, out)
+		writeJSON(w, res)
 	})
 }

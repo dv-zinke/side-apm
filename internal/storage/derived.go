@@ -132,3 +132,41 @@ ORDER BY minute`
 	}
 	return out, rows.Err()
 }
+
+type ServiceAvail struct {
+	Service  string
+	TotalReq uint64
+	TotalErr uint64
+	P95Ms    float64
+}
+
+// ServiceAvailabilities returns request/error totals + p95 latency per service
+// over the window in a SINGLE aggregate query. This replaced the SLO endpoint's
+// N-per-service RED+Apdex scans (found slow by self-tracing) — one query serves
+// the whole SLO view, staying fast even under concurrent load.
+func (s *Store) ServiceAvailabilities(ctx context.Context, tenantID string, from, to time.Time) ([]ServiceAvail, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT service_name, countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name
+ORDER BY service_name`, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ServiceAvail
+	for rows.Next() {
+		var a ServiceAvail
+		var qs []float64
+		if err := rows.Scan(&a.Service, &a.TotalReq, &a.TotalErr, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			a.P95Ms = qs[1] / 1e6
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}

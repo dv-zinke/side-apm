@@ -57,10 +57,10 @@ export function Slo() {
                           : <>에러 버짓 <b>{s.budgetRemaining.toFixed(0)}%</b> 남음</>}
                       </div>
                     </div>
-                    {s.hasApdex && (
+                    {s.hasLatency && (
                       <div className="slo-lat">
                         <span className="slo-lat-label">지연 SLI</span>
-                        <span className={`slo-lat-val ${toneOf(s.latencyStatus)}`}>Apdex {s.apdex.toFixed(2)}</span>
+                        <span className={`slo-lat-val ${toneOf(s.latencyStatus)}`}>p95 {s.p95Ms >= 1000 ? (s.p95Ms / 1000).toFixed(1) + "s" : s.p95Ms.toFixed(0) + "ms"}</span>
                         {s.latencyStatus !== "healthy" && <span className={`slo-lat-flag ${toneOf(s.latencyStatus)}`}>{s.latencyStatus === "breached" ? "지연 목표 미달" : "지연 주의"}</span>}
                       </div>
                     )}
