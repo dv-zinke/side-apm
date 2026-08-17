@@ -185,7 +185,7 @@ export async function fetchContainerSeries(name: string, metric: string): Promis
   return r.json();
 }
 
-export type SLOStatus = { service: string; windowHours: number; totalReq: number; totalErr: number; successRate: number; target: number; budgetConsumed: number; budgetRemaining: number; p95Ms: number; hasLatency: boolean; availStatus: "healthy" | "at_risk" | "breached"; latencyStatus: "healthy" | "at_risk" | "breached"; status: "healthy" | "at_risk" | "breached" };
+export type SLOStatus = { service: string; windowHours: number; totalReq: number; totalErr: number; successRate: number; target: number; budgetConsumed: number; budgetRemaining: number; budgetOverBy: number; p95Ms: number; hasLatency: boolean; availStatus: "healthy" | "at_risk" | "breached"; latencyStatus: "healthy" | "at_risk" | "breached"; status: "healthy" | "at_risk" | "breached" };
 export async function fetchSLO(windowHours = 24): Promise<SLOStatus[]> {
   const r = await fetch(`${BASE}/api/v1/slo?windowHours=${windowHours}`);
   if (!r.ok) throw new Error(`slo ${r.status}`);
@@ -269,8 +269,10 @@ export async function recordDeploy(d: { service: string; version: string; descri
 }
 
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
-export async function fetchDBQueries(orderBy = "total", limit = 50): Promise<QueryStat[]> {
-  const r = await fetch(`${BASE}/api/v1/db/queries?orderBy=${orderBy}&limit=${limit}`);
+export async function fetchDBQueries(orderBy = "total", limit = 50, service = ""): Promise<QueryStat[]> {
+  const p = new URLSearchParams({ orderBy, limit: String(limit) });
+  if (service) p.set("service", service);
+  const r = await fetch(`${BASE}/api/v1/db/queries?${p}`);
   if (!r.ok) throw new Error(`db queries ${r.status}`);
   return r.json();
 }

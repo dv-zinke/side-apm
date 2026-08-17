@@ -19,7 +19,7 @@ type QueryStat struct {
 // TopQueries aggregates DB spans by (service, normalized statement) — the core
 // of database monitoring: which queries cost the most and which run slowest.
 // orderBy: "total" (impact) | "max" (slowest) | "calls".
-func (s *Store) TopQueries(ctx context.Context, tenantID, orderBy string, from, to time.Time, limit int) ([]QueryStat, error) {
+func (s *Store) TopQueries(ctx context.Context, tenantID, service, orderBy string, from, to time.Time, limit int) ([]QueryStat, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
@@ -39,10 +39,11 @@ SELECT service_name, db_statement, any(db_system) AS db_sys,
        sum(duration_ns) / 1e6 AS total_ms
 FROM apm.spans
 WHERE tenant_id = ? AND db_statement != '' AND start_time >= ? AND start_time <= ?
+  AND (? = '' OR service_name = ?)
 GROUP BY service_name, db_statement
 ORDER BY ` + order + ` DESC
 LIMIT ?`
-	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to, limit)
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to, service, service, limit)
 	if err != nil {
 		return nil, err
 	}

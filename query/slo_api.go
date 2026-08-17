@@ -13,8 +13,9 @@ type SLOStatus struct {
 	TotalErr        uint64  `json:"totalErr"`
 	SuccessRate     float64 `json:"successRate"`
 	Target          float64 `json:"target"`
-	BudgetConsumed  float64 `json:"budgetConsumed"`  // % of the error budget used
+	BudgetConsumed  float64 `json:"budgetConsumed"`  // % of the error budget used (0–100, clamped)
 	BudgetRemaining float64 `json:"budgetRemaining"` // %
+	BudgetOverBy    float64 `json:"budgetOverBy"`    // when breached: how many × over budget (0 otherwise)
 	P95Ms           float64 `json:"p95Ms"`
 	HasLatency      bool    `json:"hasLatency"`
 	AvailStatus     string  `json:"availStatus"`   // availability SLI
@@ -69,8 +70,16 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 			}
 			s := SLOStatus{
 				Service: a.Service, WindowHours: windowHours, TotalReq: a.TotalReq, TotalErr: a.TotalErr,
-				SuccessRate: success, Target: target, BudgetConsumed: consumed, BudgetRemaining: 100 - consumed,
+				SuccessRate: success, Target: target, BudgetRemaining: 100 - consumed,
 				P95Ms: a.P95Ms, HasLatency: a.P95Ms > 0,
+			}
+			// Clamp consumed to [0,100] for display; expose the over-budget multiple
+			// separately so a 6030% doesn't read as a nonsense percentage.
+			if consumed > 100 {
+				s.BudgetOverBy = consumed / 100
+				s.BudgetConsumed = 100
+			} else {
+				s.BudgetConsumed = consumed
 			}
 			if s.BudgetRemaining < 0 {
 				s.BudgetRemaining = 0

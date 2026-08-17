@@ -23,7 +23,7 @@ func registerDB(mux *http.ServeMux, r Reader) {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		from, to := resolveWindow(q.Get("from"), q.Get("to"), time.Hour)
-		stats, err := r.TopQueries(req.Context(), tenantOf(req), q.Get("orderBy"), from, to, limit)
+		stats, err := r.TopQueries(req.Context(), tenantOf(req), q.Get("service"), q.Get("orderBy"), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

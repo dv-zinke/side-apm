@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDBQueries, fetchNPlusOne } from "./api";
+import { fetchDBQueries, fetchNPlusOne, fetchServices } from "./api";
 import { EmptyState, Skeleton } from "./states";
 
 const ORDERS = [
@@ -17,11 +17,16 @@ function durClass(n: number) { return n >= 1000 ? "err" : n >= 300 ? "warn" : ""
 
 function Queries() {
   const [orderBy, setOrderBy] = useState("total");
-  const { data, isLoading } = useQuery({ queryKey: ["db-queries", orderBy], queryFn: () => fetchDBQueries(orderBy, 50), refetchInterval: 10000 });
+  const [service, setService] = useState("");
+  const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 30000 });
+  const { data, isLoading } = useQuery({ queryKey: ["db-queries", orderBy, service], queryFn: () => fetchDBQueries(orderBy, 50, service), refetchInterval: 10000 });
   return (
     <>
       <div className="pane-head" style={{ position: "static", borderTop: 0, paddingTop: 0 }}>
-        <span className="pane-title" style={{ fontSize: "var(--fs-sm)", color: "var(--tx-dim)" }}>정렬</span>
+        <select className="select" value={service} onChange={(e) => setService(e.target.value)} aria-label="서비스 필터">
+          <option value="">전체 서비스</option>
+          {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
         <div className="segmented" role="tablist" aria-label="정렬 기준" style={{ marginLeft: "auto" }}>
           {ORDERS.map((o) => (
             <button key={o.id} role="tab" aria-selected={orderBy === o.id} className="seg" onClick={() => setOrderBy(o.id)}>{o.label}</button>

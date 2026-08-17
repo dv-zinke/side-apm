@@ -53,7 +53,7 @@ export function Slo() {
                       <div className="slo-budget-bar"><div className={`slo-budget-fill ${availTone}`} style={{ width: `${Math.max(0, Math.min(100, s.budgetRemaining))}%` }} /></div>
                       <div className="slo-budget-label">
                         {s.availStatus === "breached"
-                          ? <>에러 버짓 <b>소진</b> · 가용성 목표 미달</>
+                          ? <>에러 버짓 <b>소진</b>{s.budgetOverBy >= 1.5 && <> · 예산 <b>{s.budgetOverBy.toFixed(1)}배</b> 초과</>}</>
                           : <>에러 버짓 <b>{s.budgetRemaining.toFixed(0)}%</b> 남음</>}
                       </div>
                     </div>
