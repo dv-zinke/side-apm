@@ -23,7 +23,11 @@ type AlertStore interface {
 	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
 	ListServices(ctx context.Context, tenant string) ([]string, error)
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
+	ListTenants(ctx context.Context) ([]string, error)
 }
+
+// tenant-scoped state key so one tenant's transitions never collide with another's.
+func tkey(tenant, id string) string { return tenant + "\x00" + id }
 
 // Evaluator periodically checks alert rules and fires on breaches. It tracks
 // per-rule state in-memory so it only fires on transitions (ok→firing) and
@@ -67,149 +71,165 @@ func (e *Evaluator) Run(ctx context.Context) {
 // restore rebuilds in-memory firing state from the alerts table on startup so a
 // query restart doesn't re-fire (and re-notify) alerts that are already active.
 func (e *Evaluator) restore(ctx context.Context) {
-	alerts, err := e.store.ListAlerts(ctx, defaultTenant, 500)
-	if err != nil {
-		return
-	}
-	// Compute the latest state per rule. On an equal timestamp (second-resolution
-	// ties) prefer "resolved" so we never restore a firing that already recovered.
-	latest := map[string]storage.Alert{}
-	for _, a := range alerts {
-		cur, ok := latest[a.RuleID]
-		if !ok || a.FiredAt.After(cur.FiredAt) || (a.FiredAt.Equal(cur.FiredAt) && a.State == "resolved") {
-			latest[a.RuleID] = a
-		}
+	tenants, err := e.store.ListTenants(ctx)
+	if err != nil || len(tenants) == 0 {
+		tenants = []string{defaultTenant}
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, a := range latest {
-		if a.State != "firing" {
+	for _, tenant := range tenants {
+		alerts, err := e.store.ListAlerts(ctx, tenant, 500)
+		if err != nil {
 			continue
 		}
-		if mon, ok := strings.CutPrefix(a.RuleID, "synthetic:"); ok {
-			e.monDown[mon] = true
-		} else if strings.HasPrefix(a.RuleID, "anomaly:") {
-			e.anomActive[a.Service+":"+a.Metric] = Anomaly{Service: a.Service, Metric: a.Metric, Current: a.Value, Baseline: a.Threshold}
-		} else {
-			e.firing[a.RuleID] = firingState{
-				rule: storage.AlertRule{ID: a.RuleID, Name: a.RuleName, Service: a.Service, Metric: a.Metric, Threshold: a.Threshold},
-				val:  a.Value,
+		// Latest state per rule; on an equal timestamp prefer "resolved" so we
+		// never restore a firing that already recovered.
+		latest := map[string]storage.Alert{}
+		for _, a := range alerts {
+			cur, ok := latest[a.RuleID]
+			if !ok || a.FiredAt.After(cur.FiredAt) || (a.FiredAt.Equal(cur.FiredAt) && a.State == "resolved") {
+				latest[a.RuleID] = a
+			}
+		}
+		for _, a := range latest {
+			if a.State != "firing" {
+				continue
+			}
+			if mon, ok := strings.CutPrefix(a.RuleID, "synthetic:"); ok {
+				e.monDown[tkey(tenant, mon)] = true
+			} else if strings.HasPrefix(a.RuleID, "anomaly:") {
+				e.anomActive[tkey(tenant, a.Service+":"+a.Metric)] = Anomaly{Service: a.Service, Metric: a.Metric, Current: a.Value, Baseline: a.Threshold}
+			} else {
+				e.firing[tkey(tenant, a.RuleID)] = firingState{
+					rule: storage.AlertRule{ID: a.RuleID, Name: a.RuleName, Service: a.Service, Metric: a.Metric, Threshold: a.Threshold},
+					val:  a.Value,
+				}
 			}
 		}
 	}
 	if len(e.firing) > 0 || len(e.monDown) > 0 || len(e.anomActive) > 0 {
-		log.Printf("alerts: restored %d firing rules + %d down monitors + %d anomalies", len(e.firing), len(e.monDown), len(e.anomActive))
+		log.Printf("alerts: restored %d firing rules + %d down monitors + %d anomalies across %d tenants", len(e.firing), len(e.monDown), len(e.anomActive), len(tenants))
 	}
 }
 
 func (e *Evaluator) tick(ctx context.Context) {
-	e.checkSynthetics(ctx)
-	e.checkAnomalies(ctx)
+	tenants, err := e.store.ListTenants(ctx)
+	if err != nil || len(tenants) == 0 {
+		tenants = []string{defaultTenant}
+	}
+	for _, tenant := range tenants {
+		e.checkSynthetics(ctx, tenant)
+		e.checkAnomalies(ctx, tenant)
+		e.evalRules(ctx, tenant)
+	}
+}
 
-	rules, err := e.store.ListAlertRules(ctx, defaultTenant)
+// evalRules checks one tenant's service-metric rules and fires/resolves on
+// transition. State is keyed by (tenant, rule) so tenants don't collide.
+func (e *Evaluator) evalRules(ctx context.Context, tenant string) {
+	rules, err := e.store.ListAlertRules(ctx, tenant)
 	if err != nil {
-		log.Printf("alerts: list rules: %v", err)
+		log.Printf("alerts: list rules (%s): %v", tenant, err)
 		return
 	}
-	// Track which rules still exist + are enabled this tick, so deleted/disabled
-	// rules that were firing get auto-resolved instead of lingering forever.
 	live := make(map[string]bool, len(rules))
 	for _, r := range rules {
-		if r.Enabled {
-			live[r.ID] = true
-		}
 		if !r.Enabled {
 			continue
 		}
-		val, ok, err := e.store.EvalServiceMetric(ctx, defaultTenant, r.Service, r.Metric, r.WindowMin)
+		live[r.ID] = true
+		val, ok, err := e.store.EvalServiceMetric(ctx, tenant, r.Service, r.Metric, r.WindowMin)
 		if err != nil || !ok {
 			continue
 		}
 		breached := val > r.Threshold
+		k := tkey(tenant, r.ID)
 		e.mu.Lock()
-		_, was := e.firing[r.ID]
+		_, was := e.firing[k]
 		e.mu.Unlock()
 
 		if breached && !was {
-			e.fire(ctx, r, val, "firing")
+			e.fire(ctx, tenant, r, val, "firing")
 			e.mu.Lock()
-			e.firing[r.ID] = firingState{rule: r, val: val}
+			e.firing[k] = firingState{rule: r, val: val}
 			e.mu.Unlock()
 		} else if !breached && was {
-			e.fire(ctx, r, val, "resolved")
+			e.fire(ctx, tenant, r, val, "resolved")
 			e.mu.Lock()
-			delete(e.firing, r.ID)
+			delete(e.firing, k)
 			e.mu.Unlock()
 		} else if breached && was {
 			e.mu.Lock()
-			e.firing[r.ID] = firingState{rule: r, val: val}
+			e.firing[k] = firingState{rule: r, val: val}
 			e.mu.Unlock()
 		}
 	}
 
-	// Auto-resolve rules that vanished (deleted or disabled) while firing.
+	// Auto-resolve this tenant's rules that vanished (deleted/disabled) while firing.
+	prefix := tenant + "\x00"
 	e.mu.Lock()
-	stale := make([]firingState, 0)
-	for id, fs := range e.firing {
-		if !live[id] {
+	var stale []firingState
+	for k, fs := range e.firing {
+		if strings.HasPrefix(k, prefix) && !live[strings.TrimPrefix(k, prefix)] {
 			stale = append(stale, fs)
-			delete(e.firing, id)
+			delete(e.firing, k)
 		}
 	}
 	e.mu.Unlock()
 	for _, fs := range stale {
-		e.fire(ctx, fs.rule, fs.val, "resolved")
+		e.fire(ctx, tenant, fs.rule, fs.val, "resolved")
 	}
 }
 
 // checkSynthetics fires (and resolves) alerts when a synthetic monitor goes
 // down — no rule config needed, an unreachable endpoint is inherently alertable.
-func (e *Evaluator) checkSynthetics(ctx context.Context) {
+func (e *Evaluator) checkSynthetics(ctx context.Context, tenant string) {
 	to := time.Now().UTC()
-	monitors, err := e.store.ListMonitors(ctx, defaultTenant, to.Add(-90*time.Second), to)
+	monitors, err := e.store.ListMonitors(ctx, tenant, to.Add(-90*time.Second), to)
 	if err != nil {
 		return
 	}
 	seen := make(map[string]storage.MonitorStatus, len(monitors))
 	for _, m := range monitors {
 		seen[m.Monitor] = m
+		k := tkey(tenant, m.Monitor)
 		e.mu.Lock()
-		wasDown := e.monDown[m.Monitor]
+		wasDown := e.monDown[k]
 		e.mu.Unlock()
 		if !m.Up && !wasDown {
-			e.fireSynthetic(ctx, m, "firing")
+			e.fireSynthetic(ctx, tenant, m, "firing")
 			e.mu.Lock()
-			e.monDown[m.Monitor] = true
+			e.monDown[k] = true
 			e.mu.Unlock()
 		} else if m.Up && wasDown {
-			e.fireSynthetic(ctx, m, "resolved")
+			e.fireSynthetic(ctx, tenant, m, "resolved")
 			e.mu.Lock()
-			delete(e.monDown, m.Monitor)
+			delete(e.monDown, k)
 			e.mu.Unlock()
 		}
 	}
-	// Auto-resolve monitors that dropped out of the window while marked down
-	// (removed from config or no longer reporting) so alerts don't linger.
+	// Auto-resolve this tenant's monitors that dropped out of the window.
+	prefix := tenant + "\x00"
 	e.mu.Lock()
 	var vanished []string
-	for name := range e.monDown {
-		if _, ok := seen[name]; !ok {
-			vanished = append(vanished, name)
+	for k := range e.monDown {
+		if strings.HasPrefix(k, prefix) && seen[strings.TrimPrefix(k, prefix)].Monitor == "" {
+			vanished = append(vanished, k)
 		}
 	}
-	for _, name := range vanished {
-		delete(e.monDown, name)
+	for _, k := range vanished {
+		delete(e.monDown, k)
 	}
 	e.mu.Unlock()
-	for _, name := range vanished {
-		e.fireSynthetic(ctx, storage.MonitorStatus{Monitor: name, Uptime: 100}, "resolved")
+	for _, k := range vanished {
+		e.fireSynthetic(ctx, tenant, storage.MonitorStatus{Monitor: strings.TrimPrefix(k, prefix), Uptime: 100}, "resolved")
 	}
 }
 
 // checkAnomalies scans services for z-score anomalies and fires/resolves alerts
 // on transitions — making anomaly detection actionable (on-call), not just a view.
-func (e *Evaluator) checkAnomalies(ctx context.Context) {
-	services, err := e.store.ListServices(ctx, defaultTenant)
+func (e *Evaluator) checkAnomalies(ctx context.Context, tenant string) {
+	services, err := e.store.ListServices(ctx, tenant)
 	if err != nil {
 		return
 	}
@@ -224,7 +244,7 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 		wg.Add(1)
 		go func(svc string) {
 			defer wg.Done()
-			red, err := e.store.GetServiceRED(ctx, defaultTenant, svc, from, to)
+			red, err := e.store.GetServiceRED(ctx, tenant, svc, from, to)
 			if err != nil || len(red) < 12 {
 				return
 			}
@@ -241,18 +261,19 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 			mu.Lock()
 			defer mu.Unlock()
 			if a, ok := detect(svc, "p95_ms", p95, 300, 0.5, false); ok {
-				current[svc+":p95_ms"] = a
+				current[tkey(tenant, svc+":p95_ms")] = a
 			}
 			if a, ok := detect(svc, "error_rate", errRate, 1, 0.5, false); ok {
-				current[svc+":error_rate"] = a
+				current[tkey(tenant, svc+":error_rate")] = a
 			}
 			if a, ok := detect(svc, "throughput", thr, 5, 0.3, true); ok {
-				current[svc+":throughput"] = a
+				current[tkey(tenant, svc+":throughput")] = a
 			}
 		}(svc)
 	}
 	wg.Wait()
 
+	prefix := tenant + "\x00"
 	e.mu.Lock()
 	var toFire, toResolve []Anomaly
 	for key, a := range current {
@@ -262,6 +283,9 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 		e.anomActive[key] = a
 	}
 	for key, a := range e.anomActive {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
 		if _, still := current[key]; !still {
 			toResolve = append(toResolve, a)
 			delete(e.anomActive, key)
@@ -270,20 +294,20 @@ func (e *Evaluator) checkAnomalies(ctx context.Context) {
 	e.mu.Unlock()
 
 	for _, a := range toFire {
-		e.fireAnomaly(ctx, a, "firing")
+		e.fireAnomaly(ctx, tenant, a, "firing")
 	}
 	for _, a := range toResolve {
-		e.fireAnomaly(ctx, a, "resolved")
+		e.fireAnomaly(ctx, tenant, a, "resolved")
 	}
 }
 
-func (e *Evaluator) fireAnomaly(ctx context.Context, a Anomaly, state string) {
+func (e *Evaluator) fireAnomaly(ctx context.Context, tenant string, a Anomaly, state string) {
 	al := storage.Alert{
 		FiredAt: time.Now().UTC(), RuleID: "anomaly:" + a.Service + ":" + a.Metric,
 		RuleName: "이상 감지: " + a.Service + " " + a.Metric, Service: a.Service,
 		Metric: a.Metric, Value: a.Current, Threshold: a.Baseline, State: state,
 	}
-	if err := e.store.InsertAlert(ctx, defaultTenant, al); err != nil {
+	if err := e.store.InsertAlert(ctx, tenant, al); err != nil {
 		log.Printf("alerts: insert anomaly: %v", err)
 	}
 	if e.webhookURL != "" {
@@ -298,12 +322,12 @@ func (e *Evaluator) fireAnomaly(ctx context.Context, a Anomaly, state string) {
 	log.Printf("alerts: anomaly [%s] %s %s (%.1fσ)", state, a.Service, a.Metric, a.Z)
 }
 
-func (e *Evaluator) fireSynthetic(ctx context.Context, m storage.MonitorStatus, state string) {
+func (e *Evaluator) fireSynthetic(ctx context.Context, tenant string, m storage.MonitorStatus, state string) {
 	a := storage.Alert{
 		FiredAt: time.Now().UTC(), RuleID: "synthetic:" + m.Monitor, RuleName: "가동 실패: " + m.Monitor,
 		Service: m.Monitor, Metric: "uptime", Value: m.Uptime, Threshold: 100, State: state,
 	}
-	if err := e.store.InsertAlert(ctx, defaultTenant, a); err != nil {
+	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert synthetic: %v", err)
 	}
 	if e.webhookURL != "" {
@@ -318,12 +342,12 @@ func (e *Evaluator) fireSynthetic(ctx context.Context, m storage.MonitorStatus, 
 	log.Printf("alerts: synthetic [%s] %s (%s)", state, m.Monitor, m.URL)
 }
 
-func (e *Evaluator) fire(ctx context.Context, r storage.AlertRule, val float64, state string) {
+func (e *Evaluator) fire(ctx context.Context, tenant string, r storage.AlertRule, val float64, state string) {
 	a := storage.Alert{
 		FiredAt: time.Now().UTC(), RuleID: r.ID, RuleName: r.Name, Service: r.Service,
 		Metric: r.Metric, Value: val, Threshold: r.Threshold, State: state,
 	}
-	if err := e.store.InsertAlert(ctx, defaultTenant, a); err != nil {
+	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert: %v", err)
 	}
 	e.notify(r, val, state)

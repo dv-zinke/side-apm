@@ -68,3 +68,22 @@ func (s *Store) SeedDefaultUsers(ctx context.Context) error {
 	}
 	return s.CreateUser(ctx, "default", "viewer", "viewer", "viewer")
 }
+
+// ListTenants returns distinct tenant IDs that have registered users — the set
+// the background evaluator iterates so every tenant gets alerts/anomalies.
+func (s *Store) ListTenants(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT DISTINCT tenant_id FROM apm.users WHERE tenant_id != '' ORDER BY tenant_id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
