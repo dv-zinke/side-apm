@@ -772,3 +772,5 @@
 .flame-bar:hover { filter: brightness(1.12); outline: 1px solid rgba(255,255,255,0.5); }
 .flame-label { font-size: 10px; color: #1a1206; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 720px) { .prof-layout { grid-template-columns: 1fr; } }
+
+.dash-toolbar { display: flex; align-items: center; gap: var(--sp-3); }

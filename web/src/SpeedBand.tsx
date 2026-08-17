@@ -22,7 +22,7 @@ function tierOf(durationMs: number, isError: boolean): Tier {
 /* WhaTap-style live "active transaction speed" lane.
    Each streamed transaction spawns a dot that flows across the lane;
    colour = speed tier, size = duration. Pure canvas + rAF. */
-export function SpeedBand() {
+export function SpeedBand({ service }: { service?: string } = {}) {
   const { theme } = useTheme();
   const { openTrace } = useNav();
   const c = chartColors(theme);
@@ -43,6 +43,7 @@ export function SpeedBand() {
     });
   };
   useLiveTxns((t) => {
+    if (service && t.service !== service) return; // scoped to one service
     // stagger entry across ~1s so 1-second SSE batches read as a continuous
     // stream instead of vertical columns.
     spawn(t, reduce ? Math.random() : 1 + Math.random() * 0.18);
@@ -50,6 +51,7 @@ export function SpeedBand() {
     const tier = tierOf(t.durationMs, t.isError);
     setTally((s) => ({ ...s, [tier]: s[tier] + 1 }));
   });
+  useEffect(() => { particles.current = []; setTally({ ok: 0, slow: 0, err: 0 }); }, [service]); // reset on scope change
   // Backfill the lane on mount so it's full of flowing dots immediately.
   useEffect(() => {
     let alive = true;

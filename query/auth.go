@@ -91,6 +91,9 @@ func authMiddleware(next http.Handler) http.Handler {
 		tok := ""
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 			tok = strings.TrimPrefix(h, "Bearer ")
+		} else if qt := r.URL.Query().Get("token"); qt != "" {
+			// EventSource (SSE) can't set headers — accept the token via query param.
+			tok = qt
 		}
 		p, ok := verifyToken(tok)
 		if !ok {

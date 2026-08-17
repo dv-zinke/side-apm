@@ -339,7 +339,11 @@ export async function fetchRecentTxns(sinceMin = 10): Promise<LiveTxn[]> {
 }
 
 export function liveTxnStream(onTxn: (t: LiveTxn) => void): () => void {
-  const es = new EventSource(`${BASE}/api/v1/live/transactions`);
+  // EventSource can't set an Authorization header, so pass the token as a query
+  // param (the auth middleware accepts it for SSE).
+  const tok = (() => { try { return JSON.parse(localStorage.getItem("apm.auth") || "{}").token || ""; } catch { return ""; } })();
+  const url = `${BASE}/api/v1/live/transactions${tok ? `?token=${encodeURIComponent(tok)}` : ""}`;
+  const es = new EventSource(url);
   es.onmessage = (e) => { try { onTxn(JSON.parse(e.data)); } catch {} };
   return () => es.close();
 }

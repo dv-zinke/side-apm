@@ -31,7 +31,7 @@ const rankOf = (t: Tier) => (t === "err" ? 2 : t === "slow" ? 1 : 0);
 
 type Cell = { xi: number; yi: number; rank: number; tier: Tier; t: LiveTxn; n: number };
 
-export function Heatmap() {
+export function Heatmap({ service }: { service?: string } = {}) {
   const { theme } = useTheme();
   const { openTrace } = useNav();
   const c = chartColors(theme);
@@ -41,10 +41,12 @@ export function Heatmap() {
   const buf = useRef<Point[]>([]);
 
   const add = (t: LiveTxn) => {
+    if (service && t.service !== service) return; // scoped to one service
     const ts = new Date(t.startTime).getTime();
     buf.current.push({ value: [ts, t.durationMs], tier: tierOf(t.durationMs, t.isError), t });
   };
   useLiveTxns(add);
+  useEffect(() => { buf.current = []; setPoints([]); }, [service]); // reset on scope change
   useEffect(() => {
     let alive = true;
     fetchRecentTxns(5).then((txns) => { if (alive) { txns.forEach(add); setPoints([...buf.current]); } }).catch(() => {});

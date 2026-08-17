@@ -68,9 +68,14 @@ func registerHealth(mux *http.ServeMux, r Reader) {
 			}
 			h := ServiceHealth{Service: svc, Status: "idle", Alerting: alertingSvc[svc]}
 
-			// A service that WAS reporting but whose latest bucket is stale has gone
-			// silent (crashed / traffic cut) — surface it as down.
-			if to.Sub(red[len(red)-1].Minute) > 3*time.Minute {
+			// Recency of the latest bucket decides fleet membership: long-silent
+			// services (old test/ghost services) drop off; recently-silent ones show
+			// as down so a real outage stays visible.
+			stale := to.Sub(red[len(red)-1].Minute)
+			if stale > 10*time.Minute {
+				continue // gone — not part of the live fleet
+			}
+			if stale > 3*time.Minute {
 				h.Status = "down"
 				sum.Down++
 				out = append(out, h)
