@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
+	github.com/XSAM/otelsql v0.43.0
 	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
 	go.opentelemetry.io/otel v1.45.0

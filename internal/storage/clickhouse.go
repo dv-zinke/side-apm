@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/XSAM/otelsql"
 	"github.com/heejune/apm/internal/otlp"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Store struct{ db *sql.DB }
@@ -43,7 +45,14 @@ func New(dsn string) (*Store, error) {
 	}
 	// Ensure we're using HTTP protocol
 	opts.Protocol = clickhouse.HTTP
-	db := clickhouse.OpenDB(opts)
+	// Wrap the ClickHouse connector with otelsql so every query becomes a real DB
+	// span (db.system=clickhouse, db.statement) — dogfooding: the query service's
+	// own ClickHouse calls show up in trace waterfalls and the DBM view. No-op
+	// when no tracer provider is set (e.g., the gateway).
+	db := otelsql.OpenDB(clickhouse.Connector(opts),
+		otelsql.WithAttributes(attribute.String("db.system", "clickhouse")),
+		otelsql.WithSpanOptions(otelsql.SpanOptions{OmitConnResetSession: true, OmitConnPrepare: true, OmitRows: true}),
+	)
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
