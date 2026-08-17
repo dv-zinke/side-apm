@@ -9,6 +9,7 @@ import (
 
 	"github.com/heejune/apm/internal/storage"
 	"github.com/heejune/apm/query"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -44,9 +45,19 @@ func main() {
 	profiler := query.NewProfiler(store, query.ParseProfileTargets(os.Getenv("APM_PROFILE_TARGETS")), 0)
 	go profiler.Run(context.Background())
 
+	// Dogfood: the query service traces its own HTTP requests to the gateway, so
+	// real console API traffic shows up as real traces (service "apm-query").
+	shutdown := initTracing(context.Background(), "apm-query")
+	defer shutdown()
+	handler := otelhttp.NewHandler(query.Router(store), "query",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.URL.Path
+		}),
+	)
+
 	addr := getenv("APM_QUERY_ADDR", ":8080")
 	log.Printf("query service listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, query.Router(store)))
+	log.Fatal(http.ListenAndServe(addr, handler))
 }
 
 func getenv(k, def string) string {
