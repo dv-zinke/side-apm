@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/heejune/apm/internal/storage"
@@ -37,6 +38,11 @@ func main() {
 	// ("name|url,name|url") or a default local+external set.
 	prober := query.NewSyntheticProber(store, query.ParseMonitors(os.Getenv("APM_SYNTHETICS")), 0)
 	go prober.Run(context.Background())
+
+	// pprof endpoint + continuous profiler scraping the Go services.
+	go func() { log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
+	profiler := query.NewProfiler(store, query.ParseProfileTargets(os.Getenv("APM_PROFILE_TARGETS")), 0)
+	go profiler.Run(context.Background())
 
 	addr := getenv("APM_QUERY_ADDR", ":8080")
 	log.Printf("query service listening on %s", addr)

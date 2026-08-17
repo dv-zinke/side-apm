@@ -163,6 +163,12 @@ func (fakeReader) DeleteDashboard(_ context.Context, _, _ string) error         
 func (fakeReader) Authenticate(_ context.Context, _, _ string) (storage.User, bool, error) {
 	return storage.User{}, false, nil
 }
+func (fakeReader) ListProfiles(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ProfileMeta, error) {
+	return nil, nil
+}
+func (fakeReader) GetProfile(_ context.Context, _, _ string) (string, string, string, string, error) {
+	return "", "", "", "", nil
+}
 
 func authGet(url string) (*http.Response, error) {
 	req, _ := http.NewRequest("GET", url, nil)

@@ -58,6 +58,8 @@ type Reader interface {
 	UpsertDashboard(ctx context.Context, tenant string, d storage.Dashboard) error
 	DeleteDashboard(ctx context.Context, tenant, id string) error
 	Authenticate(ctx context.Context, username, password string) (storage.User, bool, error)
+	ListProfiles(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ProfileMeta, error)
+	GetProfile(ctx context.Context, tenant, id string) (tree, top, unit, ptype string, err error)
 }
 
 type TransactionDTO struct {
@@ -157,6 +159,7 @@ func Router(r Reader) http.Handler {
 	registerDeploys(mux, r)
 	registerApp(mux, r)
 	registerDashboards(mux, r)
+	registerProfiles(mux, r)
 	registerAuth(mux, r)
 	return withCORS(authMiddleware(mux))
 }

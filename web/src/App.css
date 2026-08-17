@@ -754,3 +754,21 @@
 .btn-sm { padding: 4px 10px; font-size: var(--fs-xs); }
 
 .login-card .onboard-field { flex: none; display: flex; flex-direction: column; gap: 4px; }
+
+/* Continuous profiling — flame graph */
+.prof-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+.prof-layout { display: grid; grid-template-columns: 220px 1fr; gap: var(--sp-3); }
+.prof-list { display: flex; flex-direction: column; gap: 2px; max-height: 70vh; overflow-y: auto; }
+.prof-item { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); cursor: pointer; font: inherit; color: inherit; }
+.prof-item:hover { border-color: var(--line-strong); }
+.prof-item.active { border-color: var(--accent); background: var(--accent-wash); }
+.prof-item-top { font-size: var(--fs-sm); color: var(--tx-hi); display: flex; align-items: center; gap: 6px; }
+.prof-item-time { font-size: var(--fs-xs); color: var(--tx-dim); font-family: var(--mono); }
+.prof-detail { min-width: 0; }
+.flame-root { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px; background: var(--bg-raised); overflow: hidden; }
+.flame-node { width: 100%; }
+.flame-children { display: flex; width: 100%; }
+.flame-bar { height: 20px; border-radius: 2px; margin: 1px; padding: 0 4px; display: flex; align-items: center; overflow: hidden; cursor: default; box-sizing: border-box; }
+.flame-bar:hover { filter: brightness(1.12); outline: 1px solid rgba(255,255,255,0.5); }
+.flame-label { font-size: 10px; color: #1a1206; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) { .prof-layout { grid-template-columns: 1fr; } }

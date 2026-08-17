@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
@@ -43,6 +44,9 @@ func main() {
 	mux.HandleFunc("/v1/infra/host", gateway.HostHandler(store))
 	mux.HandleFunc("/v1/app", gateway.AppHandler(appBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
+
+	// pprof for continuous profiling (scraped by the query profiler).
+	go func() { log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")
 	log.Printf("gateway listening on %s (OTLP/HTTP)", addr)

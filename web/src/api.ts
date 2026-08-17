@@ -222,6 +222,21 @@ export async function fetchMonitorTimeline(monitor: string): Promise<UptimeBucke
   return r.json();
 }
 
+export type ProfileMeta = { id: string; time: string; target: string; type: string; unit: string; samples: number };
+export type FlameNode = { name: string; value: number; children?: FlameNode[] };
+export type FuncStat = { name: string; flat: number; cum: number };
+export type ProfileDetail = { unit: string; type: string; tree: FlameNode; top: FuncStat[] };
+export async function fetchProfiles(limit = 40): Promise<ProfileMeta[]> {
+  const r = await fetch(`${BASE}/api/v1/profiles?limit=${limit}`);
+  if (!r.ok) throw new Error(`profiles ${r.status}`);
+  return r.json();
+}
+export async function fetchProfile(id: string): Promise<ProfileDetail> {
+  const r = await fetch(`${BASE}/api/v1/profiles/${id}`);
+  if (!r.ok) throw new Error(`profile ${r.status}`);
+  return r.json();
+}
+
 export type Panel = { id: string; title: string; type: "red" | "apdex" | "container"; target: string };
 export type DashboardSpec = { panels: Panel[] };
 export type Dashboard = { id: string; name: string; spec: DashboardSpec };

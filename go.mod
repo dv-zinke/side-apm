@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
+	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3
 	go.opentelemetry.io/proto/otlp v1.3.1
 	google.golang.org/protobuf v1.34.2
 )

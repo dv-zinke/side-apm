@@ -18,6 +18,7 @@ import { Health } from "./Health";
 import { Slo } from "./Slo";
 import { Apps } from "./Apps";
 import { CustomDash } from "./CustomDash";
+import { Profiling } from "./Profiling";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
@@ -32,7 +33,7 @@ import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "profiling" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -45,6 +46,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
     { id: "runtime", label: "런타임", icon: IconGauge },
+    { id: "profiling", label: "프로파일링", icon: IconPulse },
     { id: "db", label: "데이터베이스", icon: IconDB },
     { id: "infra", label: "컨테이너", icon: IconContainer },
     { id: "synth", label: "가동 모니터링", icon: IconHeartbeat },
@@ -193,6 +195,8 @@ function Console() {
             <Onboarding />
           ) : view === "runtime" ? (
             <Runtime />
+          ) : view === "profiling" ? (
+            <Profiling />
           ) : view === "db" ? (
             <Database />
           ) : view === "logs" ? (
