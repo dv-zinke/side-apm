@@ -76,6 +76,14 @@ export async function fetchRED(service: string, fromISO: string, toISO: string):
   if (!r.ok) throw new Error(`red ${r.status}`);
   return r.json();
 }
+// Every service's RED series in ONE request, optionally downsampled to
+// step-minute buckets (server merges percentiles correctly). Replaces the
+// per-service fan-out for the dashboard's time-range picker.
+export async function fetchAllRED(fromISO: string, toISO: string, step = 1): Promise<Record<string, REDPoint[]>> {
+  const r = await fetch(`${BASE}/api/v1/red?from=${fromISO}&to=${toISO}&step=${step}`);
+  if (!r.ok) throw new Error(`red ${r.status}`);
+  return r.json();
+}
 
 export type ServiceMapData = {
   nodes: { name: string; requestCount: number; errorCount: number }[];

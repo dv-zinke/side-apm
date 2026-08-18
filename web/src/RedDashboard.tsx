@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { fetchServices, fetchRED, fetchDeploys, fetchExemplars } from "./api";
 import type { Transaction } from "./api";
@@ -7,6 +7,7 @@ import { EmptyState, Skeleton, IconX } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
+import { TimeRange, rangeById, rangeWindow, DEFAULT_RANGE, type RangeId } from "./range";
 
 function ExemplarModal({ service, fromISO, toISO, label, onClose }: { service: string; fromISO: string; toISO: string; label: string; onClose: () => void }) {
   const { openTrace } = useNav();
@@ -48,18 +49,20 @@ export function RedDashboard() {
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 10000 });
   const [svc, setSvc] = useState<string>("");
   const service = svc || (services && services[0]) || "";
+  const [rangeId, setRangeId] = useState<RangeId>(DEFAULT_RANGE);
+  const range = rangeById(rangeId);
   // Bucket the key to the minute so it stays stable across renders — otherwise a
   // fresh millisecond timestamp per render churns the query and it never resolves.
   const minute = Math.floor(Date.now() / 60000);
   const { data: red, isLoading } = useQuery({
-    queryKey: ["red", service, minute],
+    queryKey: ["red", service, rangeId, minute],
     queryFn: () => {
-      const to = new Date().toISOString();
-      const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      return fetchRED(service, from, to);
+      const { fromISO, toISO } = rangeWindow(range, minute * 60000);
+      return fetchRED(service, fromISO, toISO);
     },
     enabled: !!service,
     refetchInterval: 10000,
+    placeholderData: keepPreviousData, // keep the chart while a new range loads
   });
   const { data: deploys } = useQuery({
     queryKey: ["deploys", service, minute],
@@ -105,20 +108,23 @@ export function RedDashboard() {
   return (
     <div className="chart-wrap">
       <div className="pane-head" style={{ position: "static", margin: "calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0", borderTop: 0 }}>
-        <span className="pane-title">RED · 최근 1시간 <span className="hint-inline">막대를 클릭하면 그 시각의 느린 트레이스</span> {deployMarks.length > 0 && <span className="chip warn" style={{ marginLeft: 6 }}><span className="dot" />🚀 배포 {deployMarks.length}</span>}</span>
-        <label className="bar" style={{ marginLeft: "auto" }}>
-          <span className="field-label">서비스</span>
-          <select className="select" value={service} onChange={(e) => setSvc(e.target.value)}>
-            {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
+        <span className="pane-title">RED · 최근 {range.label} <span className="hint-inline">막대를 클릭하면 그 시각의 느린 트레이스</span> {deployMarks.length > 0 && <span className="chip warn" style={{ marginLeft: 6 }}><span className="dot" />🚀 배포 {deployMarks.length}</span>}</span>
+        <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
+          <TimeRange value={rangeId} onChange={setRangeId} />
+          <label className="bar">
+            <span className="field-label">서비스</span>
+            <select className="select" value={service} onChange={(e) => setSvc(e.target.value)}>
+              {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
       {isLoading && service ? (
         <Skeleton rows={6} />
       ) : pts.length === 0 ? (
         <EmptyState
           title="이 구간에 데이터가 없어요"
-          body="선택한 서비스의 최근 1시간 집계가 아직 비어 있어요. 트래픽이 흐르면 분당 지표가 채워져요."
+          body={`선택한 서비스의 최근 ${range.label} 집계가 아직 비어 있어요. 트래픽이 흐르면 분당 지표가 채워져요.`}
         />
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>

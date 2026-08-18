@@ -581,10 +581,12 @@
   font: 500 var(--fs-sm) var(--sans);
   padding: 6px 14px; border-radius: var(--r-sm);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  white-space: nowrap;
+  transition: color 120ms ease, background 120ms ease, transform 80ms ease;
 }
+.seg:active { transform: scale(0.96); }
 .seg:hover { color: var(--tx); }
-.seg[aria-selected="true"] {
+.seg[aria-selected="true"], .seg[aria-checked="true"] {
   background: var(--bg-panel);
   color: var(--tx-hi);
   box-shadow: var(--shadow-1);
@@ -622,9 +624,19 @@
   .connect-status { flex-wrap: wrap; }
   .connect-status .btn-primary { margin-left: 0 !important; width: 100%; min-height: 44px; margin-top: var(--sp-2); }
 }
+/* Mobile: let the dashboard/RED toolbars wrap so the time-range picker and
+   service controls each get a full row instead of crushing the title. */
+@media (max-width: 640px) {
+  .dash-toolbar { flex-wrap: wrap; }
+  .dash-toolbar .pane-title { flex: 1 0 100%; }
+  .dash-toolbar .svc-toggles { margin-left: 0; flex: 1 1 100%; }
+  .pane-head { flex-wrap: wrap; }
+  .pane-head .bar { margin-left: 0 !important; flex: 1 1 100%; flex-wrap: wrap; }
+}
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; border-top-color: var(--line-strong); }
   .live-dot { animation: none; }
+  .seg:active { transform: none; }
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 

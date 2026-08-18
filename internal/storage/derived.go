@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -167,6 +168,48 @@ ORDER BY service_name`, tenantID, from, to)
 			a.P95Ms = qs[1] / 1e6
 		}
 		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// AllServicesREDStep is AllServicesRED downsampled to stepMin-minute buckets in a
+// SINGLE query. Percentiles are merged at the coarser bucket via quantilesMerge —
+// the correct way to downsample p95 (you cannot average percentiles client-side).
+// Powers the dashboard's time-range picker: 1-min buckets for short windows,
+// coarser for 6h/24h so payloads and charts stay sane. stepMin is clamped by the
+// caller and formatted as an int, so there's no injection surface.
+func (s *Store) AllServicesREDStep(ctx context.Context, tenantID string, from, to time.Time, stepMin int) (map[string][]REDPoint, error) {
+	if stepMin <= 1 {
+		return s.AllServicesRED(ctx, tenantID, from, to)
+	}
+	if stepMin > 1440 {
+		stepMin = 1440
+	}
+	q := fmt.Sprintf(`
+SELECT service_name, toStartOfInterval(minute, INTERVAL %d MINUTE) AS bucket,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name, bucket
+ORDER BY service_name, bucket`, stepMin)
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
 	}
 	return out, rows.Err()
 }

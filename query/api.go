@@ -21,6 +21,7 @@ type Reader interface {
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
 	ServiceAvailabilities(ctx context.Context, tenant string, from, to time.Time) ([]storage.ServiceAvail, error)
 	AllServicesRED(ctx context.Context, tenant string, from, to time.Time) (map[string][]storage.REDPoint, error)
+	AllServicesREDStep(ctx context.Context, tenant string, from, to time.Time, stepMin int) (map[string][]storage.REDPoint, error)
 	GetServiceMap(ctx context.Context, tenant string, from, to time.Time) (storage.ServiceMap, error)
 	RecentRootTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
 	BackfillTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)

@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { fetchServices, fetchRED } from "./api";
-import type { REDPoint } from "./api";
+import { fetchAllRED } from "./api";
 import { Skeleton, EmptyState } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { SpeedBand } from "./SpeedBand";
 import { Heatmap } from "./Heatmap";
 import { ApdexCard } from "./Apdex";
+import { TimeRange, rangeById, rangeWindow, DEFAULT_RANGE, type Range, type RangeId } from "./range";
 
 type SvcRoll = { service: string; requests: number; errors: number; p95: number };
 type SvcSeries = { service: string; requests: number[]; errors: number[]; p95: number[] };
@@ -24,14 +24,13 @@ type Overview = {
   maxP95: number;
 };
 
-// Fan out RED across every service, then fold into one global timeline.
-async function buildOverview(): Promise<Overview> {
-  const svcs = await fetchServices();
-  const to = new Date().toISOString();
-  const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const reds = await Promise.all(
-    svcs.map((s) => fetchRED(s, from, to).then((pts) => [s, pts] as const).catch(() => [s, [] as REDPoint[]] as const))
-  );
+// One aggregate query for the whole window, then fold into a global timeline.
+// (Replaced the per-service fan-out — same lesson as the SLO/health fixes:
+// fewer queries, not parallel ones, is what stays fast under load.)
+async function buildOverview(r: Range, nowMs: number): Promise<Overview> {
+  const { fromISO, toISO } = rangeWindow(r, nowMs);
+  const byService = await fetchAllRED(fromISO, toISO, r.step);
+  const reds = Object.entries(byService);
 
   const byMinute = new Map<string, { req: number; err: number; p95: number }>();
   const perSvc: SvcRoll[] = [];
@@ -96,11 +95,15 @@ export function Dashboard() {
   const { theme } = useTheme();
   const c = chartColors(theme);
   const [off, setOff] = useState<Set<string>>(new Set()); // services toggled OFF
+  const [rangeId, setRangeId] = useState<RangeId>(DEFAULT_RANGE);
+  const range = rangeById(rangeId);
+  // Bucket "now" to the minute so the query key is stable between refetches.
   const minute = Math.floor(Date.now() / 60000);
   const { data, isLoading } = useQuery({
-    queryKey: ["overview", minute],
-    queryFn: buildOverview,
+    queryKey: ["overview", rangeId, minute],
+    queryFn: () => buildOverview(range, minute * 60000),
     refetchInterval: 10000,
+    placeholderData: keepPreviousData, // no skeleton flash when switching range
   });
 
   const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
@@ -143,6 +146,7 @@ export function Dashboard() {
     <div className="dash">
       <div className="span-all dash-toolbar">
         <span className="pane-title">대시보드</span>
+        <TimeRange value={rangeId} onChange={setRangeId} />
         {data && data.perSvc.length > 0 && (
           <div className="svc-toggles">
             {data.perSvc.map((s) => (
@@ -168,13 +172,13 @@ export function Dashboard() {
           <EmptyState
             title="아직 집계할 트래픽이 없어요"
             body="에이전트가 트레이스를 보내기 시작하면 처리량·에러·지연 지표가 여기에 모여요."
-            hint="최근 1시간 기준"
+            hint={`최근 ${range.label} 기준`}
           />
         </div>
       ) : (
         <>
           <section className="kpi-grid span-all">
-            <Kpi label={`총 요청 · ${enabled.length === data.perSvc.length ? "전체" : `${enabled.length}개 서비스`} · 최근 1시간`} value={scopedReq.toLocaleString()} />
+            <Kpi label={`총 요청 · ${enabled.length === data.perSvc.length ? "전체" : `${enabled.length}개 서비스`} · 최근 ${range.label}`} value={scopedReq.toLocaleString()} />
             <Kpi label="에러율" value={errRate.toFixed(errRate < 10 ? 2 : 1)} unit="%" tone={errRate > 5 ? "err" : errRate > 1 ? "warn" : "ok"} />
             <ApdexCard service={rows[0]?.service} />
             <Kpi label="켜진 서비스" value={`${enabled.length}/${data.perSvc.length}`} />

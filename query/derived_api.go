@@ -2,6 +2,7 @@ package query
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -68,6 +69,29 @@ func registerDerived(mux *http.ServeMux, r Reader) {
 				Minute: p.Minute.Format(time.RFC3339), RequestCount: p.RequestCount, ErrorCount: p.ErrorCount,
 				P50Ms: p.P50Ms, P95Ms: p.P95Ms, P99Ms: p.P99Ms,
 			})
+		}
+		writeJSON(w, out)
+	})
+	// All-services RED in ONE query, optionally downsampled to step-minute buckets.
+	// Powers the dashboard's time-range picker without N-per-service fan-out.
+	mux.HandleFunc("GET /api/v1/red", func(w http.ResponseWriter, req *http.Request) {
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
+		step, _ := strconv.Atoi(req.URL.Query().Get("step"))
+		m, err := r.AllServicesREDStep(req.Context(), tenantOf(req), from, to, step)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make(map[string][]REDPointDTO, len(m))
+		for svc, pts := range m {
+			series := make([]REDPointDTO, 0, len(pts))
+			for _, p := range pts {
+				series = append(series, REDPointDTO{
+					Minute: p.Minute.Format(time.RFC3339), RequestCount: p.RequestCount, ErrorCount: p.ErrorCount,
+					P50Ms: p.P50Ms, P95Ms: p.P95Ms, P99Ms: p.P99Ms,
+				})
+			}
+			out[svc] = series
 		}
 		writeJSON(w, out)
 	})
