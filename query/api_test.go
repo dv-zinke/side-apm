@@ -136,6 +136,9 @@ func (fakeReader) AllServicesRED(_ context.Context, _ string, _, _ time.Time) (m
 func (fakeReader) AllServicesREDStep(_ context.Context, _ string, _, _ time.Time, _ int) (map[string][]storage.REDPoint, error) {
 	return nil, nil
 }
+func (fakeReader) AllServicesREDHourly(_ context.Context, _ string, _, _ time.Time, _ int) (map[string][]storage.REDPoint, error) {
+	return nil, nil
+}
 func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]storage.MonitorStatus, error) {
 	return nil, nil
 }

@@ -1,8 +1,11 @@
 -- trace_summary: one aggregated row per (tenant, trace). Populated from spans inserts.
+-- event_date (min span date) drives daily partitioning + a 30-day TTL so the
+-- trace index ages out in lockstep with raw spans instead of growing forever.
 CREATE TABLE IF NOT EXISTS apm.trace_summary
 (
     tenant_id          LowCardinality(String),
     trace_id           String,
+    event_date         SimpleAggregateFunction(min, Date),
     entry_service      AggregateFunction(anyIf, LowCardinality(String), UInt8),
     transaction_name   AggregateFunction(anyIf, String, UInt8),
     root_http_status   AggregateFunction(anyIf, UInt16, UInt8),
@@ -16,12 +19,14 @@ CREATE TABLE IF NOT EXISTS apm.trace_summary
     http_call_time_ns  AggregateFunction(sum, UInt64)
 )
 ENGINE = AggregatingMergeTree
-PARTITION BY tenant_id
-ORDER BY (tenant_id, trace_id);
+PARTITION BY (tenant_id, event_date)
+ORDER BY (tenant_id, trace_id)
+TTL event_date + INTERVAL 30 DAY;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS apm.trace_summary_mv TO apm.trace_summary AS
 SELECT
     tenant_id, trace_id,
+    min(toDate(start_time))                                                        AS event_date,
     anyIfState(service_name, parent_span_id = '')                                  AS entry_service,
     anyIfState(http_route,   parent_span_id = '')                                  AS transaction_name,
     anyIfState(http_status_code, parent_span_id = '')                              AS root_http_status,
@@ -37,6 +42,8 @@ FROM apm.spans
 GROUP BY tenant_id, trace_id;
 
 -- red_rollup: per (tenant, service, minute) request/error/duration on SERVER spans.
+-- Retained 180 days — cheap per row, powers dashboards/RED/SLO for arbitrary
+-- absolute windows up to ~6 months at minute (or downsampled) resolution.
 CREATE TABLE IF NOT EXISTS apm.red_rollup
 (
     tenant_id      LowCardinality(String),
@@ -48,7 +55,8 @@ CREATE TABLE IF NOT EXISTS apm.red_rollup
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY (tenant_id, toDate(minute))
-ORDER BY (tenant_id, service_name, minute);
+ORDER BY (tenant_id, service_name, minute)
+TTL minute + INTERVAL 180 DAY;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS apm.red_rollup_mv TO apm.red_rollup AS
 SELECT

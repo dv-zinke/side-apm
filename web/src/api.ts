@@ -76,12 +76,21 @@ export async function fetchRED(service: string, fromISO: string, toISO: string):
   if (!r.ok) throw new Error(`red ${r.status}`);
   return r.json();
 }
-// Every service's RED series in ONE request, optionally downsampled to
-// step-minute buckets (server merges percentiles correctly). Replaces the
-// per-service fan-out for the dashboard's time-range picker.
-export async function fetchAllRED(fromISO: string, toISO: string, step = 1): Promise<Record<string, REDPoint[]>> {
-  const r = await fetch(`${BASE}/api/v1/red?from=${fromISO}&to=${toISO}&step=${step}`);
+// Every service's RED series in ONE request. The server auto-routes to the
+// right tier (minute vs hourly rollup) by window length and reports the
+// resolution it served, so the UI can label the downsampling honestly.
+export type REDResponse = { resolution: string; from: string; to: string; series: Record<string, REDPoint[]> };
+export async function fetchAllRED(fromISO: string, toISO: string): Promise<REDResponse> {
+  const r = await fetch(`${BASE}/api/v1/red?from=${fromISO}&to=${toISO}`);
   if (!r.ok) throw new Error(`red ${r.status}`);
+  return r.json();
+}
+// Retention horizons (days) per fidelity tier — drives the picker's availability
+// warnings. Cached hard; these change only on a schema/config update.
+export type Retention = { traceDays: number; minuteDays: number; hourDays: number };
+export async function fetchRetention(): Promise<Retention> {
+  const r = await fetch(`${BASE}/api/v1/meta/retention`);
+  if (!r.ok) throw new Error(`retention ${r.status}`);
   return r.json();
 }
 

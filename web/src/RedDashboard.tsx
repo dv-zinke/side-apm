@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { fetchServices, fetchRED, fetchDeploys, fetchExemplars } from "./api";
+import { fetchServices, fetchAllRED, fetchDeploys, fetchExemplars } from "./api";
 import type { Transaction } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
-import { TimeRange, rangeById, rangeWindow, DEFAULT_RANGE, type RangeId } from "./range";
+import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
 
 function ExemplarModal({ service, fromISO, toISO, label, onClose }: { service: string; fromISO: string; toISO: string; label: string; onClose: () => void }) {
   const { openTrace } = useNav();
@@ -49,19 +49,18 @@ export function RedDashboard() {
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 10000 });
   const [svc, setSvc] = useState<string>("");
   const service = svc || (services && services[0]) || "";
-  const [rangeId, setRangeId] = useState<RangeId>(DEFAULT_RANGE);
-  const range = rangeById(rangeId);
+  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
   // Bucket the key to the minute so it stays stable across renders — otherwise a
   // fresh millisecond timestamp per render churns the query and it never resolves.
   const minute = Math.floor(Date.now() / 60000);
+  const win = resolveSel(sel, minute * 60000);
+  const winKey = win.live ? `live:${minute}` : `${win.fromISO}:${win.toISO}`;
+  // Fetch all services for the window (server auto-routes tier); pick the chosen
+  // one client-side so switching services is instant and doesn't refetch.
   const { data: red, isLoading } = useQuery({
-    queryKey: ["red", service, rangeId, minute],
-    queryFn: () => {
-      const { fromISO, toISO } = rangeWindow(range, minute * 60000);
-      return fetchRED(service, fromISO, toISO);
-    },
-    enabled: !!service,
-    refetchInterval: 10000,
+    queryKey: ["red-all", winKey],
+    queryFn: () => fetchAllRED(win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
     placeholderData: keepPreviousData, // keep the chart while a new range loads
   });
   const { data: deploys } = useQuery({
@@ -71,7 +70,7 @@ export function RedDashboard() {
     refetchInterval: 10000,
   });
   const [exemplar, setExemplar] = useState<{ fromISO: string; toISO: string; label: string } | null>(null);
-  const pts = red ?? [];
+  const pts = red?.series[service] ?? [];
   const hm = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
   const x = pts.map((p) => hm(new Date(p.minute).getTime()));
   const xset = new Set(x);
@@ -108,9 +107,9 @@ export function RedDashboard() {
   return (
     <div className="chart-wrap">
       <div className="pane-head" style={{ position: "static", margin: "calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0", borderTop: 0 }}>
-        <span className="pane-title">RED · 최근 {range.label} <span className="hint-inline">막대를 클릭하면 그 시각의 느린 트레이스</span> {deployMarks.length > 0 && <span className="chip warn" style={{ marginLeft: 6 }}><span className="dot" />🚀 배포 {deployMarks.length}</span>}</span>
+        <span className="pane-title">RED · {selLabel(sel)} <ResolutionNote resolution={red?.resolution} /> <span className="hint-inline">막대를 클릭하면 그 시각의 느린 트레이스</span> {deployMarks.length > 0 && <span className="chip warn" style={{ marginLeft: 6 }}><span className="dot" />🚀 배포 {deployMarks.length}</span>}</span>
         <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
-          <TimeRange value={rangeId} onChange={setRangeId} />
+          <TimeRangePicker value={sel} onChange={setSel} />
           <label className="bar">
             <span className="field-label">서비스</span>
             <select className="select" value={service} onChange={(e) => setSvc(e.target.value)}>
@@ -124,7 +123,7 @@ export function RedDashboard() {
       ) : pts.length === 0 ? (
         <EmptyState
           title="이 구간에 데이터가 없어요"
-          body={`선택한 서비스의 최근 ${range.label} 집계가 아직 비어 있어요. 트래픽이 흐르면 분당 지표가 채워져요.`}
+          body={`선택한 서비스의 ${selLabel(sel)} 집계가 아직 비어 있어요. 트래픽이 흐르면 지표가 채워져요.`}
         />
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>

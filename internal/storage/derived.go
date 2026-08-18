@@ -214,6 +214,46 @@ ORDER BY service_name, bucket`, stepMin)
 	return out, rows.Err()
 }
 
+// AllServicesREDHourly serves long absolute windows from the hourly "frozen"
+// tier (red_rollup_1h, retained 24 months) instead of the minute table. stepHours
+// coarsens further (6h/24h) for month-scale ranges. Percentiles merge correctly
+// via quantilesMerge over the hour buckets.
+func (s *Store) AllServicesREDHourly(ctx context.Context, tenantID string, from, to time.Time, stepHours int) (map[string][]REDPoint, error) {
+	if stepHours < 1 {
+		stepHours = 1
+	}
+	if stepHours > 720 {
+		stepHours = 720
+	}
+	q := fmt.Sprintf(`
+SELECT service_name, toStartOfInterval(hour, INTERVAL %d HOUR) AS bucket,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup_1h
+WHERE tenant_id = ? AND hour >= ? AND hour <= ?
+GROUP BY service_name, bucket
+ORDER BY service_name, bucket`, stepHours)
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
+	}
+	return out, rows.Err()
+}
+
 // AllServicesRED returns every service's per-minute RED series in ONE query,
 // grouped by service — so views that scan all services (health, anomalies) run a
 // single aggregate instead of N per-service queries.

@@ -1,9 +1,11 @@
 package query
 
 import (
+	"context"
 	"net/http"
-	"strconv"
 	"time"
+
+	"github.com/heejune/apm/internal/storage"
 )
 
 type TraceSummaryDTO struct {
@@ -72,27 +74,83 @@ func registerDerived(mux *http.ServeMux, r Reader) {
 		}
 		writeJSON(w, out)
 	})
-	// All-services RED in ONE query, optionally downsampled to step-minute buckets.
-	// Powers the dashboard's time-range picker without N-per-service fan-out.
+	// All-services RED in ONE query, auto-routed by window length to the right
+	// tier: minute rollup (fine) for short windows, hourly rollup (frozen, 24mo)
+	// for long/old windows. The client just sends from/to; the server picks the
+	// source + bucket and reports the chosen resolution back for honest labeling.
 	mux.HandleFunc("GET /api/v1/red", func(w http.ResponseWriter, req *http.Request) {
 		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), time.Hour)
-		step, _ := strconv.Atoi(req.URL.Query().Get("step"))
-		m, err := r.AllServicesREDStep(req.Context(), tenantOf(req), from, to, step)
+		m, resolution, err := allServicesREDRouted(req.Context(), r, tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		out := make(map[string][]REDPointDTO, len(m))
+		series := make(map[string][]REDPointDTO, len(m))
 		for svc, pts := range m {
-			series := make([]REDPointDTO, 0, len(pts))
+			s := make([]REDPointDTO, 0, len(pts))
 			for _, p := range pts {
-				series = append(series, REDPointDTO{
+				s = append(s, REDPointDTO{
 					Minute: p.Minute.Format(time.RFC3339), RequestCount: p.RequestCount, ErrorCount: p.ErrorCount,
 					P50Ms: p.P50Ms, P95Ms: p.P95Ms, P99Ms: p.P99Ms,
 				})
 			}
-			out[svc] = series
+			series[svc] = s
 		}
-		writeJSON(w, out)
+		writeJSON(w, REDResponse{
+			Resolution: resolution,
+			From:       from.Format(time.RFC3339),
+			To:         to.Format(time.RFC3339),
+			Series:     series,
+		})
 	})
+
+	// Retention horizons — the single source of truth for how far back each
+	// fidelity tier is queryable, so the UI can warn honestly when a chosen
+	// window predates trace-level (or minute-level) availability.
+	mux.HandleFunc("GET /api/v1/meta/retention", func(w http.ResponseWriter, req *http.Request) {
+		writeJSON(w, retentionMeta)
+	})
+}
+
+// REDResponse wraps the per-service series with the resolution actually served.
+type REDResponse struct {
+	Resolution string                   `json:"resolution"` // 1m|5m|15m|1h|6h|1d
+	From       string                   `json:"from"`
+	To         string                   `json:"to"`
+	Series     map[string][]REDPointDTO `json:"series"`
+}
+
+// retentionMeta mirrors the schema TTLs (days). traceDays gates individual-trace
+// drill-down; minuteDays/hourDays gate metric resolution.
+var retentionMeta = struct {
+	TraceDays  int `json:"traceDays"`  // apm.spans + trace_summary TTL
+	MinuteDays int `json:"minuteDays"` // apm.red_rollup TTL
+	HourDays   int `json:"hourDays"`   // apm.red_rollup_1h TTL
+}{TraceDays: 30, MinuteDays: 180, HourDays: 730}
+
+// allServicesREDRouted picks the storage tier + bucket for the window and returns
+// the series plus a resolution label. Boundaries chosen so no query scans more
+// than a few hundred buckets/service.
+func allServicesREDRouted(ctx context.Context, r Reader, tenant string, from, to time.Time) (map[string][]storage.REDPoint, string, error) {
+	span := to.Sub(from)
+	switch {
+	case span <= 2*time.Hour:
+		m, err := r.AllServicesREDStep(ctx, tenant, from, to, 1)
+		return m, "1m", err
+	case span <= 12*time.Hour:
+		m, err := r.AllServicesREDStep(ctx, tenant, from, to, 5)
+		return m, "5m", err
+	case span <= 48*time.Hour:
+		m, err := r.AllServicesREDStep(ctx, tenant, from, to, 15)
+		return m, "15m", err
+	case span <= 14*24*time.Hour:
+		m, err := r.AllServicesREDHourly(ctx, tenant, from, to, 1)
+		return m, "1h", err
+	case span <= 60*24*time.Hour:
+		m, err := r.AllServicesREDHourly(ctx, tenant, from, to, 6)
+		return m, "6h", err
+	default:
+		m, err := r.AllServicesREDHourly(ctx, tenant, from, to, 24)
+		return m, "1d", err
+	}
 }

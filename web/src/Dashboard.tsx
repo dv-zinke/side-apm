@@ -8,7 +8,7 @@ import { chartColors } from "./chart";
 import { SpeedBand } from "./SpeedBand";
 import { Heatmap } from "./Heatmap";
 import { ApdexCard } from "./Apdex";
-import { TimeRange, rangeById, rangeWindow, DEFAULT_RANGE, type Range, type RangeId } from "./range";
+import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
 
 type SvcRoll = { service: string; requests: number; errors: number; p95: number };
 type SvcSeries = { service: string; requests: number[]; errors: number[]; p95: number[] };
@@ -22,15 +22,15 @@ type Overview = {
   totalReq: number;
   totalErr: number;
   maxP95: number;
+  resolution: string;
 };
 
 // One aggregate query for the whole window, then fold into a global timeline.
 // (Replaced the per-service fan-out — same lesson as the SLO/health fixes:
 // fewer queries, not parallel ones, is what stays fast under load.)
-async function buildOverview(r: Range, nowMs: number): Promise<Overview> {
-  const { fromISO, toISO } = rangeWindow(r, nowMs);
-  const byService = await fetchAllRED(fromISO, toISO, r.step);
-  const reds = Object.entries(byService);
+async function buildOverview(fromISO: string, toISO: string): Promise<Overview> {
+  const resp = await fetchAllRED(fromISO, toISO);
+  const reds = Object.entries(resp.series);
 
   const byMinute = new Map<string, { req: number; err: number; p95: number }>();
   const perSvc: SvcRoll[] = [];
@@ -74,6 +74,7 @@ async function buildOverview(r: Range, nowMs: number): Promise<Overview> {
     totalReq: perSvc.reduce((s, x) => s + x.requests, 0),
     totalErr: perSvc.reduce((s, x) => s + x.errors, 0),
     maxP95: Math.round(perSvc.reduce((m, x) => Math.max(m, x.p95), 0)),
+    resolution: resp.resolution,
   };
 }
 
@@ -95,14 +96,17 @@ export function Dashboard() {
   const { theme } = useTheme();
   const c = chartColors(theme);
   const [off, setOff] = useState<Set<string>>(new Set()); // services toggled OFF
-  const [rangeId, setRangeId] = useState<RangeId>(DEFAULT_RANGE);
-  const range = rangeById(rangeId);
+  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
   // Bucket "now" to the minute so the query key is stable between refetches.
   const minute = Math.floor(Date.now() / 60000);
+  const win = resolveSel(sel, minute * 60000);
+  // Absolute windows are fixed — key them by their bounds, not the ticking
+  // minute, and stop auto-refresh so a chosen window stays put.
+  const winKey = win.live ? `live:${minute}` : `${win.fromISO}:${win.toISO}`;
   const { data, isLoading } = useQuery({
-    queryKey: ["overview", rangeId, minute],
-    queryFn: () => buildOverview(range, minute * 60000),
-    refetchInterval: 10000,
+    queryKey: ["overview", winKey],
+    queryFn: () => buildOverview(win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
     placeholderData: keepPreviousData, // no skeleton flash when switching range
   });
 
@@ -146,7 +150,8 @@ export function Dashboard() {
     <div className="dash">
       <div className="span-all dash-toolbar">
         <span className="pane-title">대시보드</span>
-        <TimeRange value={rangeId} onChange={setRangeId} />
+        <TimeRangePicker value={sel} onChange={setSel} />
+        {data?.resolution && <ResolutionNote resolution={data.resolution} />}
         {data && data.perSvc.length > 0 && (
           <div className="svc-toggles">
             {data.perSvc.map((s) => (
@@ -172,13 +177,13 @@ export function Dashboard() {
           <EmptyState
             title="아직 집계할 트래픽이 없어요"
             body="에이전트가 트레이스를 보내기 시작하면 처리량·에러·지연 지표가 여기에 모여요."
-            hint={`최근 ${range.label} 기준`}
+            hint={selLabel(sel)}
           />
         </div>
       ) : (
         <>
           <section className="kpi-grid span-all">
-            <Kpi label={`총 요청 · ${enabled.length === data.perSvc.length ? "전체" : `${enabled.length}개 서비스`} · 최근 ${range.label}`} value={scopedReq.toLocaleString()} />
+            <Kpi label={`총 요청 · ${enabled.length === data.perSvc.length ? "전체" : `${enabled.length}개 서비스`} · ${selLabel(sel)}`} value={scopedReq.toLocaleString()} />
             <Kpi label="에러율" value={errRate.toFixed(errRate < 10 ? 2 : 1)} unit="%" tone={errRate > 5 ? "err" : errRate > 1 ? "warn" : "ok"} />
             <ApdexCard service={rows[0]?.service} />
             <Kpi label="켜진 서비스" value={`${enabled.length}/${data.perSvc.length}`} />
