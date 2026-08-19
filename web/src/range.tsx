@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRetention } from "./api";
+import { Calendar } from "./Calendar";
 
 export type RangeId = "15m" | "1h" | "6h" | "24h" | "7d" | "30d";
 export type Range = { id: RangeId; label: string; minutes: number };
@@ -46,6 +47,11 @@ const toLocalInput = (iso: string) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}T${two(d.getHours())}:${two(d.getMinutes())}`;
 };
 const fromLocalInput = (s: string) => new Date(s).toISOString();
+// A local-input string is "YYYY-MM-DDTHH:mm" — split so the calendar owns the
+// date part and the time inputs own the time part.
+const datePart = (l: string) => l.slice(0, 10);
+const timePart = (l: string) => l.slice(11, 16);
+const ymd = (d: Date) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 
 // Human span between two local-input strings, e.g. "3시간 20분".
 function fmtDuration(fromL: string, toL: string): string {
@@ -174,15 +180,23 @@ export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange:
               </button>
             ))}
           </div>
-          <label className="range-field"><span className="field-label">시작</span>
-            <input className="input" type="datetime-local" value={fromL} max={toL} onChange={(e) => editFrom(e.target.value)} />
-          </label>
-          <label className="range-field"><span className="field-label">종료</span>
-            <div className="range-end">
-              <input className="input" type="datetime-local" value={toL} min={fromL} onChange={(e) => editTo(e.target.value)} />
-              <button type="button" className="btn range-now" onClick={() => editTo(toLocalInput(new Date().toISOString()))}>지금</button>
-            </div>
-          </label>
+          <Calendar
+            start={new Date(fromL)}
+            end={new Date(toL)}
+            max={new Date()}
+            onChange={(s, e) => { setFromL(`${ymd(s)}T${timePart(fromL)}`); setToL(`${ymd(e)}T${timePart(toL)}`); setActiveQuick(null); }}
+          />
+          <div className="cal-times">
+            <label className="range-field"><span className="field-label">시작 시각</span>
+              <input className="input" type="time" value={timePart(fromL)} onChange={(e) => editFrom(`${datePart(fromL)}T${e.target.value}`)} />
+            </label>
+            <label className="range-field"><span className="field-label">종료 시각</span>
+              <div className="range-end">
+                <input className="input" type="time" value={timePart(toL)} onChange={(e) => editTo(`${datePart(toL)}T${e.target.value}`)} />
+                <button type="button" className="btn range-now" onClick={() => editTo(toLocalInput(new Date().toISOString()))}>지금</button>
+              </div>
+            </label>
+          </div>
           {invalid ? (
             <span className="range-warn" role="alert">시작이 종료보다 빨라야 해요</span>
           ) : (

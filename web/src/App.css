@@ -598,7 +598,35 @@
 .seg-ghost { color: var(--tx-dim); border: 1px dashed var(--line-strong); }
 .range-live-btn { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--tx-dim); background: transparent; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 5px 10px; cursor: pointer; }
 .range-live-btn:hover { color: var(--tx-hi); border-color: var(--line-strong); }
-.range-custom { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(420px, calc(100vw - 24px)); display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); padding: var(--sp-3); background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.28)); }
+.range-custom { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(340px, calc(100vw - 24px)); max-height: min(78vh, 560px); overflow: auto; display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); padding: var(--sp-3); background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.28)); }
+/* Custom calendar (Calendar.tsx) */
+.cal { flex: 1 0 100%; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+.cal-title { font: 600 var(--fs-sm) var(--sans); color: var(--tx-hi); }
+.cal-nav { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--bg-raised); border-radius: var(--r-sm); color: var(--tx); cursor: pointer; font-size: 17px; line-height: 1; transition: color 120ms ease, border-color 120ms ease; }
+.cal-nav:hover { color: var(--tx-hi); border-color: var(--line-strong); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-wd { margin-bottom: 2px; }
+.cal-wd-cell { text-align: center; font-size: var(--fs-xs); color: var(--tx-dim); padding: 2px 0; }
+.cal-wd-cell.sun { color: color-mix(in srgb, var(--err) 92%, var(--tx-dim)); }
+.cal-wd-cell.sat { color: color-mix(in srgb, var(--accent) 92%, var(--tx-dim)); }
+.cal-body { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-row { display: contents; }
+.cal-day { appearance: none; border: 0; background: transparent; color: var(--tx); font: 500 var(--fs-sm) var(--sans); aspect-ratio: 1; min-height: 34px; border-radius: var(--r-sm); cursor: pointer; transition: background 100ms ease, color 100ms ease; }
+.cal-day:hover:not(:disabled) { background: var(--bg-raised); color: var(--tx-hi); }
+.cal-day.other { color: var(--tx-faint); opacity: 0.85; }
+.cal-day:disabled { color: var(--tx-faint); cursor: default; opacity: 0.5; }
+.cal-day.today { font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent); }
+.cal-day.in-range { background: var(--accent-soft, color-mix(in srgb, var(--accent) 18%, transparent)); border-radius: 0; }
+/* Darker fill so the selected day's white number clears AA (4.5:1). */
+.cal-day.start, .cal-day.end { background: var(--accent-strong, color-mix(in srgb, var(--accent) 74%, #000)); color: #fff; box-shadow: none; }
+.cal-day.start { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.cal-day.end { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.cal-day.start.end { border-radius: var(--r-sm); }
+.cal-day:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 3px var(--accent); }
+.cal-hint { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--accent); margin-top: 2px; }
+.cal-times { flex: 1 0 100%; display: flex; gap: var(--sp-2); margin-top: 2px; }
+.cal-times .range-field { flex: 1 1 130px; min-width: 0; }
 .range-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 170px; }
 /* flex:none — the field is column-flex, so the global .input flex-basis would
    otherwise stretch the datetime input vertically. */
@@ -615,7 +643,8 @@
 .range-span { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--tx-dim); }
 .range-warn { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--err); }
 .range-note { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--warn); }
-.range-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
+/* Sticky footer so 적용 stays visible when the calendar makes the popover scroll. */
+.range-actions { flex: 1 0 100%; display: flex; justify-content: flex-end; gap: var(--sp-2); position: sticky; bottom: calc(-1 * var(--sp-3)); margin: var(--sp-2) calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)); padding: var(--sp-2) var(--sp-3); background: var(--bg-panel); border-top: 1px solid var(--line); }
 .code-block { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--bg-raised); }
 .code-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); background: var(--bg-panel); }
 .code-lang { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tx-dim); }
