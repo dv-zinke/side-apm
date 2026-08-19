@@ -47,6 +47,30 @@ const toLocalInput = (iso: string) => {
 };
 const fromLocalInput = (s: string) => new Date(s).toISOString();
 
+// Human span between two local-input strings, e.g. "3시간 20분".
+function fmtDuration(fromL: string, toL: string): string {
+  let ms = new Date(toL).getTime() - new Date(fromL).getTime();
+  if (!(ms > 0)) return "";
+  const d = Math.floor(ms / 86400_000); ms -= d * 86400_000;
+  const h = Math.floor(ms / 3600_000); ms -= h * 3600_000;
+  const m = Math.floor(ms / 60_000);
+  const parts = [];
+  if (d) parts.push(`${d}일`);
+  if (h) parts.push(`${h}시간`);
+  if (m && !d) parts.push(`${m}분`);
+  return parts.join(" ") || "1분 미만";
+}
+
+// One-tap shortcuts so the common windows need no typing at all.
+const QUICK: { label: string; win: (now: Date) => [Date, Date] }[] = [
+  { label: "최근 1시간", win: (n) => [new Date(n.getTime() - 3600_000), n] },
+  { label: "최근 6시간", win: (n) => [new Date(n.getTime() - 6 * 3600_000), n] },
+  { label: "최근 24시간", win: (n) => [new Date(n.getTime() - 24 * 3600_000), n] },
+  { label: "오늘", win: (n) => [new Date(n.getFullYear(), n.getMonth(), n.getDate()), n] },
+  { label: "어제", win: (n) => [new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1), new Date(n.getFullYear(), n.getMonth(), n.getDate())] },
+  { label: "지난 7일", win: (n) => [new Date(n.getTime() - 7 * 86400_000), n] },
+];
+
 export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange: (s: TimeSel) => void }) {
   const [open, setOpen] = useState(false);
   const { data: ret } = useQuery({ queryKey: ["retention"], queryFn: fetchRetention, staleTime: Infinity });
@@ -58,10 +82,19 @@ export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange:
   const seed = resolveSel(value, Date.now());
   const [fromL, setFromL] = useState(toLocalInput(seed.fromISO));
   const [toL, setToL] = useState(toLocalInput(seed.toISO));
+  const [activeQuick, setActiveQuick] = useState<string | null>(null);
+  const editFrom = (v: string) => { setFromL(v); setActiveQuick(null); };
+  const editTo = (v: string) => { setToL(v); setActiveQuick(null); };
+  const pickQuick = (label: string, f: Date, t: Date) => {
+    setFromL(toLocalInput(f.toISOString()));
+    setToL(toLocalInput(t.toISOString()));
+    setActiveQuick(label);
+  };
   const openCustom = () => {
     const s = resolveSel(value, Date.now());
     setFromL(toLocalInput(s.fromISO));
     setToL(toLocalInput(s.toISO));
+    setActiveQuick(null);
     setOpen(true);
   };
   const invalid = new Date(fromL).getTime() >= new Date(toL).getTime();
@@ -127,13 +160,34 @@ export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange:
 
       {open && (
         <div className="range-custom" role="dialog" aria-modal="true" aria-label="사용자 지정 기간" ref={dialogRef} onKeyDown={trap}>
+          <div className="range-quick" role="group" aria-label="빠른 선택">
+            {QUICK.map((q) => (
+              <button
+                key={q.label}
+                type="button"
+                className="range-quick-chip"
+                data-active={activeQuick === q.label || undefined}
+                aria-current={activeQuick === q.label || undefined}
+                onClick={() => { const [f, t] = q.win(new Date()); pickQuick(q.label, f, t); }}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
           <label className="range-field"><span className="field-label">시작</span>
-            <input className="input" type="datetime-local" value={fromL} max={toL} onChange={(e) => setFromL(e.target.value)} />
+            <input className="input" type="datetime-local" value={fromL} max={toL} onChange={(e) => editFrom(e.target.value)} />
           </label>
           <label className="range-field"><span className="field-label">종료</span>
-            <input className="input" type="datetime-local" value={toL} min={fromL} onChange={(e) => setToL(e.target.value)} />
+            <div className="range-end">
+              <input className="input" type="datetime-local" value={toL} min={fromL} onChange={(e) => editTo(e.target.value)} />
+              <button type="button" className="btn range-now" onClick={() => editTo(toLocalInput(new Date().toISOString()))}>지금</button>
+            </div>
           </label>
-          {invalid && <span className="range-warn" role="alert">시작이 종료보다 빨라야 해요</span>}
+          {invalid ? (
+            <span className="range-warn" role="alert">시작이 종료보다 빨라야 해요</span>
+          ) : (
+            <span className="range-span" role="status">선택 구간 · {fmtDuration(fromL, toL)}</span>
+          )}
           {beyondTrace && ret && (
             <span className="range-note" role="status">이 구간은 집계 지표만 조회돼요 · 개별 트레이스는 {ret.traceDays}일 보관을 넘겼어요</span>
           )}

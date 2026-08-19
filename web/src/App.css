@@ -600,7 +600,19 @@
 .range-live-btn:hover { color: var(--tx-hi); border-color: var(--line-strong); }
 .range-custom { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(420px, calc(100vw - 24px)); display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); padding: var(--sp-3); background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.28)); }
 .range-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 170px; }
-.range-field .input { width: 100%; }
+/* flex:none — the field is column-flex, so the global .input flex-basis would
+   otherwise stretch the datetime input vertically. */
+.range-field .input { flex: none; width: 100%; }
+.range-quick { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 2px; }
+.range-quick-chip { appearance: none; font: 500 var(--fs-xs) var(--sans); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; white-space: nowrap; transition: color 120ms ease, border-color 120ms ease, background 120ms ease; }
+.range-quick-chip:hover { color: var(--tx-hi); border-color: var(--line-strong); background: var(--bg-panel); }
+.range-quick-chip:active { transform: scale(0.96); }
+.range-quick-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 3px var(--accent); }
+.range-quick-chip[data-active] { color: var(--tx-hi); border-color: var(--accent); background: var(--bg-panel); }
+.range-end { display: flex; align-items: stretch; gap: 5px; }
+.range-end .input { flex: 1; }
+.range-now { padding: 0 10px; font-size: var(--fs-xs); white-space: nowrap; }
+.range-span { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--tx-dim); }
 .range-warn { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--err); }
 .range-note { flex: 1 0 100%; font-size: var(--fs-xs); color: var(--warn); }
 .range-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
@@ -632,6 +644,8 @@
   .segmented { display: flex; width: 100%; flex-wrap: wrap; }
   .seg { flex: 1 1 auto; min-height: 44px; }
   .copy-btn { min-height: 40px; }
+  .range-quick-chip { min-height: 40px; }
+  .range-now { min-height: 44px; }
   .connect-status { flex-wrap: wrap; }
   .connect-status .btn-primary { margin-left: 0 !important; width: 100%; min-height: 44px; margin-top: var(--sp-2); }
 }
@@ -647,7 +661,7 @@
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; border-top-color: var(--line-strong); }
   .live-dot { animation: none; }
-  .seg:active { transform: none; }
+  .seg:active, .range-quick-chip:active { transform: none; }
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
