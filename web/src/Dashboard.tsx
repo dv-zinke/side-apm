@@ -8,7 +8,7 @@ import { chartColors } from "./chart";
 import { SpeedBand } from "./SpeedBand";
 import { Heatmap } from "./Heatmap";
 import { ApdexCard } from "./Apdex";
-import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, useTimeSel } from "./range";
 
 type SvcRoll = { service: string; requests: number; errors: number; p95: number };
 type SvcSeries = { service: string; requests: number[]; errors: number[]; p95: number[] };
@@ -96,7 +96,7 @@ export function Dashboard() {
   const { theme } = useTheme();
   const c = chartColors(theme);
   const [off, setOff] = useState<Set<string>>(new Set()); // services toggled OFF
-  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const [sel, setSel] = useTimeSel();
   // Bucket "now" to the minute so the query key is stable between refetches.
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);

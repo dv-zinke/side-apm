@@ -5,7 +5,7 @@ import type { Transaction, LogPattern } from "./api";
 import { LogList } from "./LogList";
 import { EmptyState, Skeleton } from "./states";
 import { useNav } from "./nav";
-import { TimeRangePicker, StreamStatus, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+import { TimeRangePicker, StreamStatus, resolveSel, selLabel, useTimeSel } from "./range";
 
 const MODES = [{ id: "stream", label: "스트림" }, { id: "patterns", label: "패턴" }];
 
@@ -45,7 +45,7 @@ export function Logs() {
   const [service, setService] = useState("");
   const [severity, setSeverity] = useState("");
   const [q, setQ] = useState("");
-  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const [sel, setSel] = useTimeSel();
   // Bucket "now" to the minute so live windows key stably between refetches.
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);

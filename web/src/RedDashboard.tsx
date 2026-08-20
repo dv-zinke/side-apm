@@ -7,7 +7,7 @@ import { EmptyState, Skeleton, IconX } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
-import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, useTimeSel } from "./range";
 
 function ExemplarModal({ service, fromISO, toISO, label, onClose }: { service: string; fromISO: string; toISO: string; label: string; onClose: () => void }) {
   const { openTrace } = useNav();
@@ -49,7 +49,7 @@ export function RedDashboard() {
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 10000 });
   const [svc, setSvc] = useState<string>("");
   const service = svc || (services && services[0]) || "";
-  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const [sel, setSel] = useTimeSel();
   // Bucket the key to the minute so it stays stable across renders — otherwise a
   // fresh millisecond timestamp per render churns the query and it never resolves.
   const minute = Math.floor(Date.now() / 60000);

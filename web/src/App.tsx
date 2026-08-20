@@ -23,6 +23,7 @@ import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
+import { getParam, pushParams } from "./urlState";
 import { AuthProvider, useAuth, installAuthFetch } from "./auth";
 import { Login } from "./Login";
 import {
@@ -161,10 +162,25 @@ function UserMenu() {
   );
 }
 
+// The view lives in the URL (?view=) so reloads and shared links land on the
+// right screen. dashboard is the default and stays param-free.
+const viewFromURL = (): View => {
+  const v = getParam("view");
+  return v && ALL.some((i) => i.id === v) ? (v as View) : "dashboard";
+};
+
 function Console() {
-  const [view, setView] = useState<View>("dashboard");
+  const [view, setViewState] = useState<View>(viewFromURL);
   const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
   const [svcFilter, setSvcFilter] = useState("");
+  // setView writes to the URL (pushState) so browser back/forward navigates
+  // between views; a popstate listener keeps state in sync with the address bar.
+  const setView = (v: View) => { setViewState(v); pushParams({ view: v === "dashboard" ? null : v }); };
+  useEffect(() => {
+    const onPop = () => setViewState(viewFromURL());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   // Drill-down from a live widget → open the trace in an overlay, so the
   // dashboard and its live streams keep running underneath.
   const openTrace = (t: Transaction) => setModalTrace(t);

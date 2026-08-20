@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDBQueries, fetchNPlusOne, fetchServices } from "./api";
 import { EmptyState, Skeleton } from "./states";
-import { TimeRangePicker, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+import { TimeRangePicker, resolveSel, selLabel, useTimeSel } from "./range";
 
 type Win = { fromISO: string; toISO: string; live: boolean };
 
@@ -100,7 +100,7 @@ const MODES = [{ id: "queries", label: "쿼리 집계" }, { id: "nplusone", labe
 
 export function Database() {
   const [mode, setMode] = useState("queries");
-  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const [sel, setSel] = useTimeSel();
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);
   return (

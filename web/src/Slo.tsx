@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchSLO } from "./api";
 import type { SLOStatus } from "./api";
 import { EmptyState, Skeleton } from "./states";
-import { TimeRangePicker, StreamStatus, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+import { TimeRangePicker, StreamStatus, resolveSel, selLabel, useTimeSel } from "./range";
 
 const STATUS_LABEL: Record<string, string> = { healthy: "정상", at_risk: "주의", breached: "위반" };
 
@@ -14,7 +13,7 @@ function toneOf(status: string) {
 }
 
 export function Slo() {
-  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const [sel, setSel] = useTimeSel();
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);
   const { data, isLoading } = useQuery({

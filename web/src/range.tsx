@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRetention } from "./api";
 import { Calendar } from "./Calendar";
+import { getParam, replaceParams } from "./urlState";
 
 export type RangeId = "15m" | "1h" | "6h" | "24h" | "7d" | "30d";
 export type Range = { id: RangeId; label: string; minutes: number };
@@ -23,6 +24,30 @@ export const rangeById = (id: RangeId): Range => RANGES.find((r) => r.id === id)
 // A selection is either a live relative window or a fixed absolute one.
 export type TimeSel = { kind: "relative"; id: RangeId } | { kind: "absolute"; fromISO: string; toISO: string };
 export const DEFAULT_SEL: TimeSel = { kind: "relative", id: "1h" };
+
+// ── URL persistence ─────────────────────────────────────────
+// The window lives in the address bar (?range=1h | ?from=…&to=…) so a reload
+// keeps it and a copied link reproduces it. Shared across every view's picker.
+const isoish = (s: string) => !Number.isNaN(Date.parse(s));
+export function selToParams(sel: TimeSel): Record<string, string | null> {
+  if (sel.kind === "relative") return { range: sel.id, from: null, to: null };
+  return { range: null, from: sel.fromISO, to: sel.toISO };
+}
+export function selFromURL(): TimeSel {
+  const from = getParam("from"), to = getParam("to");
+  if (from && to && isoish(from) && isoish(to)) return { kind: "absolute", fromISO: from, toISO: to };
+  const range = getParam("range");
+  if (range && RANGES.some((r) => r.id === range)) return { kind: "relative", id: range as RangeId };
+  return DEFAULT_SEL;
+}
+// Drop-in replacement for useState<TimeSel>: reads the URL at mount, writes it
+// back (replaceState) on every change so it stays shareable without spamming
+// browser history.
+export function useTimeSel(): [TimeSel, (s: TimeSel) => void] {
+  const [sel, setSel] = useState<TimeSel>(selFromURL);
+  const set = (s: TimeSel) => { setSel(s); replaceParams(selToParams(s)); };
+  return [sel, set];
+}
 
 // Resolve to a concrete window. `live` tells the caller whether to auto-refresh.
 export function resolveSel(sel: TimeSel, nowMs: number): { fromISO: string; toISO: string; live: boolean } {
@@ -89,6 +114,7 @@ export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange:
   const [fromL, setFromL] = useState(toLocalInput(seed.fromISO));
   const [toL, setToL] = useState(toLocalInput(seed.toISO));
   const [activeQuick, setActiveQuick] = useState<string | null>(null);
+  const [copy, setCopy] = useState<"idle" | "done" | "fail">("idle");
   const editFrom = (v: string) => { setFromL(v); setActiveQuick(null); };
   const editTo = (v: string) => { setToL(v); setActiveQuick(null); };
   const pickQuick = (label: string, f: Date, t: Date) => {
@@ -163,6 +189,21 @@ export function TimeRangePicker({ value, onChange }: { value: TimeSel; onChange:
           <span className="live-dot" /> 실시간
         </button>
       )}
+
+      <button
+        className={`range-share${copy === "fail" ? " fail" : ""}`}
+        aria-label="이 화면(기간·뷰) 링크 복사"
+        title="이 화면(기간·뷰) 링크 복사"
+        onClick={async () => {
+          try { await navigator.clipboard.writeText(window.location.href); setCopy("done"); setTimeout(() => setCopy("idle"), 1500); }
+          catch { setCopy("fail"); setTimeout(() => setCopy("idle"), 3000); }
+        }}
+      >
+        {copy === "done" ? "복사됨 ✓" : copy === "fail" ? "주소창에서 복사" : <><span aria-hidden>🔗</span> 공유</>}
+      </button>
+      <span role="status" aria-live="polite" className="sr-only">
+        {copy === "done" ? "링크를 복사했어요" : copy === "fail" ? "복사하지 못했어요. 주소창의 주소를 복사해주세요." : ""}
+      </span>
 
       {open && (
         <div className="range-custom" role="dialog" aria-modal="true" aria-label="사용자 지정 기간" ref={dialogRef} onKeyDown={trap}>
