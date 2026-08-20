@@ -9,6 +9,7 @@ import { Runtime } from "./Runtime";
 import { Onboarding } from "./Onboarding";
 import { Logs } from "./Logs";
 import { Errors } from "./Errors";
+import { Explore } from "./Explore";
 import { Alerts } from "./Alerts";
 import { Database } from "./Database";
 import { Rum } from "./Rum";
@@ -28,14 +29,14 @@ import { getParam, pushParams } from "./urlState";
 import { AuthProvider, useAuth, installAuthFetch } from "./auth";
 import { Login } from "./Login";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError, IconSearch,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "explore" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -46,6 +47,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   ] },
   { label: "모니터링", items: [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
+    { id: "explore", label: "탐색", icon: IconSearch },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
     { id: "runtime", label: "런타임", icon: IconGauge },
     { id: "profiling", label: "프로파일링", icon: IconPulse },
@@ -221,6 +223,8 @@ function Console() {
             <Logs />
           ) : view === "errors" ? (
             <Errors />
+          ) : view === "explore" ? (
+            <Explore />
           ) : view === "alerts" ? (
             <Alerts />
           ) : view === "map" ? (

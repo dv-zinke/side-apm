@@ -358,6 +358,22 @@ export async function fetchErrorDetail(g: { service: string; operation: string; 
   return r.json();
 }
 
+// ── Trace/span query (ad-hoc search) ─────────────────────────
+export type SpanRow = {
+  traceId: string; spanId: string; service: string; name: string; status: string;
+  durationMs: number; startTime: string; httpStatus: number; httpRoute: string;
+};
+// A 400 means the DSL itself is wrong (show inline). Any other failure is
+// operational (auth/network) — not the user's query — so it's a distinct type.
+export class QuerySyntaxError extends Error {}
+export async function fetchSpanQuery(q: string, fromISO: string, toISO: string, limit = 200): Promise<SpanRow[]> {
+  const p = new URLSearchParams({ q, from: fromISO, to: toISO, limit: String(limit) });
+  const r = await fetch(`${BASE}/api/v1/spans/query?${p}`);
+  if (r.status === 400) throw new QuerySyntaxError((await r.text()).trim() || "쿼리 형식을 확인해주세요");
+  if (!r.ok) throw new Error("결과를 불러오지 못했어요");
+  return r.json();
+}
+
 export type ApdexResult = { tMs: number; score: number; samples: number; hasData: boolean; p50Ms: number; p95Ms: number; p99Ms: number; hasPercentiles: boolean };
 export async function fetchApdex(service: string, windowMin = 10): Promise<ApdexResult> {
   const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/apdex?windowMin=${windowMin}`);

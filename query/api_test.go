@@ -184,6 +184,9 @@ func (fakeReader) ErrorGroups(_ context.Context, _ string, _, _ time.Time, _ int
 func (fakeReader) ErrorGroupDetail(_ context.Context, _, _, _, _ string, _, _ time.Time, _ int) (storage.ErrorGroupDetail, error) {
 	return storage.ErrorGroupDetail{}, nil
 }
+func (fakeReader) QuerySpans(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.SpanQueryRow, error) {
+	return nil, nil
+}
 func (fakeReader) GetProfile(_ context.Context, _, _ string) (string, string, string, string, error) {
 	return "", "", "", "", nil
 }

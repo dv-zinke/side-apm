@@ -559,6 +559,35 @@
 .err-trace-cell { color: var(--accent); white-space: nowrap; }
 .tx-dim { color: var(--tx-dim); }
 
+/* Explore — ad-hoc span query ─────────────────────────────── */
+.explore-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; }
+.q-bar { display: flex; gap: var(--sp-2); align-items: stretch; margin-bottom: var(--sp-2); }
+.q-input { flex: 1; font-family: var(--mono); font-size: 16px; } /* 16px: avoids iOS focus zoom on the app's hero input */
+.q-help-btn { flex: none; }
+.q-help { font-size: var(--fs-xs); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); display: flex; flex-direction: column; gap: 4px; }
+.q-help b { color: var(--tx-hi); margin-right: 6px; }
+.q-help code { color: var(--accent); background: none; font-size: var(--fs-xs); }
+.q-help-note { color: var(--tx-dim); }
+.q-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--sp-3); }
+.q-chip { appearance: none; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; cursor: pointer; transition: border-color 120ms ease, background 120ms ease, transform 80ms ease; }
+.q-chip code { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); background: none; }
+.q-chip:hover { border-color: var(--line-strong); background: var(--bg-panel); }
+.q-chip:hover code { color: var(--tx-hi); }
+.q-chip:active { transform: scale(0.97); }
+.q-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 3px var(--accent); }
+.q-error { font-size: var(--fs-sm); color: var(--err-strong); background: var(--err-wash); border: 1px solid color-mix(in srgb, var(--err) 30%, transparent); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+.q-error b { color: var(--err-strong); }
+.q-retry { appearance: none; background: none; border: 0; color: var(--err-strong); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.q-result-meta { font-size: var(--fs-xs); color: var(--tx-dim); margin-bottom: var(--sp-2); }
+.q-results-stale { opacity: 0.45; transition: opacity 120ms ease; } /* dim last-good results while a syntax error stands */
+.q-tbl { table-layout: fixed; }
+.q-tbl th:nth-child(1) { width: 78px; }
+.q-tbl th:nth-child(3), .q-tbl th:nth-child(4) { width: 84px; }
+.q-time { font-variant-numeric: tabular-nums; color: var(--tx-dim); vertical-align: top; }
+.q-span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.q-span-svc { font-size: var(--fs-xs); color: var(--tx-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.q-span-name { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* Mobile: the issues table becomes a card list so chips + messages don't
    collapse into vertical shreds at 375px. */
 @media (max-width: 767px) {
