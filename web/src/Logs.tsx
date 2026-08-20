@@ -5,11 +5,18 @@ import type { Transaction, LogPattern } from "./api";
 import { LogList } from "./LogList";
 import { EmptyState, Skeleton } from "./states";
 import { useNav } from "./nav";
+import { TimeRangePicker, StreamStatus, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
 
 const MODES = [{ id: "stream", label: "스트림" }, { id: "patterns", label: "패턴" }];
 
-function PatternsTable({ severity, onPick }: { severity: string; onPick: (q: string) => void }) {
-  const { data, isLoading } = useQuery({ queryKey: ["log-patterns", severity], queryFn: () => fetchLogPatterns(severity, 40), refetchInterval: 10000 });
+type Win = { fromISO: string; toISO: string; live: boolean };
+
+function PatternsTable({ severity, win, onPick }: { severity: string; win: Win; onPick: (q: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["log-patterns", severity, win.fromISO, win.toISO],
+    queryFn: () => fetchLogPatterns(severity, 40, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+  });
   if (isLoading) return <Skeleton rows={10} />;
   if ((data ?? []).length === 0) return <EmptyState title="패턴이 없어요" body="로그가 쌓이면 유사한 메시지를 템플릿으로 묶어 보여줘요." />;
   // A searchable literal from the template: leading text before the first placeholder.
@@ -38,12 +45,17 @@ export function Logs() {
   const [service, setService] = useState("");
   const [severity, setSeverity] = useState("");
   const [q, setQ] = useState("");
-  const filter = { service, severity, q };
+  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  // Bucket "now" to the minute so live windows key stably between refetches.
+  const minute = Math.floor(Date.now() / 60000);
+  const win = resolveSel(sel, minute * 60000);
+  const filter = { service, severity, q, from: win.fromISO, to: win.toISO };
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 30000 });
   const { data, isLoading } = useQuery({
-    queryKey: ["logs", filter],
+    queryKey: ["logs", service, severity, q, win.fromISO, win.toISO],
     queryFn: () => fetchLogs(filter),
-    refetchInterval: 5000,
+    // Absolute window = historical search → stop the live tail so it stays put.
+    refetchInterval: win.live ? 5000 : false,
     enabled: mode === "stream",
   });
 
@@ -55,10 +67,13 @@ export function Logs() {
       <div className="logs-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
           <span className="pane-title">로그 <span className="hint-inline">{mode === "patterns" ? "유사 메시지를 템플릿으로 묶어요" : "행을 클릭하면 트레이스"}</span></span>
-          <div className="segmented" role="tablist" aria-label="보기" style={{ marginLeft: "auto" }}>
-            {MODES.map((m) => (
-              <button key={m.id} role="tab" aria-selected={mode === m.id} className="seg" onClick={() => setMode(m.id)}>{m.label}</button>
-            ))}
+          <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
+            <TimeRangePicker value={sel} onChange={setSel} />
+            <div className="segmented" role="tablist" aria-label="보기">
+              {MODES.map((m) => (
+                <button key={m.id} role="tab" aria-selected={mode === m.id} className="seg" onClick={() => setMode(m.id)}>{m.label}</button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="filterbar" style={{ position: "static" }}>
@@ -79,17 +94,19 @@ export function Logs() {
         </div>
         {mode === "patterns" ? (
           <div style={{ padding: "var(--sp-2) var(--sp-4)" }}>
-            <PatternsTable severity={severity} onPick={(term) => { setQ(term); setMode("stream"); }} />
+            <PatternsTable severity={severity} win={win} onPick={(term) => { setQ(term); setMode("stream"); }} />
           </div>
         ) : isLoading ? (
           <Skeleton rows={12} />
         ) : (data ?? []).length === 0 ? (
           <EmptyState
             title="조건에 맞는 로그가 없어요"
-            body="검색어·서비스·레벨을 바꿔보세요. 로그는 트레이스와 자동으로 연결돼요."
+            body="검색어·서비스·레벨·기간을 바꿔보세요. 로그는 트레이스와 자동으로 연결돼요."
+            hint={selLabel(sel)}
           />
         ) : (
           <div style={{ padding: "var(--sp-2) var(--sp-4)" }}>
+            <StreamStatus sel={sel} everyLabel="5초마다 갱신" />
             <LogList logs={data ?? []} onTrace={openById} />
           </div>
         )}

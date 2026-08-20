@@ -596,8 +596,12 @@
 /* Time-range picker — relative presets + absolute custom window. */
 .range-picker { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }
 .seg-ghost { color: var(--tx-dim); border: 1px dashed var(--line-strong); }
-.range-live-btn { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--tx-dim); background: transparent; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 5px 10px; cursor: pointer; }
+.range-live-btn { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--tx-dim); background: transparent; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 5px 10px; cursor: pointer; transition: color 120ms ease, border-color 120ms ease, transform 80ms ease; }
 .range-live-btn:hover { color: var(--tx-hi); border-color: var(--line-strong); }
+.range-live-btn:active { transform: scale(0.97); }
+/* Freshness banner for stream views — live tail vs frozen historical window. */
+.stream-status { display: flex; align-items: center; gap: 7px; font-size: var(--fs-xs); color: var(--tx-dim); padding: 5px 10px; margin-bottom: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-raised); }
+.stream-status.live { color: var(--tx); border-color: color-mix(in srgb, var(--ok) 30%, transparent); background: var(--ok-wash); }
 .range-custom { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(340px, calc(100vw - 24px)); max-height: min(78vh, 560px); overflow: auto; display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); padding: var(--sp-3); background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.28)); }
 /* Custom calendar (Calendar.tsx) */
 .cal { flex: 1 0 100%; }
@@ -675,6 +679,7 @@
   .copy-btn { min-height: 40px; }
   .range-quick-chip { min-height: 40px; }
   .range-now { min-height: 44px; }
+  .range-live-btn { min-height: 44px; }
   .connect-status { flex-wrap: wrap; }
   .connect-status .btn-primary { margin-left: 0 !important; width: 100%; min-height: 44px; margin-top: var(--sp-2); }
 }
@@ -690,7 +695,7 @@
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; border-top-color: var(--line-strong); }
   .live-dot { animation: none; }
-  .seg:active, .range-quick-chip:active { transform: none; }
+  .seg:active, .range-quick-chip:active, .range-live-btn:active { transform: none; }
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 

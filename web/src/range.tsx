@@ -221,3 +221,18 @@ export function ResolutionNote({ resolution }: { resolution?: string }) {
   const label: Record<string, string> = { "1m": "분 단위", "5m": "5분 간격", "15m": "15분 간격", "1h": "시간 단위", "6h": "6시간 간격", "1d": "일 단위" };
   return <span className="hint-inline" role="status" aria-live="polite">{label[resolution] ?? resolution} 집계</span>;
 }
+
+// Honest freshness banner for streaming views: is the data live-tailing, or is
+// this a frozen historical window? Reused by Logs (and any stream view).
+export function StreamStatus({ sel, everyLabel = "자동 갱신" }: { sel: TimeSel; everyLabel?: string }) {
+  const live = sel.kind === "relative";
+  return (
+    <div className={`stream-status${live ? " live" : ""}`} role="status" aria-live="polite">
+      {live ? (
+        <><span className="live-dot" /> 실시간 · {everyLabel} · 최근 {rangeById(sel.id).label}</>
+      ) : (
+        <><span aria-hidden>📌</span> 고정 조회 · {selLabel(sel)} · 갱신 멈춤</>
+      )}
+    </div>
+  );
+}

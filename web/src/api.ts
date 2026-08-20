@@ -286,24 +286,31 @@ export async function recordDeploy(d: { service: string; version: string; descri
 }
 
 export type QueryStat = { service: string; statement: string; dbSystem: string; calls: number; avgMs: number; p95Ms: number; maxMs: number; totalMs: number };
-export async function fetchDBQueries(orderBy = "total", limit = 50, service = ""): Promise<QueryStat[]> {
+export async function fetchDBQueries(orderBy = "total", limit = 50, service = "", fromISO?: string, toISO?: string): Promise<QueryStat[]> {
   const p = new URLSearchParams({ orderBy, limit: String(limit) });
   if (service) p.set("service", service);
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
   const r = await fetch(`${BASE}/api/v1/db/queries?${p}`);
   if (!r.ok) throw new Error(`db queries ${r.status}`);
   return r.json();
 }
 export type NPlusOne = { service: string; statement: string; traces: number; avgRepeats: number; maxRepeats: number; totalMs: number };
-export async function fetchNPlusOne(minRepeats = 5, limit = 50): Promise<NPlusOne[]> {
-  const r = await fetch(`${BASE}/api/v1/db/nplusone?minRepeats=${minRepeats}&limit=${limit}`);
+export async function fetchNPlusOne(minRepeats = 5, limit = 50, fromISO?: string, toISO?: string): Promise<NPlusOne[]> {
+  const p = new URLSearchParams({ minRepeats: String(minRepeats), limit: String(limit) });
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
+  const r = await fetch(`${BASE}/api/v1/db/nplusone?${p}`);
   if (!r.ok) throw new Error(`nplusone ${r.status}`);
   return r.json();
 }
 
 export type LogPattern = { pattern: string; sample: string; count: number; errors: number; services: string[]; lastSeen: string };
-export async function fetchLogPatterns(severity = "", limit = 40): Promise<LogPattern[]> {
+export async function fetchLogPatterns(severity = "", limit = 40, fromISO?: string, toISO?: string): Promise<LogPattern[]> {
   const p = new URLSearchParams({ limit: String(limit) });
   if (severity) p.set("severity", severity);
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
   const r = await fetch(`${BASE}/api/v1/logs/patterns?${p}`);
   if (!r.ok) throw new Error(`log patterns ${r.status}`);
   return r.json();
@@ -315,12 +322,14 @@ export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
   if (!r.ok) throw new Error(`trace logs ${r.status}`);
   return r.json();
 }
-export type LogQuery = { service?: string; severity?: string; q?: string; limit?: number };
+export type LogQuery = { service?: string; severity?: string; q?: string; limit?: number; from?: string; to?: string };
 export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
   const p = new URLSearchParams({ limit: String(f.limit ?? 200) });
   if (f.service) p.set("service", f.service);
   if (f.severity) p.set("severity", f.severity);
   if (f.q) p.set("q", f.q);
+  if (f.from) p.set("from", f.from);
+  if (f.to) p.set("to", f.to);
   const r = await fetch(`${BASE}/api/v1/logs?${p}`);
   if (!r.ok) throw new Error(`logs ${r.status}`);
   return r.json();

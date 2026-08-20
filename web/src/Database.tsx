@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDBQueries, fetchNPlusOne, fetchServices } from "./api";
 import { EmptyState, Skeleton } from "./states";
+import { TimeRangePicker, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
+
+type Win = { fromISO: string; toISO: string; live: boolean };
 
 const ORDERS = [
   { id: "total", label: "총 소요시간" },
@@ -15,11 +18,15 @@ function ms(n: number) {
 }
 function durClass(n: number) { return n >= 1000 ? "err" : n >= 300 ? "warn" : ""; }
 
-function Queries() {
+function Queries({ win, label }: { win: Win; label: string }) {
   const [orderBy, setOrderBy] = useState("total");
   const [service, setService] = useState("");
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 30000 });
-  const { data, isLoading } = useQuery({ queryKey: ["db-queries", orderBy, service], queryFn: () => fetchDBQueries(orderBy, 50, service), refetchInterval: 10000 });
+  const { data, isLoading } = useQuery({
+    queryKey: ["db-queries", orderBy, service, win.fromISO, win.toISO],
+    queryFn: () => fetchDBQueries(orderBy, 50, service, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+  });
   return (
     <>
       <div className="pane-head" style={{ position: "static", borderTop: 0, paddingTop: 0 }}>
@@ -34,7 +41,7 @@ function Queries() {
         </div>
       </div>
       {isLoading ? <Skeleton rows={10} /> : (data ?? []).length === 0 ? (
-        <EmptyState title="아직 수집된 쿼리가 없어요" body="에이전트가 DB 스팬(db.system·db.statement)을 보내면 쿼리별 호출·지연이 집계돼요." />
+        <EmptyState title="아직 수집된 쿼리가 없어요" body="에이전트가 DB 스팬(db.system·db.statement)을 보내면 쿼리별 호출·지연이 집계돼요." hint={label} />
       ) : (
         <table className="tbl db-tbl">
           <thead><tr><th>쿼리</th><th>서비스</th><th className="r">호출</th><th className="r">평균</th><th className="r">p95</th><th className="r">최대</th><th className="r">총 시간</th></tr></thead>
@@ -57,13 +64,17 @@ function Queries() {
   );
 }
 
-function NPlusOne() {
-  const { data, isLoading } = useQuery({ queryKey: ["db-nplusone"], queryFn: () => fetchNPlusOne(5, 50), refetchInterval: 10000 });
+function NPlusOne({ win, label }: { win: Win; label: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["db-nplusone", win.fromISO, win.toISO],
+    queryFn: () => fetchNPlusOne(5, 50, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+  });
   return (
     <>
       <p className="db-hint">한 트레이스 안에서 같은 쿼리가 5회 이상 반복되면 N+1 의심 — 반복 조회를 조인·일괄 조회로 바꾸면 응답이 빨라져요.</p>
       {isLoading ? <Skeleton rows={8} /> : (data ?? []).length === 0 ? (
-        <EmptyState title="N+1 의심 쿼리가 없어요" body="한 트레이스에서 동일 쿼리가 반복 실행되면 여기에 나타나요. 지금은 깨끗해요." />
+        <EmptyState title="N+1 의심 쿼리가 없어요" body="한 트레이스에서 동일 쿼리가 반복 실행되면 여기에 나타나요. 지금은 깨끗해요." hint={label} />
       ) : (
         <table className="tbl db-tbl">
           <thead><tr><th>쿼리</th><th>서비스</th><th className="r">트레이스</th><th className="r">평균 반복</th><th className="r">최대 반복</th><th className="r">누적 시간</th></tr></thead>
@@ -89,18 +100,24 @@ const MODES = [{ id: "queries", label: "쿼리 집계" }, { id: "nplusone", labe
 
 export function Database() {
   const [mode, setMode] = useState("queries");
+  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const minute = Math.floor(Date.now() / 60000);
+  const win = resolveSel(sel, minute * 60000);
   return (
     <div className="content-scroll">
       <div className="db-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">데이터베이스</span>
-          <div className="segmented" role="tablist" aria-label="보기" style={{ marginLeft: "auto" }}>
-            {MODES.map((m) => (
-              <button key={m.id} role="tab" aria-selected={mode === m.id} className="seg" onClick={() => setMode(m.id)}>{m.label}</button>
-            ))}
+          <span className="pane-title">데이터베이스 <span className="hint-inline">{selLabel(sel)}</span></span>
+          <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
+            <TimeRangePicker value={sel} onChange={setSel} />
+            <div className="segmented" role="tablist" aria-label="보기">
+              {MODES.map((m) => (
+                <button key={m.id} role="tab" aria-selected={mode === m.id} className="seg" onClick={() => setMode(m.id)}>{m.label}</button>
+              ))}
+            </div>
           </div>
         </div>
-        {mode === "queries" ? <Queries /> : <NPlusOne />}
+        {mode === "queries" ? <Queries win={win} label={selLabel(sel)} /> : <NPlusOne win={win} label={selLabel(sel)} />}
       </div>
     </div>
   );
