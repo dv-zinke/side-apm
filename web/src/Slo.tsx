@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchSLO } from "./api";
 import type { SLOStatus } from "./api";
 import { EmptyState, Skeleton } from "./states";
+import { TimeRangePicker, StreamStatus, resolveSel, selLabel, DEFAULT_SEL, type TimeSel } from "./range";
 
-const WINDOWS = [{ h: 1, label: "1시간" }, { h: 24, label: "24시간" }, { h: 168, label: "7일" }];
 const STATUS_LABEL: Record<string, string> = { healthy: "정상", at_risk: "주의", breached: "위반" };
 
 function toneOf(status: string) {
@@ -14,36 +14,49 @@ function toneOf(status: string) {
 }
 
 export function Slo() {
-  const [win, setWin] = useState(24);
-  const { data, isLoading } = useQuery({ queryKey: ["slo", win], queryFn: () => fetchSLO(win), refetchInterval: 15000 });
+  const [sel, setSel] = useState<TimeSel>(DEFAULT_SEL);
+  const minute = Math.floor(Date.now() / 60000);
+  const win = resolveSel(sel, minute * 60000);
+  const { data, isLoading } = useQuery({
+    queryKey: ["slo", win.fromISO, win.toISO],
+    queryFn: () => fetchSLO(win.fromISO, win.toISO),
+    refetchInterval: win.live ? 15000 : false,
+    placeholderData: keepPreviousData,
+  });
   const breached = (data ?? []).filter((s) => s.status === "breached").length;
 
   return (
     <div className="content-scroll">
       <div className="slo-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">SLO · 에러 버짓 <span className="hint-inline">가용성 목표 {(data?.[0]?.target ?? 99.9)}% 대비 남은 오류 예산</span></span>
-          <div className="segmented" role="tablist" aria-label="기간" style={{ marginLeft: "auto" }}>
-            {WINDOWS.map((wd) => (
-              <button key={wd.h} role="tab" aria-selected={win === wd.h} className="seg" onClick={() => setWin(wd.h)}>{wd.label}</button>
-            ))}
+          <span className="pane-title">SLO · 에러 버짓 <span className="hint-inline">{selLabel(sel)} · 가용성 목표 {(data?.[0]?.target ?? 99.9)}% 대비 남은 오류 예산</span></span>
+          <div style={{ marginLeft: "auto" }}>
+            <TimeRangePicker value={sel} onChange={setSel} />
           </div>
         </div>
         {isLoading ? (
           <Skeleton rows={6} />
         ) : (data ?? []).length === 0 ? (
-          <EmptyState title="아직 SLO 데이터가 없어요" body="서비스에 트래픽이 쌓이면 가용성 SLO와 에러 버짓이 여기에 계산돼요." />
+          <EmptyState title="아직 SLO 데이터가 없어요" body="서비스에 트래픽이 쌓이면 가용성 SLO와 에러 버짓이 여기에 계산돼요." hint={selLabel(sel)} />
         ) : (
           <>
-            {breached > 0 && <p className="slo-alert">⚠ {breached}개 서비스가 SLO를 위반해 에러 버짓을 모두 소진했어요.</p>}
+            <StreamStatus sel={sel} everyLabel="15초마다 갱신" />
+            {breached > 0 && <p className="slo-alert" role="status">⚠ {selLabel(sel)} 기준 {breached}개 서비스가 SLO를 위반했어요.</p>}
             <div className="slo-grid">
               {(data ?? []).map((s: SLOStatus) => {
                 const availTone = toneOf(s.availStatus);
+                // Distinguish which SLI breached so a 100% availability card
+                // doesn't read as a contradiction when only latency is failing.
+                const badgeLabel = s.status === "breached"
+                  ? (s.availStatus === "breached" ? "가용성 위반" : "지연 위반")
+                  : s.status === "at_risk"
+                    ? (s.availStatus === "at_risk" ? "가용성 주의" : "지연 주의")
+                    : STATUS_LABEL[s.status];
                 return (
                   <div key={s.service} className={`slo-card ${s.status}`}>
                     <div className="slo-head">
                       <span className="slo-name">{s.service}</span>
-                      <span className={`slo-badge ${s.status}`}>{STATUS_LABEL[s.status]}</span>
+                      <span className={`slo-badge ${s.status}`}>{badgeLabel}</span>
                     </div>
                     <div className="slo-attain">
                       <span className={`slo-rate ${availTone}`}>{s.successRate.toFixed(3)}<i>%</i></span>

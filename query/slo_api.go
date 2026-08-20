@@ -38,16 +38,19 @@ func registerSLO(mux *http.ServeMux, r Reader) {
 	// latency SLI. Read-only: sensible default target, no config needed.
 	mux.HandleFunc("GET /api/v1/slo", func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		windowHours, _ := strconv.Atoi(req.URL.Query().Get("windowHours"))
-		if windowHours <= 0 {
-			windowHours = 24
+		q := req.URL.Query()
+		// Prefer explicit from/to (unified time picker); fall back to windowHours
+		// as the default window duration, else 24h. resolveWindow clamps to 31d.
+		defaultDur := 24 * time.Hour
+		if wh, _ := strconv.Atoi(q.Get("windowHours")); wh > 0 {
+			defaultDur = time.Duration(wh) * time.Hour
 		}
 		target := 99.9
-		if t, err := strconv.ParseFloat(req.URL.Query().Get("target"), 64); err == nil && t > 0 && t < 100 {
+		if t, err := strconv.ParseFloat(q.Get("target"), 64); err == nil && t > 0 && t < 100 {
 			target = t
 		}
-		to := time.Now().UTC()
-		from := to.Add(-time.Duration(windowHours) * time.Hour)
+		from, to := resolveWindow(q.Get("from"), q.Get("to"), defaultDur)
+		windowHours := int(to.Sub(from).Hours() + 0.5)
 
 		// The entire SLO view is now ONE aggregate query (availability + p95 per
 		// service) — no per-service loop, no Apdex fan-out. Fast under load.
