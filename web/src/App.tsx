@@ -8,6 +8,7 @@ import { Dashboard } from "./Dashboard";
 import { Runtime } from "./Runtime";
 import { Onboarding } from "./Onboarding";
 import { Logs } from "./Logs";
+import { Errors } from "./Errors";
 import { Alerts } from "./Alerts";
 import { Database } from "./Database";
 import { Rum } from "./Rum";
@@ -27,14 +28,14 @@ import { getParam, pushParams } from "./urlState";
 import { AuthProvider, useAuth, installAuthFetch } from "./auth";
 import { Login } from "./Login";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "profiling" | "logs" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -54,6 +55,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "anomaly", label: "이상탐지", icon: IconAnomaly },
     { id: "slo", label: "SLO", icon: IconTarget },
     { id: "logs", label: "로그", icon: IconLogs },
+    { id: "errors", label: "에러 추적", icon: IconError },
     { id: "alerts", label: "알림", icon: IconBell },
   ] },
   { label: "토폴로지 · 실시간", items: [
@@ -217,6 +219,8 @@ function Console() {
             <Database />
           ) : view === "logs" ? (
             <Logs />
+          ) : view === "errors" ? (
+            <Errors />
           ) : view === "alerts" ? (
             <Alerts />
           ) : view === "map" ? (

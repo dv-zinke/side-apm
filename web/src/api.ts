@@ -338,6 +338,26 @@ export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
   return r.json();
 }
 
+// ── Error tracking (issues inbox) ────────────────────────────
+export type ErrorGroup = {
+  fingerprint: string; service: string; operation: string; errorType: string;
+  message: string; count: number; firstSeen: string; lastSeen: string; status: number; sampleTrace: string;
+};
+export async function fetchErrorGroups(fromISO: string, toISO: string, limit = 100): Promise<ErrorGroup[]> {
+  const r = await fetch(`${BASE}/api/v1/errors?from=${fromISO}&to=${toISO}&limit=${limit}`);
+  if (!r.ok) throw new Error(`errors ${r.status}`);
+  return r.json();
+}
+export type ErrorSample = { traceId: string; time: string; message: string; status: number };
+export type ErrorTrend = { minute: string; count: number };
+export type ErrorDetail = { total: number; trend: ErrorTrend[]; samples: ErrorSample[] };
+export async function fetchErrorDetail(g: { service: string; operation: string; errorType: string }, fromISO: string, toISO: string, step = 1): Promise<ErrorDetail> {
+  const p = new URLSearchParams({ service: g.service, op: g.operation, etype: g.errorType, from: fromISO, to: toISO, step: String(step) });
+  const r = await fetch(`${BASE}/api/v1/errors/detail?${p}`);
+  if (!r.ok) throw new Error(`error detail ${r.status}`);
+  return r.json();
+}
+
 export type ApdexResult = { tMs: number; score: number; samples: number; hasData: boolean; p50Ms: number; p95Ms: number; p99Ms: number; hasPercentiles: boolean };
 export async function fetchApdex(service: string, windowMin = 10): Promise<ApdexResult> {
   const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/apdex?windowMin=${windowMin}`);

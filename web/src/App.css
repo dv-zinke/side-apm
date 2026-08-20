@@ -283,6 +283,7 @@
   100% { background: transparent; }
 }
 .tbl tbody tr:hover { background: var(--bg-hover); }
+.tbl tbody tr:active { background: var(--bg-active); }
 .tbl tbody tr[aria-selected="true"] { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
 .tbl tbody tr:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .tbl td { padding: var(--sp-2) var(--sp-3); color: var(--tx); }
@@ -303,7 +304,7 @@
 .chip .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .chip.ok    { color: var(--ok);   background: var(--ok-wash);   border-color: color-mix(in srgb, var(--ok) 22%, transparent); }
 .chip.ok .dot    { background: var(--ok); }
-.chip.err   { color: var(--err);  background: var(--err-wash);  border-color: color-mix(in srgb, var(--err) 26%, transparent); }
+.chip.err   { color: var(--err-strong);  background: var(--err-wash);  border-color: color-mix(in srgb, var(--err) 26%, transparent); }
 .chip.err .dot   { background: var(--err); }
 .chip.warn  { color: var(--warn); background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 22%, transparent); }
 .chip.warn .dot  { background: var(--warn); }
@@ -537,6 +538,40 @@
 .db-tbl { table-layout: fixed; }
 .db-tbl th:first-child { width: 42%; }
 .db-stmt { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Error tracking — issues inbox ───────────────────────────── */
+.err-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; }
+.err-tbl { table-layout: fixed; }
+.err-tbl th:nth-child(1) { width: 24%; }
+.err-tbl th:nth-child(2) { width: 15%; }
+.err-tbl th:nth-child(3) { width: auto; }
+.err-tbl th:nth-child(4), .err-tbl th:nth-child(5) { width: 90px; }
+.err-issue { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.err-svc { font-size: var(--fs-xs); color: var(--tx-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.err-op { font-family: var(--mono); font-size: var(--fs-sm); color: var(--tx-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.err-count { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tx-hi); }
+.err-last { color: var(--tx-dim); white-space: nowrap; }
+.err-detail-msg { font-family: var(--mono); font-size: var(--fs-sm); color: var(--err); background: var(--err-wash); border: 1px solid color-mix(in srgb, var(--err) 25%, transparent); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); word-break: break-word; }
+.err-detail-stats { display: flex; gap: var(--sp-4); font-size: var(--fs-sm); color: var(--tx-dim); margin-bottom: var(--sp-3); }
+.err-detail-stats b { color: var(--tx-hi); }
+.err-empty-inline { font-size: var(--fs-sm); color: var(--tx-dim); padding: var(--sp-2) 0; }
+.err-tbl .mono, .modal-body .mono { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); }
+.err-trace-cell { color: var(--accent); white-space: nowrap; }
+.tx-dim { color: var(--tx-dim); }
+
+/* Mobile: the issues table becomes a card list so chips + messages don't
+   collapse into vertical shreds at 375px. */
+@media (max-width: 767px) {
+  .err-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .err-tbl, .err-tbl tbody, .err-tbl tr, .err-tbl td { display: block; width: auto; }
+  .err-tbl tr { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+  .err-tbl td { border: 0 !important; padding: 2px 0 !important; text-align: left !important; }
+  .err-tbl td.r { text-align: left !important; }
+  .err-issue { flex-direction: row; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+  .err-tbl .err-count::before { content: "발생 "; color: var(--tx-dim); font-weight: 400; }
+  .err-tbl .err-last::before { content: "· 마지막 "; color: var(--tx-dim); }
+  .err-tbl td.err-count, .err-tbl td.err-last { display: inline-block; }
+}
 
 /* Logs — correlated + search ──────────────────────────────── */
 .logs-view { display: flex; flex-direction: column; }

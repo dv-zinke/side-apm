@@ -178,6 +178,12 @@ func (fakeReader) Authenticate(_ context.Context, _, _ string) (storage.User, bo
 func (fakeReader) ListProfiles(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ProfileMeta, error) {
 	return nil, nil
 }
+func (fakeReader) ErrorGroups(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ErrorGroup, error) {
+	return nil, nil
+}
+func (fakeReader) ErrorGroupDetail(_ context.Context, _, _, _, _ string, _, _ time.Time, _ int) (storage.ErrorGroupDetail, error) {
+	return storage.ErrorGroupDetail{}, nil
+}
 func (fakeReader) GetProfile(_ context.Context, _, _ string) (string, string, string, string, error) {
 	return "", "", "", "", nil
 }

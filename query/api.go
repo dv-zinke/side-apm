@@ -64,6 +64,8 @@ type Reader interface {
 	Authenticate(ctx context.Context, username, password string) (storage.User, bool, error)
 	ListProfiles(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ProfileMeta, error)
 	GetProfile(ctx context.Context, tenant, id string) (tree, top, unit, ptype string, err error)
+	ErrorGroups(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
+	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
 }
 
 type TransactionDTO struct {
@@ -164,6 +166,7 @@ func Router(r Reader) http.Handler {
 	registerApp(mux, r)
 	registerDashboards(mux, r)
 	registerProfiles(mux, r)
+	registerErrors(mux, r)
 	registerAuth(mux, r)
 	return withCORS(authMiddleware(mux))
 }
