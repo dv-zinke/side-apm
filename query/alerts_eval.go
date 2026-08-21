@@ -19,6 +19,7 @@ type AlertStore interface {
 	ListAlertRules(ctx context.Context, tenant string) ([]storage.AlertRule, error)
 	InsertAlert(ctx context.Context, tenant string, a storage.Alert) error
 	EvalServiceMetric(ctx context.Context, tenant, service, metric string, windowMin uint16) (float64, bool, error)
+	CountLogMatches(ctx context.Context, tenant, dsl string, windowMin uint16) (float64, bool, error)
 	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
 	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
 	ListServices(ctx context.Context, tenant string) ([]string, error)
@@ -140,7 +141,14 @@ func (e *Evaluator) evalRules(ctx context.Context, tenant string) {
 			continue
 		}
 		live[r.ID] = true
-		val, ok, err := e.store.EvalServiceMetric(ctx, tenant, r.Service, r.Metric, r.WindowMin)
+		var val float64
+		var ok bool
+		var err error
+		if r.Metric == "log_match" {
+			val, ok, err = e.store.CountLogMatches(ctx, tenant, r.Query, r.WindowMin)
+		} else {
+			val, ok, err = e.store.EvalServiceMetric(ctx, tenant, r.Service, r.Metric, r.WindowMin)
+		}
 		if err != nil || !ok {
 			continue
 		}
@@ -348,12 +356,17 @@ func (e *Evaluator) fire(ctx context.Context, tenant string, r storage.AlertRule
 	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert: %v", err)
 	}
-	unit := "%"
-	if r.Metric == "p95_ms" {
+	unit, subject := "%", r.Service
+	switch r.Metric {
+	case "p95_ms":
 		unit = "ms"
+	case "error_count":
+		unit = "건"
+	case "log_match":
+		unit, subject = "건", "로그 "+r.Query
 	}
-	text := fmt.Sprintf("%s [%s] %s · %s = %.1f%s (임계 %.1f%s, 최근 %d분)",
-		stateIcon(state), state, r.Name, r.Service, val, unit, r.Threshold, unit, r.WindowMin)
+	text := fmt.Sprintf("%s [%s] %s · %s = %.0f%s (임계 %.0f%s, 최근 %d분)",
+		stateIcon(state), state, r.Name, subject, val, unit, r.Threshold, unit, r.WindowMin)
 	// A rule routes to its assigned channels; with none, it falls back to the
 	// global env webhook (back-compat). splitChannels("") → empty (not nil).
 	e.dispatch(ctx, tenant, notifMeta{r.ID, r.Name, state, text}, splitChannels(r.Channels))

@@ -16,12 +16,15 @@ type AlertRuleDTO struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`
 	Service   string   `json:"service"`
-	Metric    string   `json:"metric"` // error_rate | p95_ms
+	Metric    string   `json:"metric"` // error_rate | p95_ms | error_count | log_match
 	Threshold float64  `json:"threshold"`
 	WindowMin int      `json:"windowMin"`
 	Enabled   bool     `json:"enabled"`
 	Channels  []string `json:"channels"`
+	Query     string   `json:"query"` // log-query DSL, for metric == "log_match"
 }
+
+var validAlertMetric = map[string]bool{"error_rate": true, "p95_ms": true, "error_count": true, "log_match": true}
 
 func splitCSV(s string) []string {
 	out := []string{}
@@ -59,7 +62,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		}
 		out := make([]AlertRuleDTO, 0, len(rules))
 		for _, x := range rules {
-			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled, splitCSV(x.Channels)})
+			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled, splitCSV(x.Channels), x.Query})
 		}
 		writeJSON(w, out)
 	})
@@ -70,8 +73,18 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 			http.Error(w, "invalid body", http.StatusBadRequest)
 			return
 		}
-		if dto.Name == "" || dto.Service == "" || (dto.Metric != "error_rate" && dto.Metric != "p95_ms") {
-			http.Error(w, "name, service, metric(error_rate|p95_ms) required", http.StatusBadRequest)
+		if dto.Name == "" || !validAlertMetric[dto.Metric] {
+			http.Error(w, "name, metric(error_rate|p95_ms|error_count|log_match) required", http.StatusBadRequest)
+			return
+		}
+		// log_match rules target a query, not a service; the others need a service.
+		if dto.Metric == "log_match" {
+			if dto.Query == "" {
+				http.Error(w, "log_match rule requires query", http.StatusBadRequest)
+				return
+			}
+		} else if dto.Service == "" {
+			http.Error(w, "service required", http.StatusBadRequest)
 			return
 		}
 		if dto.ID == "" {
@@ -83,7 +96,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		if err := r.UpsertAlertRule(req.Context(), tenantOf(req), storage.AlertRule{
 			ID: dto.ID, Name: dto.Name, Service: dto.Service, Metric: dto.Metric,
 			Threshold: dto.Threshold, WindowMin: uint16(dto.WindowMin), Enabled: dto.Enabled,
-			Channels: strings.Join(dto.Channels, ","),
+			Channels: strings.Join(dto.Channels, ","), Query: dto.Query,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

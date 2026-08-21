@@ -925,6 +925,10 @@
 .chan-intro { font-size: var(--fs-sm); color: var(--tx-dim); margin: 0 0 var(--sp-3); max-width: 68ch; }
 .chan-target { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 .chan-test-err { display: block; font-size: var(--fs-xs); color: var(--err-strong); margin-top: 4px; word-break: break-word; }
+.rule-query { font-family: var(--mono); font-size: var(--fs-xs); color: var(--accent); background: var(--accent-wash); border-radius: var(--r-sm); padding: 1px 6px; display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.rule-query-input { font-family: var(--mono); border-left: 2px solid var(--accent); }
+.rule-preview { font-size: var(--fs-xs); color: var(--tx-dim); margin: var(--sp-2) 0 0; }
+.input[aria-invalid="true"] { border-color: var(--err); box-shadow: 0 0 0 3px var(--err-wash); }
 .state-action { margin-top: var(--sp-3); }
 
 /* Crash detail modal */

@@ -32,3 +32,6 @@ ENGINE = MergeTree
 PARTITION BY toDate(fired_at)
 ORDER BY (tenant_id, fired_at)
 TTL toDateTime(fired_at) + INTERVAL 30 DAY;
+
+-- Rule condition expansion: log_match rules carry a log-query DSL here.
+ALTER TABLE apm.alert_rules ADD COLUMN IF NOT EXISTS query String DEFAULT '';

@@ -103,7 +103,8 @@ export async function fetchServiceMap(): Promise<ServiceMapData> {
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
-export type AlertRule = { id?: string; name: string; service: string; metric: "error_rate" | "p95_ms"; threshold: number; windowMin: number; enabled: boolean; channels?: string[] };
+export type AlertMetric = "error_rate" | "p95_ms" | "error_count" | "log_match";
+export type AlertRule = { id?: string; name: string; service: string; metric: AlertMetric; threshold: number; windowMin: number; enabled: boolean; channels?: string[]; query?: string };
 export type Alert = { firedAt: string; ruleId: string; ruleName: string; service: string; metric: string; value: number; threshold: number; state: string };
 export async function fetchAlertRules(): Promise<AlertRule[]> {
   const r = await fetch(`${BASE}/api/v1/alert-rules`);

@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts, upsertAlertRule,
   fetchChannels, createChannel, deleteChannel, testChannel, fetchNotifications,
 } from "./api";
-import type { AlertRule, Channel } from "./api";
+import type { AlertRule, AlertMetric, Channel } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
 import { useAuth } from "./auth";
 
-const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연", uptime: "가동", throughput: "처리량" };
-const unitOf = (m: string) => (m === "p95_ms" ? "ms" : m === "throughput" ? "/분" : "%");
+const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연", error_count: "에러 건수", log_match: "로그 매칭", uptime: "가동", throughput: "처리량" };
+const unitOf = (m: string) => (m === "p95_ms" ? "ms" : m === "throughput" ? "/분" : m === "error_count" || m === "log_match" ? "건" : "%");
 const CHAN_LABEL: Record<string, string> = { slack: "Slack", webhook: "Webhook", pagerduty: "PagerDuty" };
 const CHAN_PLACEHOLDER: Record<string, string> = {
   slack: "https://hooks.slack.com/services/…",
@@ -24,47 +24,65 @@ function RuleForm({ onDone }: { onDone: () => void }) {
   const { data: channels } = useQuery({ queryKey: ["channels"], queryFn: fetchChannels });
   const [name, setName] = useState("");
   const [service, setService] = useState("");
-  const [metric, setMetric] = useState<"error_rate" | "p95_ms">("error_rate");
+  const [metric, setMetric] = useState<AlertMetric>("error_rate");
   const [threshold, setThreshold] = useState(5);
   const [windowMin, setWindowMin] = useState(5);
+  const [query, setQuery] = useState("");
   const [chans, setChans] = useState<Set<string>>(new Set());
+  const isLog = metric === "log_match";
 
   const create = useMutation({
-    mutationFn: () => createAlertRule({ name, service: service || (services?.[0] ?? ""), metric, threshold, windowMin, enabled: true, channels: [...chans] }),
+    mutationFn: () => createAlertRule({ name, service: isLog ? "" : (service || (services?.[0] ?? "")), metric, threshold, windowMin, enabled: true, channels: [...chans], query: isLog ? query : "" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["alert-rules"] }); onDone(); },
   });
   const svc = service || (services?.[0] ?? "");
   const enabledChannels = (channels ?? []).filter((c) => c.enabled);
   const toggleChan = (id: string) => setChans((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [err, setErr] = useState("");
+  const [invalid, setInvalid] = useState<"" | "name" | "query" | "service">("");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const queryRef = useRef<HTMLInputElement>(null);
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setErr("규칙 이름을 입력해주세요."); return; }
-    if (!svc) { setErr("서비스를 선택해주세요."); return; }
-    setErr(""); create.mutate();
+    if (!name.trim()) { setErr("규칙 이름을 입력해주세요."); setInvalid("name"); nameRef.current?.focus(); return; }
+    if (isLog) { if (!query.trim()) { setErr('로그 쿼리를 입력해주세요. 예: severity = error AND body ~ "OOM"'); setInvalid("query"); queryRef.current?.focus(); return; } }
+    else if (!svc) { setErr("서비스를 선택해주세요."); setInvalid("service"); return; }
+    setErr(""); setInvalid(""); create.mutate();
   };
+  // Human-readable summary so "5분간 87건" reads as one condition, not two fields.
+  const previewTarget = isLog ? `로그 «${query || "쿼리"}» 매칭 건수` : `${svc}의 ${METRIC_LABEL[metric]}`;
 
   return (
     <form className="rule-form" onSubmit={onSubmit}>
       <div className="onboard-row">
         <label className="onboard-field"><span className="field-label">규칙 이름</span>
-          <input className="input" value={name} onChange={(e) => { setName(e.target.value); if (err) setErr(""); }} placeholder="예: 결제 에러율 급증" aria-label="규칙 이름" />
+          <input ref={nameRef} className="input" value={name} onChange={(e) => { setName(e.target.value); if (err) { setErr(""); setInvalid(""); } }} placeholder="예: 결제 에러율 급증" aria-label="규칙 이름" aria-invalid={invalid === "name" || undefined} aria-describedby={err ? "rule-err" : undefined} />
         </label>
-        <label className="onboard-field"><span className="field-label">서비스</span>
-          <select className="select" value={svc} onChange={(e) => setService(e.target.value)}>
-            {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+        <label className="onboard-field"><span className="field-label">지표</span>
+          <select className="select" value={metric} onChange={(e) => setMetric(e.target.value as AlertMetric)}>
+            <option value="error_rate">에러율 (%)</option>
+            <option value="p95_ms">p95 지연 (ms)</option>
+            <option value="error_count">에러 건수 (건)</option>
+            <option value="log_match">로그 매칭 (건)</option>
           </select>
         </label>
       </div>
       <div className="onboard-row">
-        <label className="onboard-field"><span className="field-label">지표</span>
-          <select className="select" value={metric} onChange={(e) => setMetric(e.target.value as "error_rate" | "p95_ms")}>
-            <option value="error_rate">에러율 (%)</option>
-            <option value="p95_ms">p95 지연 (ms)</option>
-          </select>
-        </label>
+        <div style={{ display: "contents" }} aria-live="polite">
+          {isLog ? (
+            <label className="onboard-field" style={{ flex: "1 1 100%" }}><span className="field-label">로그 쿼리 (DSL · 매칭 건수)</span>
+              <input ref={queryRef} className="input rule-query-input" value={query} onChange={(e) => { setQuery(e.target.value); if (err) { setErr(""); setInvalid(""); } }} placeholder={`severity = error AND body ~ "OutOfMemory"`} aria-label="로그 쿼리" aria-invalid={invalid === "query" || undefined} aria-describedby={err ? "rule-err" : undefined} spellCheck={false} />
+            </label>
+          ) : (
+            <label className="onboard-field"><span className="field-label">서비스</span>
+              <select className="select" value={svc} onChange={(e) => setService(e.target.value)}>
+                {(services ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
         <label className="onboard-field"><span className="field-label">임계값 초과 시 발화 ({unitOf(metric)})</span>
-          <input className="input" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} step="any" aria-label="임계값" />
+          <input className="input" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} step={isLog || metric === "error_count" ? 1 : "any"} aria-label="임계값" />
         </label>
         <label className="onboard-field"><span className="field-label">관측 구간</span>
           <select className="select" value={windowMin} onChange={(e) => setWindowMin(Number(e.target.value))}>
@@ -74,6 +92,7 @@ function RuleForm({ onDone }: { onDone: () => void }) {
           </select>
         </label>
       </div>
+      <p className="rule-preview">최근 {windowMin}분간 {previewTarget} &gt; {threshold}{unitOf(metric)} 이면 발화해요</p>
       <div className="rule-chan-pick">
         <span className="field-label">알림 채널</span>
         {enabledChannels.length === 0 ? (
@@ -92,11 +111,11 @@ function RuleForm({ onDone }: { onDone: () => void }) {
         {enabledChannels.length > 0 && chans.size === 0 && <p className="rule-chan-note">선택 안 하면 환경 웹훅으로 발송돼요.</p>}
       </div>
       <div className="bar">
-        <button type="submit" className="btn btn-primary" disabled={create.isPending || !name}>
+        <button type="submit" className="btn btn-primary" disabled={create.isPending}>
           {create.isPending ? "만드는 중…" : "규칙 만들기"}
         </button>
         <button type="button" className="btn" onClick={onDone}>취소</button>
-        {(err || create.isError) && <span className="form-err" role="alert">{err || "규칙을 저장하지 못했어요. 입력을 확인해주세요."}</span>}
+        {(err || create.isError) && <span id="rule-err" className="form-err" role="alert">{err || "규칙을 저장하지 못했어요. 입력을 확인해주세요."}</span>}
       </div>
     </form>
   );
@@ -113,7 +132,7 @@ function RuleRow({ rule, channelsById }: { rule: AlertRule; channelsById: Map<st
   return (
     <tr className={rule.enabled ? "" : "rule-off"}>
       <td className="svc">{rule.name}</td>
-      <td>{rule.service}</td>
+      <td>{rule.metric === "log_match" ? <code className="rule-query" title={rule.query}>{rule.query}</code> : rule.service}</td>
       <td>{METRIC_LABEL[rule.metric] ?? rule.metric}</td>
       <td className="r">&gt; {rule.threshold} {unitOf(rule.metric)}</td>
       <td>
@@ -257,7 +276,7 @@ export function Alerts() {
                   action={canEdit ? <button className="btn btn-primary" onClick={() => setAdding(true)}>첫 규칙 만들기</button> : undefined} />
               ) : (rules ?? []).length > 0 ? (
                 <table className="tbl">
-                  <thead><tr><th>규칙</th><th>서비스</th><th>지표</th><th className="r">조건</th><th>채널</th><th>사용</th><th></th></tr></thead>
+                  <thead><tr><th>규칙</th><th>대상</th><th>지표</th><th className="r">조건</th><th>채널</th><th>사용</th><th></th></tr></thead>
                   <tbody>{(rules ?? []).map((r) => <RuleRow key={r.id} rule={r} channelsById={channelsById} />)}</tbody>
                 </table>
               ) : null}
