@@ -66,7 +66,7 @@ type Reader interface {
 	GetProfile(ctx context.Context, tenant, id string) (tree, top, unit, ptype string, err error)
 	ErrorGroups(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
 	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
-	QuerySpans(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) ([]storage.SpanQueryRow, error)
+	RunSpanQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.SpanQueryResult, error)
 	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
 	UpsertChannel(ctx context.Context, tenant string, c storage.AlertChannel) error
 	DeleteChannel(ctx context.Context, tenant, id string) error

@@ -184,8 +184,8 @@ func (fakeReader) ErrorGroups(_ context.Context, _ string, _, _ time.Time, _ int
 func (fakeReader) ErrorGroupDetail(_ context.Context, _, _, _, _ string, _, _ time.Time, _ int) (storage.ErrorGroupDetail, error) {
 	return storage.ErrorGroupDetail{}, nil
 }
-func (fakeReader) QuerySpans(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.SpanQueryRow, error) {
-	return nil, nil
+func (fakeReader) RunSpanQuery(_ context.Context, _, _ string, _, _ time.Time, _ int) (storage.SpanQueryResult, error) {
+	return storage.SpanQueryResult{Kind: "spans"}, nil
 }
 func (fakeReader) ListChannels(_ context.Context, _ string) ([]storage.AlertChannel, error) {
 	return nil, nil

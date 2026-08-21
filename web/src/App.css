@@ -587,6 +587,24 @@
 .q-span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .q-span-svc { font-size: var(--fs-xs); color: var(--tx-dim); text-transform: uppercase; letter-spacing: 0.03em; }
 .q-span-name { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Facet (aggregation) results — group key + metric columns with an inline bar.
+   Key column absorbs the slack so metric columns stay tight and comparable. */
+.q-facet-tbl { table-layout: auto; max-width: 900px; }
+.q-facet-key { width: 100%; font-family: var(--mono); font-size: var(--fs-sm); color: var(--tx-hi); }
+.q-facet-val { position: relative; width: 116px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.q-facet-bar { position: absolute; right: 0; top: 50%; transform: translateY(-50%); height: 62%; background: color-mix(in srgb, var(--accent) 24%, transparent); border-radius: 2px; pointer-events: none; }
+.q-facet-num { position: relative; }
+/* Mobile: facet rows become cards; each metric labels itself. */
+@media (max-width: 640px) {
+  .q-facet-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .q-facet-tbl, .q-facet-tbl tbody, .q-facet-tbl tr, .q-facet-tbl td { display: block; width: auto; }
+  .q-facet-tbl tr { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+  .q-facet-tbl td { border: 0 !important; padding: 2px 0 !important; text-align: left !important; }
+  .q-facet-key { font-size: var(--fs-md); margin-bottom: 4px; }
+  .q-facet-val { display: flex !important; justify-content: space-between; }
+  .q-facet-val::before { content: attr(data-label); color: var(--tx-dim); font-family: var(--sans); }
+  .q-facet-bar { display: none; }
+}
 
 /* Mobile: the issues table becomes a card list so chips + messages don't
    collapse into vertical shreds at 375px. */

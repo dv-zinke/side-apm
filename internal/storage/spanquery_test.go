@@ -46,6 +46,31 @@ func TestBuildSpanWhere(t *testing.T) {
 	}
 }
 
+func TestParseStats(t *testing.T) {
+	// valid
+	ge, ae, res, err := parseStats("stats count, p95 by service")
+	if err != nil {
+		t.Fatalf("unexpected err %v", err)
+	}
+	if len(ge) != 1 || len(ae) != 2 || res.Fields[0] != "service" || res.Aggs[0] != "count" || res.Aggs[1] != "p95" {
+		t.Fatalf("parse = %v %v %+v", ge, ae, res)
+	}
+	if ge[0] != "toString(service_name)" {
+		t.Errorf("group expr = %q", ge[0])
+	}
+	// attr group + errors agg
+	ge, _, res, err = parseStats("stats errors by attr.http.host")
+	if err != nil || ge[0] != "span_attrs['http.host']" || res.Aggs[0] != "errors" {
+		t.Fatalf("attr group = %v %+v (err %v)", ge, res, err)
+	}
+	// rejects
+	for _, bad := range []string{"count by service", "stats bogus by service", "stats count by weird.field", "stats count by attr.bad key", "stats by service", "stats count"} {
+		if _, _, _, err := parseStats(bad); err == nil {
+			t.Errorf("%q: expected error", bad)
+		}
+	}
+}
+
 func TestBuildSpanWhereRejects(t *testing.T) {
 	// Injection attempts and malformed input must all be QueryErrors, never SQL.
 	bad := []string{

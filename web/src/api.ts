@@ -395,7 +395,10 @@ export type SpanRow = {
 // A 400 means the DSL itself is wrong (show inline). Any other failure is
 // operational (auth/network) — not the user's query — so it's a distinct type.
 export class QuerySyntaxError extends Error {}
-export async function fetchSpanQuery(q: string, fromISO: string, toISO: string, limit = 200): Promise<SpanRow[]> {
+export type FacetRow = { key: string; values: number[] };
+export type SpanFacets = { kind: "facets"; fields: string[]; aggLabels: string[]; rows: FacetRow[] };
+export type SpanQueryResult = { kind: "spans"; spans: SpanRow[] } | SpanFacets;
+export async function fetchSpanQuery(q: string, fromISO: string, toISO: string, limit = 200): Promise<SpanQueryResult> {
   const p = new URLSearchParams({ q, from: fromISO, to: toISO, limit: String(limit) });
   const r = await fetch(`${BASE}/api/v1/spans/query?${p}`);
   if (r.status === 400) throw new QuerySyntaxError((await r.text()).trim() || "쿼리 형식을 확인해주세요");

@@ -12,6 +12,8 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 ---
 
 ## 2026-08-22
+### Added
+- **Explore 집계(패싯) 쿼리** — 스팬 쿼리 DSL에 `… | stats <함수> by <필드>` 파이프 추가(NRQL FACET류). 함수 count·errors·avg·p50·p95·p99·max·min, 그룹 필드 화이트리스트(파이프 없이 `stats …`로 시작해도 동작). 안전성 유지(함수·필드 화이트리스트 + 값 파라미터 바인딩). UI: 집계 표(그룹 키 + 지표 열, 첫 지표에 비례 인라인 막대). 파서 유닛테스트 `TestParseStats`. `RunSpanQuery`가 목록/집계 분기. CDO 수정(모바일 카드 리플로우·막대 대비·열 폭·빈 집계 카피).
 ### Infra/Schema
 - **ClickHouse 디스크 회수 27GB→9.6GB**. 원인 3종: (1) spans 원장 폭증(하루 2~4천만) — 3일 초과 파티션 즉시 DROP + 라이브 TTL 30d→3d(spans/logs/trace_summary), (2) 데모 과다 유입 — `SIM_RPS` 12→3(4배↓, compose 커밋), (3) **ClickHouse 시스템 로그 12.4GB**(text_log/query_log/trace_log 등) truncate + `deploy/clickhouse/system_logs.xml`로 2일 TTL 영구화(config 마운트 커밋).
   - ⚠️ 라이브 TTL(원장 3d)은 **로컬 DB에만** 적용. 커밋 스키마는 설계대로 30d 유지 → 새 볼륨 최초 기동 시 다시 30d. 로컬 재발 시 동일 ALTER(파티션 DROP + TTL 3d) 재적용.
