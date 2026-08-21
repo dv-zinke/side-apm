@@ -82,10 +82,14 @@
 - vs **Pinpoint**: "Java 편중·구형 UI 대신 **OTel 다언어 + 모던 UI + 실시간**."
 
 ## 5. 다음 쐐기 (강점을 더 벌리는 로드맵)
-1. **바이브코더 한 줄 온보딩**(D4) — 최대 차별.
+1. ✅ **바이브코더 한 줄 온보딩**(D4) — 구현(멀티테넌트 인식·라이브 연결감지·AI 프롬프트).
 2. ✅ **트레이스↔메트릭↔로그 상관**(3 pillars) — 구현(로그↔트레이스 드릴다운·상관).
 3. ✅ **알림 엔진** — 구현(서비스 룰 + 신서틱 + 이상탐지 → 웹훅).
 4. ✅ **메트릭 히스토그램 수신** → 서버측 정확 Apdex/지연분포 — 구현.
+5. ✅ **에러 추적 인박스**(DD Error Tracking / NR Errors Inbox) — 구현. `/api/v1/errors`.
+6. ✅ **애드혹 스팬 쿼리**(DD Trace Query / NR NRQL) — 구현(안전 제한 DSL). `/api/v1/spans/query`.
+7. ✅ **알림 통지 라우팅**(Slack/Webhook/PagerDuty·디둡·발송로그) — 구현. `/api/v1/alert-channels`.
+8. ✅ **계층형 보관 + 절대/공유 시간축** — 구현(30d/180d/24mo, `?view=&from=&to=` 공유). 상세: [[2026-08-22-progress-time-and-competitive-gaps]].
 
 ## 6. 확장 구현 (2026-08 — 신규 확보, [[03-rum]] 등)
 
@@ -103,5 +107,11 @@
 | **RUM + 세션 리플레이** | `/api/v1/rum/*` | 클릭·에러·Vitals·rrweb 재생 — DD/NR RUM ([[03-rum]]) |
 | **로그 패턴 클러스터링** | `/api/v1/logs/patterns` | 수백만 로그→템플릿 — DD/Loki Patterns |
 | **알림 룰 관리** | `/api/v1/alert-rules` | 생성·토글·삭제, firing 영속화 |
+| **에러 추적 인박스** | `/api/v1/errors` | 에러 스팬→이슈 그룹·추이·샘플 — DD/NR Error Tracking |
+| **애드혹 스팬 쿼리** | `/api/v1/spans/query` | 안전 제한 DSL로 속성 검색 — DD Trace Query/NRQL |
+| **알림 통지 라우팅** | `/api/v1/alert-channels` | Slack/Webhook/PagerDuty·디둡·발송로그 — DD/PagerDuty |
+| **계층형 보관 + 공유 시간축** | `/api/v1/red`(라우팅)·`/meta/retention` | 절대/상대·30d/180d/24mo·URL 공유 |
 
-**정직한 잔여 격차**: 연속 프로파일링, 800+통합, 다중테넌시/인증, RUM 소스맵 심볼리케이션.
+**정직한 잔여 격차**: 800+통합, RUM 소스맵 심볼리케이션. (연속 프로파일링·다중테넌시/인증은 확보.)
+
+> 2026-08 세션 상세 핸드오프: [[2026-08-22-progress-time-and-competitive-gaps]]
