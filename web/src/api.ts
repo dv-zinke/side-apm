@@ -368,14 +368,23 @@ export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
 }
 
 // ── Error tracking (issues inbox) ────────────────────────────
+export type ErrorState = "active" | "resolved" | "ignored" | "regressed";
 export type ErrorGroup = {
   fingerprint: string; service: string; operation: string; errorType: string;
   message: string; count: number; firstSeen: string; lastSeen: string; status: number; sampleTrace: string;
+  state: ErrorState;
 };
-export async function fetchErrorGroups(fromISO: string, toISO: string, limit = 100): Promise<ErrorGroup[]> {
-  const r = await fetch(`${BASE}/api/v1/errors?from=${fromISO}&to=${toISO}&limit=${limit}`);
+export async function fetchErrorGroups(fromISO: string, toISO: string, state = "active", limit = 100): Promise<ErrorGroup[]> {
+  const r = await fetch(`${BASE}/api/v1/errors?from=${fromISO}&to=${toISO}&state=${state}&limit=${limit}`);
   if (!r.ok) throw new Error(`errors ${r.status}`);
   return r.json();
+}
+// Triage an issue. `state` here is the target: resolved | ignored | active.
+export async function setErrorStatus(fingerprint: string, state: "active" | "resolved" | "ignored"): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/errors/${fingerprint}/status`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }),
+  });
+  if (!r.ok) throw new Error((await r.text()) || `status ${r.status}`);
 }
 export type ErrorSample = { traceId: string; time: string; message: string; status: number };
 export type ErrorTrend = { minute: string; count: number };

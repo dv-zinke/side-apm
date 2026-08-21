@@ -26,8 +26,9 @@ type ErrorGroup struct {
 	Count       uint64
 	FirstSeen   time.Time
 	LastSeen    time.Time
-	Status      uint16
+	Status      uint16 // representative HTTP status
 	SampleTrace string
+	State       string // triage: active | resolved | ignored | regressed
 }
 
 type ErrorSample struct {
@@ -69,7 +70,46 @@ const errType = `multiIf(
   span_attrs['http.error_name'] != '', span_attrs['http.error_name'],
   concat('HTTP ', toString(http_status_code)))`
 
-func (s *Store) ErrorGroups(ctx context.Context, tenantID string, from, to time.Time, limit int) ([]ErrorGroup, error) {
+// errStatus holds a triage state + when it was set (for regression detection).
+type errStatus struct {
+	state string
+	ts    time.Time
+}
+
+// SetErrorStatus records a triage decision for one issue (upsert by fingerprint).
+func (s *Store) SetErrorStatus(ctx context.Context, tenantID, fingerprint, state string) error {
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO apm.error_status (tenant_id, fingerprint, status, updated_at) VALUES (?,?,?,?)",
+		tenantID, fingerprint, state, time.Now().UTC())
+	return err
+}
+
+func (s *Store) errorStatuses(ctx context.Context, tenantID string) (map[string]errStatus, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT fingerprint, status, updated_at FROM apm.error_status FINAL WHERE tenant_id = ?", tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := map[string]errStatus{}
+	for rows.Next() {
+		var fp string
+		var st errStatus
+		if err := rows.Scan(&fp, &st.state, &st.ts); err != nil {
+			return nil, err
+		}
+		m[fp] = st
+	}
+	return m, rows.Err()
+}
+
+// ErrorGroups lists issue groups over the window, annotated with triage state.
+// stateFilter: "active" (active + regressed), "resolved", "ignored", or "all".
+func (s *Store) ErrorGroups(ctx context.Context, tenantID, stateFilter string, from, to time.Time, limit int) ([]ErrorGroup, error) {
+	statuses, err := s.errorStatuses(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
 	q := fmt.Sprintf(`
 SELECT
     service_name AS svc,
@@ -86,21 +126,56 @@ WHERE tenant_id = ? AND status_code = 'ERROR' AND start_time >= ? AND start_time
 GROUP BY svc, op, etype
 ORDER BY cnt DESC
 LIMIT ?`, errOp, errType)
-	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to, limit)
+	// Fetch a wider slice than requested so the post-annotation state filter can
+	// still return up to `limit` matching groups.
+	fetch := limit
+	if stateFilter != "" && stateFilter != "all" {
+		fetch = limit * 5
+		if fetch > 1000 {
+			fetch = 1000
+		}
+	}
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to, fetch)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []ErrorGroup
+	out := make([]ErrorGroup, 0, limit)
 	for rows.Next() {
 		var g ErrorGroup
 		if err := rows.Scan(&g.Service, &g.Operation, &g.ErrorType, &g.Message, &g.Count, &g.FirstSeen, &g.LastSeen, &g.Status, &g.SampleTrace); err != nil {
 			return nil, err
 		}
 		g.Fingerprint = fingerprint(g.Service, g.Operation, g.ErrorType)
+		// Effective triage state: default active; a resolved issue that keeps
+		// occurring after it was resolved is "regressed".
+		g.State = "active"
+		if st, ok := statuses[g.Fingerprint]; ok {
+			g.State = st.state
+			if st.state == "resolved" && g.LastSeen.After(st.ts) {
+				g.State = "regressed"
+			}
+		}
+		if !matchesStateFilter(g.State, stateFilter) {
+			continue
+		}
 		out = append(out, g)
+		if len(out) >= limit {
+			break
+		}
 	}
 	return out, rows.Err()
+}
+
+func matchesStateFilter(state, filter string) bool {
+	switch filter {
+	case "", "active":
+		return state == "active" || state == "regressed"
+	case "all":
+		return true
+	default:
+		return state == filter
+	}
 }
 
 // ErrorGroupDetail returns the occurrence trend + recent sample traces for one

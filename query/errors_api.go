@@ -1,6 +1,7 @@
 package query
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,7 +18,10 @@ type ErrorGroupDTO struct {
 	LastSeen    string `json:"lastSeen"`
 	Status      uint16 `json:"status"`
 	SampleTrace string `json:"sampleTrace"`
+	State       string `json:"state"`
 }
+
+var validErrorState = map[string]bool{"active": true, "resolved": true, "ignored": true}
 
 type ErrorSampleDTO struct {
 	TraceID string `json:"traceId"`
@@ -48,7 +52,7 @@ func registerErrors(mux *http.ServeMux, r Reader) {
 		if limit <= 0 || limit > 200 {
 			limit = 100
 		}
-		groups, err := r.ErrorGroups(req.Context(), tenantOf(req), from, to, limit)
+		groups, err := r.ErrorGroups(req.Context(), tenantOf(req), q.Get("state"), from, to, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -59,6 +63,7 @@ func registerErrors(mux *http.ServeMux, r Reader) {
 				Fingerprint: g.Fingerprint, Service: g.Service, Operation: g.Operation, ErrorType: g.ErrorType,
 				Message: g.Message, Count: g.Count, Status: g.Status, SampleTrace: g.SampleTrace,
 				FirstSeen: g.FirstSeen.Format(time.RFC3339), LastSeen: g.LastSeen.Format(time.RFC3339),
+				State: g.State,
 			})
 		}
 		writeJSON(w, out)
@@ -83,5 +88,21 @@ func registerErrors(mux *http.ServeMux, r Reader) {
 			out.Samples = append(out.Samples, ErrorSampleDTO{TraceID: s.TraceID, Time: s.Time.Format(time.RFC3339), Message: s.Message, Status: s.Status})
 		}
 		writeJSON(w, out)
+	})
+
+	// Triage an issue: resolve / ignore / re-activate. Keyed by fingerprint.
+	mux.HandleFunc("POST /api/v1/errors/{fingerprint}/status", func(w http.ResponseWriter, req *http.Request) {
+		var body struct {
+			State string `json:"state"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil || !validErrorState[body.State] {
+			http.Error(w, "state must be active|resolved|ignored", http.StatusBadRequest)
+			return
+		}
+		if err := r.SetErrorStatus(req.Context(), tenantOf(req), req.PathValue("fingerprint"), body.State); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]string{"state": body.State})
 	})
 }

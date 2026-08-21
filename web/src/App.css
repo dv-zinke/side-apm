@@ -302,11 +302,11 @@
   padding: 2px 8px 2px 6px; border-radius: 999px; border: 1px solid transparent;
 }
 .chip .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
-.chip.ok    { color: var(--ok);   background: var(--ok-wash);   border-color: color-mix(in srgb, var(--ok) 22%, transparent); }
+.chip.ok    { color: var(--ok-strong);   background: var(--ok-wash);   border-color: color-mix(in srgb, var(--ok) 22%, transparent); }
 .chip.ok .dot    { background: var(--ok); }
 .chip.err   { color: var(--err-strong);  background: var(--err-wash);  border-color: color-mix(in srgb, var(--err) 26%, transparent); }
 .chip.err .dot   { background: var(--err); }
-.chip.warn  { color: var(--warn); background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 22%, transparent); }
+.chip.warn  { color: var(--warn-strong); background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 22%, transparent); }
 .chip.warn .dot  { background: var(--warn); }
 .chip.muted { color: var(--tx-dim); background: var(--bg-raised); border-color: var(--line); }
 .chip.muted .dot { background: var(--tx-dim); }
@@ -388,6 +388,7 @@
 }
 .btn:hover { background: var(--bg-hover); }
 .btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.55; cursor: default; pointer-events: none; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); }
 
 /* Skeleton */
@@ -555,6 +556,11 @@
 .err-detail-stats { display: flex; gap: var(--sp-4); font-size: var(--fs-sm); color: var(--tx-dim); margin-bottom: var(--sp-3); }
 .err-detail-stats b { color: var(--tx-hi); }
 .err-empty-inline { font-size: var(--fs-sm); color: var(--tx-dim); padding: var(--sp-2) 0; }
+.err-actions { display: inline-flex; gap: 6px; justify-content: flex-end; }
+.err-state-badge { margin-left: var(--sp-2); font-size: 10px; padding: 1px 7px; }
+.err-row-closed { opacity: 0.55; }
+.err-row-closed:hover { opacity: 1; }
+.err-regress-count { color: var(--err-strong); }
 .err-tbl .mono, .modal-body .mono { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx-dim); }
 .err-trace-cell { color: var(--accent); white-space: nowrap; }
 .tx-dim { color: var(--tx-dim); }

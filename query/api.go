@@ -64,8 +64,9 @@ type Reader interface {
 	Authenticate(ctx context.Context, username, password string) (storage.User, bool, error)
 	ListProfiles(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ProfileMeta, error)
 	GetProfile(ctx context.Context, tenant, id string) (tree, top, unit, ptype string, err error)
-	ErrorGroups(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
+	ErrorGroups(ctx context.Context, tenant, stateFilter string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
 	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
+	SetErrorStatus(ctx context.Context, tenant, fingerprint, state string) error
 	RunSpanQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.SpanQueryResult, error)
 	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
 	UpsertChannel(ctx context.Context, tenant string, c storage.AlertChannel) error

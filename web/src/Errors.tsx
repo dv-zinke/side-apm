@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
-import { fetchErrorGroups, fetchErrorDetail } from "./api";
+import { fetchErrorGroups, fetchErrorDetail, setErrorStatus } from "./api";
 import type { ErrorGroup, Transaction } from "./api";
 import { EmptyState, Skeleton, ErrorState, IconX } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
 import { TimeRangePicker, StreamStatus, resolveSel, selLabel, useTimeSel } from "./range";
+import { getParam, replaceParams } from "./urlState";
 
 // Relative "…전" so operators scan recency at a glance.
 function ago(iso: string): string {
@@ -25,6 +26,41 @@ function stepFor(fromISO: string, toISO: string): number {
 function typeTone(t: string): string {
   if (t.startsWith("HTTP 4")) return "warn";
   return "err"; // 5xx, HTTP 0 (connection failure), and named exceptions
+}
+
+const STATE_TABS = [
+  { id: "active", label: "활성" },
+  { id: "resolved", label: "해결됨" },
+  { id: "ignored", label: "무시됨" },
+  { id: "all", label: "전체" },
+];
+// Badge shown only for states that need calling out in a list (regressed loudest).
+const STATE_BADGE: Record<string, { label: string; tone: string }> = {
+  regressed: { label: "재발", tone: "err" },
+  resolved: { label: "해결됨", tone: "ok" },
+  ignored: { label: "무시됨", tone: "muted" },
+};
+
+// Per-row triage buttons: resolve / ignore active issues, reopen closed ones.
+function IssueActions({ g }: { g: ErrorGroup }) {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["error-groups"] });
+  const m = useMutation({ mutationFn: (state: "active" | "resolved" | "ignored") => setErrorStatus(g.fingerprint, state), onSuccess: invalidate });
+  const closed = g.state === "resolved" || g.state === "ignored";
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const busy = (s: string) => m.isPending && m.variables === s; // per-action pending label
+  return (
+    <div className="err-actions" onClick={stop}>
+      {closed ? (
+        <button className="btn btn-sm" disabled={m.isPending} onClick={() => m.mutate("active")}>{busy("active") ? "되돌리는 중…" : "되돌리기"}</button>
+      ) : (
+        <>
+          <button className="btn btn-sm" disabled={m.isPending} onClick={() => m.mutate("resolved")} title="해결로 표시">{busy("resolved") ? "해결 중…" : "해결"}</button>
+          <button className="btn btn-sm" disabled={m.isPending} onClick={() => m.mutate("ignored")} title="무시 — 활성 목록에서 숨김">{busy("ignored") ? "무시 중…" : "무시"}</button>
+        </>
+      )}
+    </div>
+  );
 }
 
 function DetailModal({ group, win, onClose, onTrace }: {
@@ -111,47 +147,68 @@ export function Errors() {
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);
   const [active, setActive] = useState<ErrorGroup | null>(null);
+  const [stateFilter, setStateFilterRaw] = useState(() => {
+    const s = getParam("state");
+    return s && STATE_TABS.some((t) => t.id === s) ? s : "active";
+  });
+  const setStateFilter = (s: string) => { setStateFilterRaw(s); replaceParams({ state: s === "active" ? null : s }); };
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["error-groups", win.fromISO, win.toISO],
-    queryFn: () => fetchErrorGroups(win.fromISO, win.toISO),
+    queryKey: ["error-groups", stateFilter, win.fromISO, win.toISO],
+    queryFn: () => fetchErrorGroups(win.fromISO, win.toISO, stateFilter),
     refetchInterval: win.live ? 10000 : false,
     placeholderData: keepPreviousData,
   });
   const groups = data ?? [];
   const total = groups.reduce((a, g) => a + g.count, 0);
+  const regressed = groups.filter((g) => g.state === "regressed").length;
   const openById = (traceId: string) =>
     openTrace({ traceId, serviceName: "", transactionName: "", statusCode: "", startTime: "", durationMs: 0 } as Transaction);
+  const emptyBody = stateFilter === "active"
+    ? "활성 이슈가 없어요. 에러가 발생하거나 해결한 이슈가 재발하면 여기에 떠요."
+    : `이 필터(${STATE_TABS.find((t) => t.id === stateFilter)?.label})에 해당하는 이슈가 없어요.`;
 
   return (
     <div className="content-scroll">
       <div className="err-view">
         <div className="pane-head" style={{ position: "static", borderTop: 0 }}>
-          <span className="pane-title">에러 추적 <span className="hint-inline">{groups.length}개 이슈 · {total.toLocaleString()}건</span></span>
-          <div style={{ marginLeft: "auto" }}><TimeRangePicker value={sel} onChange={setSel} /></div>
+          <span className="pane-title">에러 추적 <span className="hint-inline" role="status" aria-live="polite">{groups.length}개 이슈 · {total.toLocaleString()}건{regressed > 0 && <> · <b className="err-regress-count">재발 {regressed}</b></>}</span></span>
+          <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
+            <div className="segmented" role="tablist" aria-label="상태 필터">
+              {STATE_TABS.map((t) => <button key={t.id} role="tab" aria-selected={stateFilter === t.id} className="seg" onClick={() => setStateFilter(t.id)}>{t.label}</button>)}
+            </div>
+            <TimeRangePicker value={sel} onChange={setSel} />
+          </div>
         </div>
         {isError && !data ? (
           <ErrorState error={new Error("에러 목록을 불러오지 못했어요")} onRetry={() => refetch()} />
         ) : isLoading && !data ? (
           <Skeleton rows={10} />
         ) : groups.length === 0 ? (
-          <EmptyState title="에러가 없어요 🎉" body="이 기간에는 에러 스팬이 없어요. 서비스가 에러(status ERROR)를 보내면 서비스·작업·유형별로 묶여 여기에 쌓여요." hint={selLabel(sel)} />
+          <EmptyState title={stateFilter === "active" ? "활성 에러가 없어요 🎉" : "이슈가 없어요"} body={emptyBody} hint={selLabel(sel)} />
         ) : (
           <>
             <StreamStatus sel={sel} everyLabel="10초마다 갱신" />
             <table className="tbl err-tbl">
               <thead>
-                <tr><th>이슈</th><th>유형</th><th>메시지</th><th className="r">발생</th><th className="r">마지막</th></tr>
+                <tr><th>이슈</th><th>유형</th><th>메시지</th><th className="r">발생</th><th className="r">마지막</th><th></th></tr>
               </thead>
               <tbody>
-                {groups.map((g) => (
-                  <tr key={g.fingerprint} tabIndex={0} style={{ cursor: "pointer" }} onClick={() => setActive(g)} onKeyDown={(e) => { if (e.key === "Enter") setActive(g); }}>
-                    <td className="err-issue"><span className="err-svc">{g.service}</span><span className="err-op">{g.operation || "—"}</span></td>
-                    <td><span className={`chip ${typeTone(g.errorType)}`}><span className="dot" />{g.errorType}</span></td>
-                    <td className="db-stmt" title={g.message}>{g.message || <span className="tx-dim">—</span>}</td>
-                    <td className="r err-count">{g.count.toLocaleString()}</td>
-                    <td className="r err-last">{ago(g.lastSeen)}</td>
-                  </tr>
-                ))}
+                {groups.map((g) => {
+                  const badge = STATE_BADGE[g.state];
+                  return (
+                    <tr key={g.fingerprint} tabIndex={0} className={g.state === "resolved" || g.state === "ignored" ? "err-row-closed" : ""} style={{ cursor: "pointer" }} onClick={() => setActive(g)} onKeyDown={(e) => { if (e.key === "Enter") setActive(g); }}>
+                      <td className="err-issue">
+                        <span className="err-svc">{g.service}</span>
+                        <span className="err-op">{g.operation || "—"}{badge && <span className={`chip ${badge.tone} err-state-badge`}>{badge.label}</span>}</span>
+                      </td>
+                      <td><span className={`chip ${typeTone(g.errorType)}`}><span className="dot" />{g.errorType}</span></td>
+                      <td className="db-stmt" title={g.message}>{g.message || <span className="tx-dim">—</span>}</td>
+                      <td className="r err-count">{g.count.toLocaleString()}</td>
+                      <td className="r err-last">{ago(g.lastSeen)}</td>
+                      <td className="r"><IssueActions g={g} /></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </>
