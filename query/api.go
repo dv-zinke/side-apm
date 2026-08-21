@@ -68,6 +68,7 @@ type Reader interface {
 	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
 	SetErrorStatus(ctx context.Context, tenant, fingerprint, state string) error
 	RunSpanQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.SpanQueryResult, error)
+	RunLogQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.LogQueryResult, error)
 	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
 	UpsertChannel(ctx context.Context, tenant string, c storage.AlertChannel) error
 	DeleteChannel(ctx context.Context, tenant, id string) error

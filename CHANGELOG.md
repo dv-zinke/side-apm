@@ -13,6 +13,7 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 
 ## 2026-08-22
 ### Added
+- **로그 검색·집계 (`/api/v1/logs/query`)** — 스팬 쿼리 안전 DSL을 로그 테이블에 이식(SigNoz/Loki 대응). 필드 필터(service·severity·body·trace·span·attr.*, `= != ~ !~`, severity 대소문자무시) + `| stats count,errors by …` 집계. 로그 뷰에 "검색" 모드(mono 쿼리바·예시칩·로그목록/패싯). `RunLogQuery` 목록/집계 분기, 파서 유닛테스트. FacetView 공유. CDO 수정: 모바일 로그행 2줄 리플로우·예시 count-first·쿼리 URL(`?logq=`)·isFetching. `internal/storage/logquery.go`·`query/logs_api.go`·`web/src/Logs.tsx`. 신규 스키마 0.
 - **에러 인박스 이슈 상태 관리** — 이슈별 해결/무시/되돌리기 트리아지 + 상태 필터 탭(활성/해결됨/무시됨/전체) + **재발 자동 감지**(해결 후 다시 발생하면 "재발" 승격). 신규 `apm.error_status`(fingerprint별, ReplacingMergeTree). `POST /api/v1/errors/{fp}/status`, `GET /api/v1/errors?state=`. 상태 필터 URL 저장(`?state=`). CDO 수정: 버튼 pending 라벨·`.btn:disabled`, 배지 AA(`--ok/warn-strong`), aria-live. `internal/storage/errors.go`·`query/errors_api.go`·`web/src/Errors.tsx`.
 - **Explore 집계(패싯) 쿼리** — 스팬 쿼리 DSL에 `… | stats <함수> by <필드>` 파이프 추가(NRQL FACET류). 함수 count·errors·avg·p50·p95·p99·max·min, 그룹 필드 화이트리스트(파이프 없이 `stats …`로 시작해도 동작). 안전성 유지(함수·필드 화이트리스트 + 값 파라미터 바인딩). UI: 집계 표(그룹 키 + 지표 열, 첫 지표에 비례 인라인 막대). 파서 유닛테스트 `TestParseStats`. `RunSpanQuery`가 목록/집계 분기. CDO 수정(모바일 카드 리플로우·막대 대비·열 폭·빈 집계 카피).
 ### Infra/Schema

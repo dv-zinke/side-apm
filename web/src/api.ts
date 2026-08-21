@@ -354,6 +354,18 @@ export async function fetchTraceLogs(traceId: string): Promise<LogLine[]> {
   if (!r.ok) throw new Error(`trace logs ${r.status}`);
   return r.json();
 }
+// Log search DSL — same tagged shape as span query (rows | facets).
+export type LogQueryResult =
+  | { kind: "rows"; rows: LogLine[] }
+  | { kind: "facets"; fields: string[]; aggLabels: string[]; rows: FacetRow[] };
+export async function fetchLogQuery(q: string, fromISO: string, toISO: string, limit = 200): Promise<LogQueryResult> {
+  const p = new URLSearchParams({ q, from: fromISO, to: toISO, limit: String(limit) });
+  const r = await fetch(`${BASE}/api/v1/logs/query?${p}`);
+  if (r.status === 400) throw new QuerySyntaxError((await r.text()).trim() || "쿼리 형식을 확인해주세요");
+  if (!r.ok) throw new Error("결과를 불러오지 못했어요");
+  return r.json();
+}
+
 export type LogQuery = { service?: string; severity?: string; q?: string; limit?: number; from?: string; to?: string };
 export async function fetchLogs(f: LogQuery = {}): Promise<LogLine[]> {
   const p = new URLSearchParams({ limit: String(f.limit ?? 200) });

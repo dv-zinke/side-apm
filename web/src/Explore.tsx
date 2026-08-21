@@ -27,7 +27,8 @@ function durTone(n: number) { return n >= 1000 ? "err" : n >= 300 ? "warn" : "";
 // p95 values compare precisely across groups; counts are plain integers.
 function fmtVal(label: string, v: number) { return label.includes("ms") ? Math.round(v).toLocaleString() + "ms" : Math.round(v).toLocaleString(); }
 
-function FacetView({ res }: { res: SpanFacets }) {
+// Structural prop so both span and log facets can reuse it.
+export function FacetView({ res }: { res: { fields: string[]; aggLabels: string[]; rows: { key: string; values: number[] }[] } }) {
   const maxFirst = Math.max(1, ...res.rows.map((r) => r.values[0] ?? 0));
   return (
     <table className="tbl q-facet-tbl">
