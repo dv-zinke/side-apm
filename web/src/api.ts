@@ -103,7 +103,7 @@ export async function fetchServiceMap(): Promise<ServiceMapData> {
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
-export type AlertRule = { id?: string; name: string; service: string; metric: "error_rate" | "p95_ms"; threshold: number; windowMin: number; enabled: boolean };
+export type AlertRule = { id?: string; name: string; service: string; metric: "error_rate" | "p95_ms"; threshold: number; windowMin: number; enabled: boolean; channels?: string[] };
 export type Alert = { firedAt: string; ruleId: string; ruleName: string; service: string; metric: string; value: number; threshold: number; state: string };
 export async function fetchAlertRules(): Promise<AlertRule[]> {
   const r = await fetch(`${BASE}/api/v1/alert-rules`);
@@ -129,6 +129,35 @@ export async function deleteAlertRule(id: string): Promise<void> {
 export async function fetchAlerts(): Promise<Alert[]> {
   const r = await fetch(`${BASE}/api/v1/alerts?limit=100`);
   if (!r.ok) throw new Error(`alerts ${r.status}`);
+  return r.json();
+}
+
+// ── Notification channels + delivery log ─────────────────────
+export type Channel = { id?: string; name: string; type: "slack" | "webhook" | "pagerduty"; target: string; enabled: boolean };
+export async function fetchChannels(): Promise<Channel[]> {
+  const r = await fetch(`${BASE}/api/v1/alert-channels`);
+  if (!r.ok) throw new Error(`channels ${r.status}`);
+  return r.json();
+}
+export async function createChannel(c: Channel): Promise<Channel> {
+  const r = await fetch(`${BASE}/api/v1/alert-channels`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) });
+  if (!r.ok) throw new Error((await r.text()) || `create ${r.status}`);
+  return r.json();
+}
+export async function deleteChannel(id: string): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/alert-channels/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`delete ${r.status}`);
+}
+// Returns null on success; a message string when the send failed (502 body).
+export async function testChannel(id: string): Promise<string | null> {
+  const r = await fetch(`${BASE}/api/v1/alert-channels/${id}/test`, { method: "POST" });
+  if (r.ok) return null;
+  return (await r.text()) || `전송 실패 (${r.status})`;
+}
+export type Notification = { ts: string; ruleName: string; channelName: string; type: string; state: string; ok: boolean; error: string };
+export async function fetchNotifications(): Promise<Notification[]> {
+  const r = await fetch(`${BASE}/api/v1/notifications?limit=100`);
+  if (!r.ok) throw new Error(`notifications ${r.status}`);
   return r.json();
 }
 

@@ -67,6 +67,11 @@ type Reader interface {
 	ErrorGroups(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
 	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
 	QuerySpans(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) ([]storage.SpanQueryRow, error)
+	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
+	UpsertChannel(ctx context.Context, tenant string, c storage.AlertChannel) error
+	DeleteChannel(ctx context.Context, tenant, id string) error
+	InsertNotification(ctx context.Context, tenant string, n storage.Notification) error
+	ListNotifications(ctx context.Context, tenant string, limit int) ([]storage.Notification, error)
 }
 
 type TransactionDTO struct {
@@ -169,6 +174,7 @@ func Router(r Reader) http.Handler {
 	registerProfiles(mux, r)
 	registerErrors(mux, r)
 	registerSpanQuery(mux, r)
+	registerChannels(mux, r)
 	registerAuth(mux, r)
 	return withCORS(authMiddleware(mux))
 }

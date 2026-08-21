@@ -24,6 +24,8 @@ type AlertStore interface {
 	ListServices(ctx context.Context, tenant string) ([]string, error)
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
 	ListTenants(ctx context.Context) ([]string, error)
+	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
+	InsertNotification(ctx context.Context, tenant string, n storage.Notification) error
 }
 
 // tenant-scoped state key so one tenant's transitions never collide with another's.
@@ -310,15 +312,14 @@ func (e *Evaluator) fireAnomaly(ctx context.Context, tenant string, a Anomaly, s
 	if err := e.store.InsertAlert(ctx, tenant, al); err != nil {
 		log.Printf("alerts: insert anomaly: %v", err)
 	}
-	if e.webhookURL != "" {
-		icon, verb := "🔴", "이상 급변"
-		if state == "resolved" {
-			icon, verb = "✅", "이상 해소"
-		}
-		text := fmt.Sprintf("%s [%s] %s · %s %s = %.1f (평소 %.1f, %.1fσ)",
-			icon, state, verb, a.Service, a.Metric, a.Current, a.Baseline, a.Z)
-		e.postWebhook(text)
+	verb := "이상 급변"
+	if state == "resolved" {
+		verb = "이상 해소"
 	}
+	text := fmt.Sprintf("%s [%s] %s · %s %s = %.1f (평소 %.1f, %.1fσ)",
+		stateIcon(state), state, verb, a.Service, a.Metric, a.Current, a.Baseline, a.Z)
+	// Auto-detected → broadcast to every enabled channel (nil).
+	e.dispatch(ctx, tenant, notifMeta{al.RuleID, al.RuleName, state, text}, nil)
 	log.Printf("alerts: anomaly [%s] %s %s (%.1fσ)", state, a.Service, a.Metric, a.Z)
 }
 
@@ -330,15 +331,12 @@ func (e *Evaluator) fireSynthetic(ctx context.Context, tenant string, m storage.
 	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert synthetic: %v", err)
 	}
-	if e.webhookURL != "" {
-		icon := "🔴"
-		verb := "다운"
-		if state == "resolved" {
-			icon, verb = "✅", "복구"
-		}
-		text := fmt.Sprintf("%s [%s] 가동 %s · %s (%s) · 업타임 %.1f%%", icon, state, verb, m.Monitor, m.URL, m.Uptime)
-		e.postWebhook(text)
+	verb := "다운"
+	if state == "resolved" {
+		verb = "복구"
 	}
+	text := fmt.Sprintf("%s [%s] 가동 %s · %s (%s) · 업타임 %.1f%%", stateIcon(state), state, verb, m.Monitor, m.URL, m.Uptime)
+	e.dispatch(ctx, tenant, notifMeta{a.RuleID, a.RuleName, state, text}, nil)
 	log.Printf("alerts: synthetic [%s] %s (%s)", state, m.Monitor, m.URL)
 }
 
@@ -350,46 +348,136 @@ func (e *Evaluator) fire(ctx context.Context, tenant string, r storage.AlertRule
 	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert: %v", err)
 	}
-	e.notify(r, val, state)
-}
-
-// notify posts a Slack-compatible message when a webhook is configured.
-func (e *Evaluator) notify(r storage.AlertRule, val float64, state string) {
-	if e.webhookURL == "" {
-		return
-	}
-	icon := "🔴"
-	if state == "resolved" {
-		icon = "✅"
-	}
 	unit := "%"
 	if r.Metric == "p95_ms" {
 		unit = "ms"
 	}
 	text := fmt.Sprintf("%s [%s] %s · %s = %.1f%s (임계 %.1f%s, 최근 %d분)",
-		icon, state, r.Name, r.Service, val, unit, r.Threshold, unit, r.WindowMin)
-	e.postWebhook(text)
+		stateIcon(state), state, r.Name, r.Service, val, unit, r.Threshold, unit, r.WindowMin)
+	// A rule routes to its assigned channels; with none, it falls back to the
+	// global env webhook (back-compat). splitChannels("") → empty (not nil).
+	e.dispatch(ctx, tenant, notifMeta{r.ID, r.Name, state, text}, splitChannels(r.Channels))
 }
 
-// postWebhook sends a Slack-compatible {"text":…} payload to the configured URL.
-func (e *Evaluator) postWebhook(text string) {
-	if e.webhookURL == "" {
+func stateIcon(state string) string {
+	if state == "resolved" {
+		return "✅"
+	}
+	return "🔴"
+}
+
+// splitChannels turns "a, b" into ["a","b"]; "" into a non-nil empty slice so a
+// no-channel rule can be told apart from a broadcast (nil).
+func splitChannels(s string) []string {
+	out := []string{}
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+type notifMeta struct {
+	ruleID, ruleName, state, text string
+}
+
+// dispatch delivers one alert to its destinations and logs each attempt.
+// channelIDs == nil  → broadcast to every enabled channel (auto-alerts).
+// channelIDs == []   → no per-rule channels → fall back to the global webhook.
+// channelIDs == [..] → exactly those channels.
+func (e *Evaluator) dispatch(ctx context.Context, tenant string, m notifMeta, channelIDs []string) {
+	channels, err := e.store.ListChannels(ctx, tenant)
+	if err != nil {
+		log.Printf("alerts: list channels: %v", err)
+	}
+	byID := map[string]storage.AlertChannel{}
+	var enabled []storage.AlertChannel
+	for _, c := range channels {
+		if c.Enabled {
+			byID[c.ID] = c
+			enabled = append(enabled, c)
+		}
+	}
+	var targets []storage.AlertChannel
+	if channelIDs == nil {
+		targets = enabled
+	} else {
+		for _, id := range channelIDs {
+			if c, ok := byID[id]; ok {
+				targets = append(targets, c)
+			}
+		}
+	}
+	// Fall back to the global env webhook when a rule has no live channels.
+	if len(targets) == 0 {
+		if e.webhookURL != "" {
+			err := postJSON(e.webhookURL, map[string]string{"text": m.text})
+			e.logNotif(ctx, tenant, m, "", "환경 웹훅", "slack", err)
+		}
 		return
 	}
-	body, _ := json.Marshal(map[string]string{"text": text})
-	req, err := http.NewRequest(http.MethodPost, e.webhookURL, bytes.NewReader(body))
+	for _, c := range targets {
+		err := sendToChannel(c, m)
+		e.logNotif(ctx, tenant, m, c.ID, c.Name, c.Type, err)
+	}
+}
+
+func (e *Evaluator) logNotif(ctx context.Context, tenant string, m notifMeta, chID, chName, chType string, sendErr error) {
+	n := storage.Notification{
+		Ts: time.Now().UTC(), RuleID: m.ruleID, RuleName: m.ruleName,
+		ChannelID: chID, ChannelName: chName, Type: chType, State: m.state, OK: sendErr == nil,
+	}
+	if sendErr != nil {
+		n.Error = sendErr.Error()
+		log.Printf("alerts: notify %s via %s: %v", m.ruleName, chName, sendErr)
+	}
+	if err := e.store.InsertNotification(ctx, tenant, n); err != nil {
+		log.Printf("alerts: log notification: %v", err)
+	}
+}
+
+// sendToChannel formats the alert for the channel's provider and posts it.
+func sendToChannel(c storage.AlertChannel, m notifMeta) error {
+	switch c.Type {
+	case "pagerduty":
+		action := "trigger"
+		severity := "error"
+		if m.state == "resolved" {
+			action, severity = "resolve", "info"
+		}
+		return postJSON("https://events.pagerduty.com/v2/enqueue", map[string]any{
+			"routing_key":  c.Target,
+			"event_action": action,
+			"dedup_key":    m.ruleID,
+			"payload": map[string]any{
+				"summary": m.text, "severity": severity, "source": "apm", "component": m.ruleName,
+			},
+		})
+	case "webhook":
+		return postJSON(c.Target, map[string]any{
+			"rule": m.ruleName, "state": m.state, "message": m.text,
+		})
+	default: // slack (Slack-compatible incoming webhook)
+		return postJSON(c.Target, map[string]string{"text": m.text})
+	}
+}
+
+// postJSON POSTs a JSON body and treats any non-2xx/3xx as an error.
+func postJSON(url string, payload any) error {
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
-		log.Printf("alerts: webhook: %v", err)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		log.Printf("alerts: webhook returned %d", resp.StatusCode)
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
+	return nil
 }

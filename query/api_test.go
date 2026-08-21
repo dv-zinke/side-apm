@@ -187,6 +187,17 @@ func (fakeReader) ErrorGroupDetail(_ context.Context, _, _, _, _ string, _, _ ti
 func (fakeReader) QuerySpans(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.SpanQueryRow, error) {
 	return nil, nil
 }
+func (fakeReader) ListChannels(_ context.Context, _ string) ([]storage.AlertChannel, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertChannel(_ context.Context, _ string, _ storage.AlertChannel) error { return nil }
+func (fakeReader) DeleteChannel(_ context.Context, _, _ string) error                       { return nil }
+func (fakeReader) InsertNotification(_ context.Context, _ string, _ storage.Notification) error {
+	return nil
+}
+func (fakeReader) ListNotifications(_ context.Context, _ string, _ int) ([]storage.Notification, error) {
+	return nil, nil
+}
 func (fakeReader) GetProfile(_ context.Context, _, _ string) (string, string, string, string, error) {
 	return "", "", "", "", nil
 }

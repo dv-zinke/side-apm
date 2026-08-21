@@ -11,13 +11,14 @@ export function Skeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function EmptyState({
-  icon, title, body, hint,
-}: { icon?: React.ReactNode; title: string; body: string; hint?: string }) {
+  icon, title, body, hint, action,
+}: { icon?: React.ReactNode; title: string; body: string; hint?: string; action?: React.ReactNode }) {
   return (
     <div className="state">
       {icon ?? <IconInbox />}
       <h4>{title}</h4>
       <p>{body}</p>
+      {action && <div className="state-action">{action}</div>}
       {hint && <span className="hint">{hint}</span>}
     </div>
   );

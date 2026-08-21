@@ -6,19 +6,31 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/heejune/apm/internal/storage"
 )
 
 type AlertRuleDTO struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Service   string  `json:"service"`
-	Metric    string  `json:"metric"`    // error_rate | p95_ms
-	Threshold float64 `json:"threshold"`
-	WindowMin int     `json:"windowMin"`
-	Enabled   bool    `json:"enabled"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Service   string   `json:"service"`
+	Metric    string   `json:"metric"` // error_rate | p95_ms
+	Threshold float64  `json:"threshold"`
+	WindowMin int      `json:"windowMin"`
+	Enabled   bool     `json:"enabled"`
+	Channels  []string `json:"channels"`
+}
+
+func splitCSV(s string) []string {
+	out := []string{}
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 type AlertDTO struct {
@@ -47,7 +59,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		}
 		out := make([]AlertRuleDTO, 0, len(rules))
 		for _, x := range rules {
-			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled})
+			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled, splitCSV(x.Channels)})
 		}
 		writeJSON(w, out)
 	})
@@ -71,6 +83,7 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		if err := r.UpsertAlertRule(req.Context(), tenantOf(req), storage.AlertRule{
 			ID: dto.ID, Name: dto.Name, Service: dto.Service, Metric: dto.Metric,
 			Threshold: dto.Threshold, WindowMin: uint16(dto.WindowMin), Enabled: dto.Enabled,
+			Channels: strings.Join(dto.Channels, ","),
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

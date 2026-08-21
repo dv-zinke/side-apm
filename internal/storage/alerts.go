@@ -13,6 +13,7 @@ type AlertRule struct {
 	Threshold float64
 	WindowMin uint16
 	Enabled   bool
+	Channels  string // comma-separated channel ids ("" → global webhook fallback)
 }
 
 type Alert struct {
@@ -36,15 +37,15 @@ func b2u(b bool) uint8 {
 // UpsertAlertRule inserts/updates a rule (ReplacingMergeTree dedups by id).
 func (s *Store) UpsertAlertRule(ctx context.Context, tenantID string, r AlertRule) error {
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO apm.alert_rules (tenant_id,id,name,service,metric,threshold,window_min,enabled,deleted,updated_at) VALUES (?,?,?,?,?,?,?,?,0,?)",
-		tenantID, r.ID, r.Name, r.Service, r.Metric, r.Threshold, r.WindowMin, b2u(r.Enabled), time.Now().UTC(),
+		"INSERT INTO apm.alert_rules (tenant_id,id,name,service,metric,threshold,window_min,enabled,channels,deleted,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,?)",
+		tenantID, r.ID, r.Name, r.Service, r.Metric, r.Threshold, r.WindowMin, b2u(r.Enabled), r.Channels, time.Now().UTC(),
 	)
 	return err
 }
 
 func (s *Store) DeleteAlertRule(ctx context.Context, tenantID, id string) error {
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO apm.alert_rules (tenant_id,id,name,service,metric,threshold,window_min,enabled,deleted,updated_at) VALUES (?,?,'','','',0,0,0,1,?)",
+		"INSERT INTO apm.alert_rules (tenant_id,id,name,service,metric,threshold,window_min,enabled,channels,deleted,updated_at) VALUES (?,?,'','','',0,0,0,'',1,?)",
 		tenantID, id, time.Now().UTC(),
 	)
 	return err
@@ -52,7 +53,7 @@ func (s *Store) DeleteAlertRule(ctx context.Context, tenantID, id string) error 
 
 func (s *Store) ListAlertRules(ctx context.Context, tenantID string) ([]AlertRule, error) {
 	const q = `
-SELECT id, name, service, metric, threshold, window_min, enabled
+SELECT id, name, service, metric, threshold, window_min, enabled, channels
 FROM apm.alert_rules FINAL
 WHERE tenant_id = ? AND deleted = 0
 ORDER BY name`
@@ -65,7 +66,7 @@ ORDER BY name`
 	for rows.Next() {
 		var r AlertRule
 		var en uint8
-		if err := rows.Scan(&r.ID, &r.Name, &r.Service, &r.Metric, &r.Threshold, &r.WindowMin, &en); err != nil {
+		if err := rows.Scan(&r.ID, &r.Name, &r.Service, &r.Metric, &r.Threshold, &r.WindowMin, &en, &r.Channels); err != nil {
 			return nil, err
 		}
 		r.Enabled = en == 1
