@@ -12,6 +12,9 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 ---
 
 ## 2026-08-22
+### Infra/Schema
+- **ClickHouse 디스크 회수 27GB→9.6GB**. 원인 3종: (1) spans 원장 폭증(하루 2~4천만) — 3일 초과 파티션 즉시 DROP + 라이브 TTL 30d→3d(spans/logs/trace_summary), (2) 데모 과다 유입 — `SIM_RPS` 12→3(4배↓, compose 커밋), (3) **ClickHouse 시스템 로그 12.4GB**(text_log/query_log/trace_log 등) truncate + `deploy/clickhouse/system_logs.xml`로 2일 TTL 영구화(config 마운트 커밋).
+  - ⚠️ 라이브 TTL(원장 3d)은 **로컬 DB에만** 적용. 커밋 스키마는 설계대로 30d 유지 → 새 볼륨 최초 기동 시 다시 30d. 로컬 재발 시 동일 ALTER(파티션 DROP + TTL 3d) 재적용.
 ### Docs
 - 세션 핸드오프 문서 + 포지셔닝 트래커 갱신(에러 인박스·스팬 쿼리·알림 라우팅·계층형 보관을 shipped로) — `docs/.../2026-08-22-progress-time-and-competitive-gaps.md` · `60ee67d`
 - `CHANGELOG.md` 신설(이 파일) — 매 작업 후 패치 기록 규칙 확립
