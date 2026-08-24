@@ -149,6 +149,9 @@ func (fakeReader) InsertDeploy(_ context.Context, _ string, _ storage.Deploy) er
 func (fakeReader) ListDeploys(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.Deploy, error) {
 	return nil, nil
 }
+func (fakeReader) DeployImpacts(_ context.Context, _, _ string, _, _ int) ([]storage.DeployImpact, error) {
+	return nil, nil
+}
 func (fakeReader) AppOverview(_ context.Context, _ string, _, _ time.Time) (storage.AppOverview, error) {
 	return storage.AppOverview{}, nil
 }

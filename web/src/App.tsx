@@ -10,6 +10,7 @@ import { Onboarding } from "./Onboarding";
 import { Logs } from "./Logs";
 import { Errors } from "./Errors";
 import { Explore } from "./Explore";
+import { Deploys } from "./Deploys";
 import { Alerts } from "./Alerts";
 import { Database } from "./Database";
 import { Rum } from "./Rum";
@@ -29,14 +30,14 @@ import { getParam, pushParams } from "./urlState";
 import { AuthProvider, useAuth, installAuthFetch } from "./auth";
 import { Login } from "./Login";
 import {
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError, IconSearch,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError, IconSearch, IconDeploy,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "explore" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "rum" | "app" | "alerts" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "explore" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "deploys" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
@@ -56,6 +57,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     { id: "synth", label: "가동 모니터링", icon: IconHeartbeat },
     { id: "anomaly", label: "이상탐지", icon: IconAnomaly },
     { id: "slo", label: "SLO", icon: IconTarget },
+    { id: "deploys", label: "배포 추적", icon: IconDeploy },
     { id: "logs", label: "로그", icon: IconLogs },
     { id: "errors", label: "에러 추적", icon: IconError },
     { id: "alerts", label: "알림", icon: IconBell },
@@ -243,6 +245,8 @@ function Console() {
             <Anomalies />
           ) : view === "slo" ? (
             <Slo />
+          ) : view === "deploys" ? (
+            <Deploys />
           ) : view === "red" ? (
             <RedDashboard />
           ) : (

@@ -428,6 +428,20 @@ export async function fetchSpanQuery(q: string, fromISO: string, toISO: string, 
   return r.json();
 }
 
+// ── Deploy tracking / regression ─────────────────────────────
+export type DeployImpact = {
+  time: string; service: string; version: string; description: string; windowMin: number;
+  beforeReq: number; afterReq: number; beforeErrRate: number; afterErrRate: number;
+  beforeP95: number; afterP95: number; afterComplete: boolean;
+};
+export async function fetchDeployImpacts(service = "", windowMin = 30): Promise<DeployImpact[]> {
+  const p = new URLSearchParams({ windowMin: String(windowMin) });
+  if (service) p.set("service", service);
+  const r = await fetch(`${BASE}/api/v1/deploys/impact?${p}`);
+  if (!r.ok) throw new Error(`deploy impact ${r.status}`);
+  return r.json();
+}
+
 export type ApdexResult = { tMs: number; score: number; samples: number; hasData: boolean; p50Ms: number; p95Ms: number; p99Ms: number; hasPercentiles: boolean };
 export async function fetchApdex(service: string, windowMin = 10): Promise<ApdexResult> {
   const r = await fetch(`${BASE}/api/v1/services/${encodeURIComponent(service)}/apdex?windowMin=${windowMin}`);

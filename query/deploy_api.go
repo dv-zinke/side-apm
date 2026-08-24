@@ -60,4 +60,28 @@ func registerDeploys(mux *http.ServeMux, r Reader) {
 		}
 		writeJSON(w, out)
 	})
+
+	// Deploy impact — each recent deploy with the service's RED before vs after,
+	// for regression detection.
+	mux.HandleFunc("GET /api/v1/deploys/impact", func(w http.ResponseWriter, req *http.Request) {
+		q := req.URL.Query()
+		windowMin, _ := strconv.Atoi(q.Get("windowMin"))
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		impacts, err := r.DeployImpacts(req.Context(), tenantOf(req), q.Get("service"), windowMin, limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]map[string]any, 0, len(impacts))
+		for _, d := range impacts {
+			out = append(out, map[string]any{
+				"time": d.Time.Format(time.RFC3339), "service": d.Service, "version": d.Version,
+				"description": d.Description, "windowMin": d.WindowMin,
+				"beforeReq": d.BeforeReq, "afterReq": d.AfterReq,
+				"beforeErrRate": d.BeforeErrRate, "afterErrRate": d.AfterErrRate,
+				"beforeP95": d.BeforeP95, "afterP95": d.AfterP95, "afterComplete": d.AfterComplete,
+			})
+		}
+		writeJSON(w, out)
+	})
 }
