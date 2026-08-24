@@ -543,7 +543,9 @@
 /* Deploy tracking — before/after regression ───────────────── */
 .dp-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .dp-list { display: flex; flex-direction: column; gap: var(--sp-2); }
-.dp-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3); background: var(--bg-panel); }
+.dp-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3); background: var(--bg-panel); cursor: pointer; transition: box-shadow 150ms ease, transform 150ms ease, border-color 150ms ease; }
+.dp-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: var(--shadow-1); }
+.dp-card:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent); }
 .dp-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .dp-svc { font-size: var(--fs-xs); color: var(--tx-dim); text-transform: uppercase; letter-spacing: 0.03em; }
 .dp-ver { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); }
@@ -562,6 +564,7 @@
 .dp-arrow.ok, .dp-after.ok { color: var(--ok-strong); }
 .dp-partial { font-size: var(--fs-xs); color: var(--warn-strong); }
 @media (max-width: 640px) { .dp-metrics { gap: var(--sp-3); } }
+@media (prefers-reduced-motion: reduce) { .dp-card:hover { transform: none; } }
 
 /* Error tracking — issues inbox ───────────────────────────── */
 .err-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; }

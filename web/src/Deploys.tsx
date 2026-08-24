@@ -3,6 +3,8 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchDeployImpacts, fetchServices } from "./api";
 import type { DeployImpact } from "./api";
 import { EmptyState, Skeleton, ErrorState } from "./states";
+import { useNav } from "./nav";
+import { replaceParams } from "./urlState";
 
 const WINDOWS = [{ min: 15, label: "±15분" }, { min: 30, label: "±30분" }, { min: 60, label: "±1시간" }];
 
@@ -51,8 +53,11 @@ function verdict(d: DeployImpact): { label: string; cls: string; mark: string } 
 }
 
 export function Deploys() {
+  const { setView } = useNav();
   const [service, setService] = useState("");
   const [win, setWin] = useState(30);
+  // Drill into the service's RED chart (deploy markers overlaid) for this deploy.
+  const openRED = (svc: string) => { replaceParams({ redsvc: svc }); setView("red"); };
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 30000 });
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["deploy-impacts", service, win],
@@ -91,12 +96,15 @@ export function Deploys() {
             {deploys.map((d, i) => {
               const v = verdict(d);
               return (
-                <div key={i} className="dp-card">
+                <div key={i} className="dp-card" role="button" tabIndex={0}
+                  title={`${d.service} RED 차트 열기`}
+                  onClick={() => openRED(d.service)}
+                  onKeyDown={(e) => { if (e.key === "Enter") openRED(d.service); }}>
                   <div className="dp-head">
                     <span className="dp-svc">{d.service}</span>
                     <span className="dp-ver">{d.version}</span>
                     <span className={`chip ${v.cls} dp-verdict`}><span aria-hidden className="dp-mark">{v.mark}</span> {v.label}</span>
-                    <span className="dp-time" title={hm(d.time)}>{ago(d.time)}</span>
+                    <span className="dp-time">{hm(d.time)} · {ago(d.time)}</span>
                   </div>
                   {d.description && <div className="dp-desc">{d.description}</div>}
                   <div className="dp-metrics">

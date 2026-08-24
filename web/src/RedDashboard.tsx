@@ -8,6 +8,7 @@ import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
 import { TimeRangePicker, ResolutionNote, resolveSel, selLabel, useTimeSel } from "./range";
+import { getParam, replaceParams } from "./urlState";
 
 function ExemplarModal({ service, fromISO, toISO, label, onClose }: { service: string; fromISO: string; toISO: string; label: string; onClose: () => void }) {
   const { openTrace } = useNav();
@@ -47,7 +48,9 @@ export function RedDashboard() {
   const { theme } = useTheme();
   const c = chartColors(theme);
   const { data: services } = useQuery({ queryKey: ["services"], queryFn: fetchServices, refetchInterval: 10000 });
-  const [svc, setSvc] = useState<string>("");
+  // Initial service can be deep-linked (e.g. from a deploy card) via ?redsvc=.
+  const [svc, setSvcState] = useState<string>(() => getParam("redsvc") ?? "");
+  const setSvc = (s: string) => { setSvcState(s); replaceParams({ redsvc: s || null }); };
   const service = svc || (services && services[0]) || "";
   const [sel, setSel] = useTimeSel();
   // Bucket the key to the minute so it stays stable across renders — otherwise a

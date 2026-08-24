@@ -12,6 +12,8 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 ---
 
 ## 2026-08-25
+### Changed
+- **배포 카드 → RED 드릴다운** — 배포 추적 카드 클릭 시 해당 서비스 RED 차트로 이동(배포 마커 오버레이). RED가 `?redsvc=` 딥링크로 초기 서비스 수용(서비스 select도 URL 반영). 카드 hover-lift·focus 링·키보드(Enter), 배포 시각을 hover title→인라인 노출(모바일 접근). 리뷰어 비차단 지적 반영. `web/src/Deploys.tsx`·`web/src/RedDashboard.tsx`.
 ### Added
 - **배포 추적/회귀 감지 뷰** — Datadog Deployment / NR Change Tracking 대응. 각 배포 마커 전후 ±N분(15/30/60)의 서비스 RED(에러율·p95)를 before→after 비교, 판정(회귀 의심 ▲/개선 ▼/변화 없음 ＝) + 회귀 카운트. 기존 deploys 테이블·red_rollup 재사용, 신규 스키마 0. `GET /api/v1/deploys/impact`, 네비 "배포 추적". CDO 수정(FAIL→): 화살표를 판정과 동기화(동일 수치 모순 제거), 배지 색+기호 병행, 에러/빈 상태·radiogroup. `internal/storage/deploys.go`·`query/deploy_api.go`·`web/src/Deploys.tsx`.
 - **알림 규칙 무음(snooze/정비창)** — 규칙별 알림을 30분/1시간/4시간/내일까지 일시 무음(정비 중 스팸 방지). 비활성(평가 정지)과 달리 **평가·발화 이력은 계속, 채널 발송만 억제**. 무음 중 규칙은 amber 좌측 레일 + "🔕 약 N시간 · 해제". 스키마 `alert_rules.snooze_until`(라이브). 평가기 fire()가 snooze 시 발화 기록 후 dispatch 스킵. 기존 upsert 경로 재사용(신규 엔드포인트 0). CDO 수정: 메뉴 바깥클릭·Esc·화살표키·포커스·모바일 44px·카드 셀 라벨(data-label)·무음 실패 인라인. `internal/storage/alerts.go`·`query/alerts_eval.go`·`web/src/Alerts.tsx`.
