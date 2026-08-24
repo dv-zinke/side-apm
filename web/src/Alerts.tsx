@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts, upsertAlertRule,
@@ -121,6 +121,63 @@ function RuleForm({ onDone }: { onDone: () => void }) {
   );
 }
 
+const SNOOZE_OPTS = [{ label: "30분", min: 30 }, { label: "1시간", min: 60 }, { label: "4시간", min: 240 }, { label: "내일까지", min: 60 * 24 }];
+function snoozeRemaining(iso?: string): string {
+  if (!iso) return "";
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "";
+  const m = Math.round(ms / 60000);
+  return m >= 60 ? `약 ${Math.ceil(m / 60)}시간` : `${m}분`;
+}
+
+// Temporarily silence a rule's notifications (maintenance window) without losing
+// its config — distinct from disabling, which stops evaluation entirely.
+function SnoozeControl({ rule, canEdit }: { rule: AlertRule; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["alert-rules"] });
+  const m = useMutation({
+    mutationFn: (snoozeUntil: string) => upsertAlertRule({ ...rule, snoozeUntil }),
+    onSuccess: () => { invalidate(); setOpen(false); },
+  });
+  // Menu contract: focus first option on open; close on outside-click or Esc.
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>(".snooze-opt")?.focus();
+    const onDown = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    const opts = Array.from(menuRef.current?.querySelectorAll<HTMLElement>(".snooze-opt") ?? []);
+    const i = opts.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "Escape") { setOpen(false); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); opts[Math.min(i + 1, opts.length - 1)]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); opts[Math.max(i - 1, 0)]?.focus(); }
+  };
+  const remaining = snoozeRemaining(rule.snoozeUntil);
+  if (!canEdit) return remaining ? <span className="chip muted" title="무음 중"><span aria-hidden>🔕</span> {remaining}</span> : null;
+  if (remaining) {
+    return <button className="btn btn-sm snooze-active" onClick={() => m.mutate("")} title="무음 해제" disabled={m.isPending} aria-label={`무음 ${remaining} 남음 — 해제`}><span aria-hidden>🔕</span> {remaining} · 해제</button>;
+  }
+  return (
+    <div className="snooze-wrap" ref={wrapRef}>
+      <button className="btn btn-sm" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu">무음<span aria-hidden> ▾</span></button>
+      {open && (
+        <div className="snooze-menu" role="menu" ref={menuRef} onKeyDown={onMenuKey}>
+          {SNOOZE_OPTS.map((o) => (
+            <button key={o.min} role="menuitem" className="snooze-opt" disabled={m.isPending}
+              onClick={() => m.mutate(new Date(Date.now() + o.min * 60000).toISOString())}>{o.label}</button>
+          ))}
+        </div>
+      )}
+      {m.isError && <span className="chan-test-err" role="alert">무음 실패 · 다시 시도</span>}
+    </div>
+  );
+}
+
 function RuleRow({ rule, channelsById }: { rule: AlertRule; channelsById: Map<string, Channel> }) {
   const qc = useQueryClient();
   const { auth } = useAuth();
@@ -129,17 +186,19 @@ function RuleRow({ rule, channelsById }: { rule: AlertRule; channelsById: Map<st
   const del = useMutation({ mutationFn: () => deleteAlertRule(rule.id!), onSuccess: invalidate });
   const toggle = useMutation({ mutationFn: () => upsertAlertRule({ ...rule, enabled: !rule.enabled }), onSuccess: invalidate });
   const chans = rule.channels ?? [];
+  const snoozed = !!rule.snoozeUntil && new Date(rule.snoozeUntil).getTime() > Date.now();
   return (
-    <tr className={rule.enabled ? "" : "rule-off"}>
+    <tr className={`${rule.enabled ? "" : "rule-off"}${snoozed ? " rule-snoozed" : ""}`}>
       <td className="svc">{rule.name}</td>
-      <td>{rule.metric === "log_match" ? <code className="rule-query" title={rule.query}>{rule.query}</code> : rule.service}</td>
-      <td>{METRIC_LABEL[rule.metric] ?? rule.metric}</td>
-      <td className="r">&gt; {rule.threshold} {unitOf(rule.metric)}</td>
-      <td>
+      <td data-label="대상">{rule.metric === "log_match" ? <code className="rule-query" title={rule.query}>{rule.query}</code> : rule.service}</td>
+      <td data-label="지표">{METRIC_LABEL[rule.metric] ?? rule.metric}</td>
+      <td className="r" data-label="조건">&gt; {rule.threshold} {unitOf(rule.metric)}</td>
+      <td data-label="채널">
         {chans.length === 0 ? <span className="chip muted"><span className="dot" />환경 웹훅</span>
           : chans.map((id) => <span key={id} className="chip chan-pill">{channelsById.get(id)?.name ?? "삭제된 채널"}</span>)}
       </td>
-      <td>
+      <td data-label="무음"><SnoozeControl rule={rule} canEdit={canEdit} /></td>
+      <td data-label="사용">
         <button className={`toggle ${rule.enabled ? "on" : ""}`} role="switch" aria-checked={rule.enabled}
           onClick={() => toggle.mutate()} disabled={toggle.isPending || !canEdit}
           aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"} title={rule.enabled ? "켜짐 — 클릭해 일시중지" : "꺼짐 — 클릭해 활성화"}>
@@ -276,7 +335,7 @@ export function Alerts() {
                   action={canEdit ? <button className="btn btn-primary" onClick={() => setAdding(true)}>첫 규칙 만들기</button> : undefined} />
               ) : (rules ?? []).length > 0 ? (
                 <table className="tbl">
-                  <thead><tr><th>규칙</th><th>대상</th><th>지표</th><th className="r">조건</th><th>채널</th><th>사용</th><th></th></tr></thead>
+                  <thead><tr><th>규칙</th><th>대상</th><th>지표</th><th className="r">조건</th><th>채널</th><th>무음</th><th>사용</th><th></th></tr></thead>
                   <tbody>{(rules ?? []).map((r) => <RuleRow key={r.id} rule={r} channelsById={channelsById} />)}</tbody>
                 </table>
               ) : null}

@@ -35,3 +35,6 @@ TTL toDateTime(fired_at) + INTERVAL 30 DAY;
 
 -- Rule condition expansion: log_match rules carry a log-query DSL here.
 ALTER TABLE apm.alert_rules ADD COLUMN IF NOT EXISTS query String DEFAULT '';
+
+-- Snooze/maintenance: suppress a rule's notifications until this time (0 = active).
+ALTER TABLE apm.alert_rules ADD COLUMN IF NOT EXISTS snooze_until DateTime64(3) DEFAULT toDateTime64(0, 3);

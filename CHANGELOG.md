@@ -11,6 +11,10 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 
 ---
 
+## 2026-08-25
+### Added
+- **알림 규칙 무음(snooze/정비창)** — 규칙별 알림을 30분/1시간/4시간/내일까지 일시 무음(정비 중 스팸 방지). 비활성(평가 정지)과 달리 **평가·발화 이력은 계속, 채널 발송만 억제**. 무음 중 규칙은 amber 좌측 레일 + "🔕 약 N시간 · 해제". 스키마 `alert_rules.snooze_until`(라이브). 평가기 fire()가 snooze 시 발화 기록 후 dispatch 스킵. 기존 upsert 경로 재사용(신규 엔드포인트 0). CDO 수정: 메뉴 바깥클릭·Esc·화살표키·포커스·모바일 44px·카드 셀 라벨(data-label)·무음 실패 인라인. `internal/storage/alerts.go`·`query/alerts_eval.go`·`web/src/Alerts.tsx`.
+
 ## 2026-08-22
 ### Added
 - **알림 규칙 조건 확장** — 기존 error_rate·p95_ms에 **error_count(절대 에러 건수)** + **log_match(로그 쿼리 매칭 건수)** 추가. log_match는 방금 만든 로그 DSL을 재사용(`CountLogMatches`)해 "최근 N분간 `severity=error AND body~"OOM"` 매칭 > M건이면 발화". 평가기·채널 라우팅·발화영속화 전부 재사용. 스키마: `alert_rules.query` 컬럼 추가(라이브). 룰 폼: 지표 4종·log_match 시 서비스→쿼리 필드 스왑·조건 요약 프리뷰. CDO 수정: 필드별 에러(aria-invalid+포커스)·aria-live·submit 언블록·프리뷰. 검증: log_match val=87·error_count val=33 발화. `internal/storage/alerts.go`·`query/alerts_eval.go`·`web/src/Alerts.tsx`.

@@ -20,8 +20,9 @@ type AlertRuleDTO struct {
 	Threshold float64  `json:"threshold"`
 	WindowMin int      `json:"windowMin"`
 	Enabled   bool     `json:"enabled"`
-	Channels  []string `json:"channels"`
-	Query     string   `json:"query"` // log-query DSL, for metric == "log_match"
+	Channels    []string `json:"channels"`
+	Query       string   `json:"query"`       // log-query DSL, for metric == "log_match"
+	SnoozeUntil string   `json:"snoozeUntil"` // RFC3339, "" = active
 }
 
 var validAlertMetric = map[string]bool{"error_rate": true, "p95_ms": true, "error_count": true, "log_match": true}
@@ -62,7 +63,11 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		}
 		out := make([]AlertRuleDTO, 0, len(rules))
 		for _, x := range rules {
-			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled, splitCSV(x.Channels), x.Query})
+			snooze := ""
+			if x.SnoozeUntil.After(time.Now()) {
+				snooze = x.SnoozeUntil.UTC().Format(time.RFC3339)
+			}
+			out = append(out, AlertRuleDTO{x.ID, x.Name, x.Service, x.Metric, x.Threshold, int(x.WindowMin), x.Enabled, splitCSV(x.Channels), x.Query, snooze})
 		}
 		writeJSON(w, out)
 	})
@@ -93,10 +98,16 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 		if dto.WindowMin <= 0 {
 			dto.WindowMin = 5
 		}
+		var snooze time.Time
+		if dto.SnoozeUntil != "" {
+			if t, err := time.Parse(time.RFC3339, dto.SnoozeUntil); err == nil {
+				snooze = t
+			}
+		}
 		if err := r.UpsertAlertRule(req.Context(), tenantOf(req), storage.AlertRule{
 			ID: dto.ID, Name: dto.Name, Service: dto.Service, Metric: dto.Metric,
 			Threshold: dto.Threshold, WindowMin: uint16(dto.WindowMin), Enabled: dto.Enabled,
-			Channels: strings.Join(dto.Channels, ","), Query: dto.Query,
+			Channels: strings.Join(dto.Channels, ","), Query: dto.Query, SnoozeUntil: snooze,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

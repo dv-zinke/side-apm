@@ -356,6 +356,11 @@ func (e *Evaluator) fire(ctx context.Context, tenant string, r storage.AlertRule
 	if err := e.store.InsertAlert(ctx, tenant, a); err != nil {
 		log.Printf("alerts: insert: %v", err)
 	}
+	// Snoozed (maintenance window): record the firing but don't notify anyone.
+	if r.Snoozed() {
+		log.Printf("alerts: [%s] %s snoozed until %s — not notifying", state, r.Name, r.SnoozeUntil.Format(time.RFC3339))
+		return
+	}
 	unit, subject := "%", r.Service
 	switch r.Metric {
 	case "p95_ms":
