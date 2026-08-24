@@ -98,8 +98,11 @@ export type ServiceMapData = {
   nodes: { name: string; requestCount: number; errorCount: number }[];
   edges: { from: string; to: string; callCount: number; errorCount: number; avgMs: number }[];
 };
-export async function fetchServiceMap(): Promise<ServiceMapData> {
-  const r = await fetch(`${BASE}/api/v1/servicemap`);
+export async function fetchServiceMap(fromISO?: string, toISO?: string): Promise<ServiceMapData> {
+  const p = new URLSearchParams();
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
+  const r = await fetch(`${BASE}/api/v1/servicemap?${p}`);
   if (!r.ok) throw new Error(`servicemap ${r.status}`);
   return r.json();
 }
@@ -165,18 +168,24 @@ export async function fetchNotifications(): Promise<Notification[]> {
 export type AppOverview = { sessions: number; crashSessions: number; crashFreeRate: number; coldStartP75: number; warmStartP75: number; networkErrRate: number };
 export type AppVersion = { version: string; platform: string; sessions: number; crashFreeRate: number };
 export type AppGroup = { key: string; sub: string; count: number; avgMs: number };
-export async function fetchAppOverview(): Promise<AppOverview> {
-  const r = await fetch(`${BASE}/api/v1/app/overview`);
+const win = (fromISO?: string, toISO?: string, extra?: Record<string, string>) => {
+  const p = new URLSearchParams(extra);
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
+  return p.toString();
+};
+export async function fetchAppOverview(fromISO?: string, toISO?: string): Promise<AppOverview> {
+  const r = await fetch(`${BASE}/api/v1/app/overview?${win(fromISO, toISO)}`);
   if (!r.ok) throw new Error(`app overview ${r.status}`);
   return r.json();
 }
-export async function fetchAppVersions(): Promise<AppVersion[]> {
-  const r = await fetch(`${BASE}/api/v1/app/versions`);
+export async function fetchAppVersions(fromISO?: string, toISO?: string): Promise<AppVersion[]> {
+  const r = await fetch(`${BASE}/api/v1/app/versions?${win(fromISO, toISO)}`);
   if (!r.ok) throw new Error(`app versions ${r.status}`);
   return r.json();
 }
-export async function fetchAppGroup(kind: "screens" | "crashes" | "network", limit = 20): Promise<AppGroup[]> {
-  const r = await fetch(`${BASE}/api/v1/app/${kind}?limit=${limit}`);
+export async function fetchAppGroup(kind: "screens" | "crashes" | "network", limit = 20, fromISO?: string, toISO?: string): Promise<AppGroup[]> {
+  const r = await fetch(`${BASE}/api/v1/app/${kind}?${win(fromISO, toISO, { limit: String(limit) })}`);
   if (!r.ok) throw new Error(`app ${kind} ${r.status}`);
   return r.json();
 }
@@ -189,19 +198,19 @@ export async function fetchCrashDetail(message: string): Promise<CrashDetail> {
 
 export type RumOverview = { sessions: number; pageviews: number; errors: number; lcpP75: number; inpP75: number; clsP75: number };
 export type RumCount = { key: string; sub: string; count: number; avgMs: number };
-export async function fetchRumOverview(): Promise<RumOverview> {
-  const r = await fetch(`${BASE}/api/v1/rum/overview`);
+export async function fetchRumOverview(fromISO?: string, toISO?: string): Promise<RumOverview> {
+  const r = await fetch(`${BASE}/api/v1/rum/overview?${win(fromISO, toISO)}`);
   if (!r.ok) throw new Error(`rum overview ${r.status}`);
   return r.json();
 }
-export async function fetchRumGroup(kind: "clicks" | "errors" | "resources", limit = 30): Promise<RumCount[]> {
-  const r = await fetch(`${BASE}/api/v1/rum/${kind}?limit=${limit}`);
+export async function fetchRumGroup(kind: "clicks" | "errors" | "resources", limit = 30, fromISO?: string, toISO?: string): Promise<RumCount[]> {
+  const r = await fetch(`${BASE}/api/v1/rum/${kind}?${win(fromISO, toISO, { limit: String(limit) })}`);
   if (!r.ok) throw new Error(`rum ${kind} ${r.status}`);
   return r.json();
 }
 export type ReplayMeta = { id: string; time: string; sessionId: string; page: string; message: string };
-export async function fetchReplays(limit = 30): Promise<ReplayMeta[]> {
-  const r = await fetch(`${BASE}/api/v1/rum/replays?limit=${limit}`);
+export async function fetchReplays(limit = 30, fromISO?: string, toISO?: string): Promise<ReplayMeta[]> {
+  const r = await fetch(`${BASE}/api/v1/rum/replays?${win(fromISO, toISO, { limit: String(limit) })}`);
   if (!r.ok) throw new Error(`replays ${r.status}`);
   return r.json();
 }

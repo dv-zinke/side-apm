@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchRumOverview, fetchRumGroup, fetchReplays } from "./api";
 import type { RumCount, ReplayMeta } from "./api";
 import { EmptyState, Skeleton } from "./states";
 import { ReplayModal } from "./ReplayModal";
+import { TimeRangePicker, resolveSel, selLabel, useTimeSel } from "./range";
+
+type Win = { fromISO: string; toISO: string; live: boolean };
 
 function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?: string; tone?: "ok" | "warn" | "err" }) {
   return (
@@ -15,8 +18,13 @@ function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?
 }
 const lcpTone = (ms: number) => (ms > 4000 ? "err" : ms > 2500 ? "warn" : "ok");
 
-function GroupCard({ title, kind, valueLabel }: { title: string; kind: "clicks" | "errors" | "resources"; valueLabel: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ["rum", kind], queryFn: () => fetchRumGroup(kind, 20), refetchInterval: 10000 });
+function GroupCard({ title, kind, valueLabel, win }: { title: string; kind: "clicks" | "errors" | "resources"; valueLabel: string; win: Win }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["rum", kind, win.fromISO, win.toISO],
+    queryFn: () => fetchRumGroup(kind, 20, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+    placeholderData: keepPreviousData,
+  });
   return (
     <section className="dash-panel">
       <div className="section-label">{title}</div>
@@ -40,8 +48,13 @@ function GroupCard({ title, kind, valueLabel }: { title: string; kind: "clicks" 
   );
 }
 
-function ReplaysCard({ onPlay }: { onPlay: (m: ReplayMeta) => void }) {
-  const { data, isLoading } = useQuery({ queryKey: ["replays"], queryFn: () => fetchReplays(20), refetchInterval: 10000 });
+function ReplaysCard({ onPlay, win }: { onPlay: (m: ReplayMeta) => void; win: Win }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["replays", win.fromISO, win.toISO],
+    queryFn: () => fetchReplays(20, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+    placeholderData: keepPreviousData,
+  });
   return (
     <section className="dash-panel span-all">
       <div className="section-label">세션 리플레이 · 에러 비디오 <span className="hint-inline">행을 클릭하면 재생</span></div>
@@ -66,7 +79,15 @@ function ReplaysCard({ onPlay }: { onPlay: (m: ReplayMeta) => void }) {
 }
 
 export function Rum() {
-  const { data: ov, isLoading } = useQuery({ queryKey: ["rum-overview"], queryFn: fetchRumOverview, refetchInterval: 10000 });
+  const [sel, setSel] = useTimeSel();
+  const minute = Math.floor(Date.now() / 60000);
+  const w = resolveSel(sel, minute * 60000);
+  const { data: ov, isLoading } = useQuery({
+    queryKey: ["rum-overview", w.fromISO, w.toISO],
+    queryFn: () => fetchRumOverview(w.fromISO, w.toISO),
+    refetchInterval: w.live ? 10000 : false,
+    placeholderData: keepPreviousData,
+  });
   const empty = ov && ov.sessions === 0 && ov.pageviews === 0;
   const [replay, setReplay] = useState<ReplayMeta | null>(null);
 
@@ -74,6 +95,10 @@ export function Rum() {
     <div className="content-scroll">
       {replay && <ReplayModal meta={replay} onClose={() => setReplay(null)} />}
       <div className="dash">
+        <div className="span-all dash-toolbar">
+          <span className="pane-title">브라우저(RUM) <span className="hint-inline">{selLabel(sel)}</span></span>
+          <div style={{ marginLeft: "auto" }}><TimeRangePicker value={sel} onChange={setSel} /></div>
+        </div>
         {isLoading ? (
           <div className="span-all"><Skeleton rows={4} /></div>
         ) : empty ? (
@@ -93,10 +118,10 @@ export function Rum() {
               <Kpi label="LCP p75" value={ov ? Math.round(ov.lcpP75).toLocaleString() : "—"} unit="ms" tone={ov ? lcpTone(ov.lcpP75) : undefined} />
               <Kpi label="INP p75" value={ov ? Math.round(ov.inpP75).toLocaleString() : "—"} unit="ms" />
             </section>
-            <GroupCard title="많이 클릭한 요소" kind="clicks" valueLabel="클릭" />
-            <GroupCard title="프론트엔드 에러" kind="errors" valueLabel="발생" />
-            <ReplaysCard onPlay={setReplay} />
-            <section className="span-all"><GroupCard title="HTTP 리소스" kind="resources" valueLabel="호출" /></section>
+            <GroupCard title="많이 클릭한 요소" kind="clicks" valueLabel="클릭" win={w} />
+            <GroupCard title="프론트엔드 에러" kind="errors" valueLabel="발생" win={w} />
+            <ReplaysCard onPlay={setReplay} win={w} />
+            <section className="span-all"><GroupCard title="HTTP 리소스" kind="resources" valueLabel="호출" win={w} /></section>
           </>
         )}
       </div>

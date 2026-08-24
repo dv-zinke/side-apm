@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchAppOverview, fetchAppVersions, fetchAppGroup, fetchCrashDetail } from "./api";
 import type { AppGroup } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
+import { TimeRangePicker, resolveSel, selLabel, useTimeSel } from "./range";
+
+type Win = { fromISO: string; toISO: string; live: boolean };
 
 function CrashModal({ message, onClose }: { message: string; onClose: () => void }) {
   const { data, isLoading } = useQuery({ queryKey: ["crash", message], queryFn: () => fetchCrashDetail(message) });
@@ -42,8 +45,13 @@ function Kpi({ label, value, unit, tone }: { label: string; value: string; unit?
 const crashTone = (r: number) => (r >= 99.5 ? "ok" : r >= 99 ? "warn" : "err");
 const startTone = (ms: number) => (ms > 2500 ? "err" : ms > 1500 ? "warn" : "ok");
 
-function GroupCard({ title, kind, valueLabel, onPick }: { title: string; kind: "screens" | "crashes" | "network"; valueLabel: string; onPick?: (key: string) => void }) {
-  const { data, isLoading } = useQuery({ queryKey: ["app", kind], queryFn: () => fetchAppGroup(kind, 20), refetchInterval: 10000 });
+function GroupCard({ title, kind, valueLabel, onPick, win }: { title: string; kind: "screens" | "crashes" | "network"; valueLabel: string; onPick?: (key: string) => void; win: Win }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["app", kind, win.fromISO, win.toISO],
+    queryFn: () => fetchAppGroup(kind, 20, win.fromISO, win.toISO),
+    refetchInterval: win.live ? 10000 : false,
+    placeholderData: keepPreviousData,
+  });
   return (
     <section className="dash-panel">
       <div className="section-label">{title}</div>
@@ -76,8 +84,17 @@ function GroupCard({ title, kind, valueLabel, onPick }: { title: string; kind: "
 }
 
 export function Apps() {
-  const { data: ov, isLoading } = useQuery({ queryKey: ["app-overview"], queryFn: fetchAppOverview, refetchInterval: 10000 });
-  const { data: versions } = useQuery({ queryKey: ["app-versions"], queryFn: fetchAppVersions, refetchInterval: 10000 });
+  const [sel, setSel] = useTimeSel();
+  const minute = Math.floor(Date.now() / 60000);
+  const w = resolveSel(sel, minute * 60000);
+  const { data: ov, isLoading } = useQuery({
+    queryKey: ["app-overview", w.fromISO, w.toISO], queryFn: () => fetchAppOverview(w.fromISO, w.toISO),
+    refetchInterval: w.live ? 10000 : false, placeholderData: keepPreviousData,
+  });
+  const { data: versions } = useQuery({
+    queryKey: ["app-versions", w.fromISO, w.toISO], queryFn: () => fetchAppVersions(w.fromISO, w.toISO),
+    refetchInterval: w.live ? 10000 : false, placeholderData: keepPreviousData,
+  });
   const [crash, setCrash] = useState<string | null>(null);
   const empty = ov && ov.sessions === 0;
 
@@ -85,6 +102,10 @@ export function Apps() {
     <div className="content-scroll">
       {crash && <CrashModal message={crash} onClose={() => setCrash(null)} />}
       <div className="dash">
+        <div className="span-all dash-toolbar">
+          <span className="pane-title">모바일 앱 <span className="hint-inline">{selLabel(sel)}</span></span>
+          <div style={{ marginLeft: "auto" }}><TimeRangePicker value={sel} onChange={setSel} /></div>
+        </div>
         {isLoading ? (
           <div className="span-all"><Skeleton rows={4} /></div>
         ) : empty ? (
@@ -122,9 +143,9 @@ export function Apps() {
               </table>
             </section>
 
-            <GroupCard title="많이 본 화면" kind="screens" valueLabel="조회" />
-            <GroupCard title="크래시 · 클릭하면 상세" kind="crashes" valueLabel="발생" onPick={setCrash} />
-            <section className="span-all"><GroupCard title="네트워크 요청" kind="network" valueLabel="호출" /></section>
+            <GroupCard title="많이 본 화면" kind="screens" valueLabel="조회" win={w} />
+            <GroupCard title="크래시 · 클릭하면 상세" kind="crashes" valueLabel="발생" onPick={setCrash} win={w} />
+            <section className="span-all"><GroupCard title="네트워크 요청" kind="network" valueLabel="호출" win={w} /></section>
           </>
         )}
       </div>

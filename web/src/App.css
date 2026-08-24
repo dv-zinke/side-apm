@@ -865,7 +865,13 @@
 
 .chart-wrap { padding: var(--sp-3) var(--sp-4); height: 100%; display: flex; flex-direction: column; min-height: 0; position: relative; }
 .chart-note { font-size: var(--fs-xs); color: var(--tx-dim); margin-bottom: var(--sp-2); display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
-.legend-key { display: inline-flex; align-items: center; gap: 5px; }
+.legend-key { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex: none; }
+/* Service map crams legend + time picker into one bar — wrap the picker to its
+   own row on laptop widths so the legend never splits vertically. */
+@media (max-width: 1180px) {
+  .chart-wrap .pane-head { flex-wrap: wrap; }
+  .chart-wrap .pane-head .bar { margin-left: 0 !important; flex: 1 1 100%; justify-content: flex-end; margin-top: var(--sp-2); }
+}
 .legend-key i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .chart-empty-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .chart-empty-overlay span { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--tx-dim); }
