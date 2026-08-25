@@ -540,6 +540,16 @@
 .db-tbl th:first-child { width: 42%; }
 .db-stmt { font-family: var(--mono); font-size: var(--fs-xs); color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Ingest control — sampling ───────────────────────────────── */
+.ingest-view { max-width: 900px; }
+.ingest-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.ingest-rate { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tx-hi); }
+.ingest-slider { width: 100%; accent-color: var(--accent); height: 28px; }
+.ingest-slider:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); border-radius: 999px; }
+.ingest-view .section-label { display: flex; align-items: center; margin-top: var(--sp-4); }
+.ingest-undo { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+@media (max-width: 640px) { .ingest-kpis { grid-template-columns: 1fr; } }
+
 /* Deploy tracking — before/after regression ───────────────── */
 .dp-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
 .dp-list { display: flex; flex-direction: column; gap: var(--sp-2); }

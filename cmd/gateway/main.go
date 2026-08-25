@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/heejune/apm/gateway"
 	"github.com/heejune/apm/internal/buffer"
+	"github.com/heejune/apm/internal/sampling"
 	"github.com/heejune/apm/internal/storage"
 )
 
@@ -27,6 +29,10 @@ func main() {
 		Flush:      time.Duration(getenvInt("APM_INGEST_FLUSH_MS", 500)) * time.Millisecond,
 	}
 	spanBuf := buffer.NewSpanBatcher(store, opts)
+	// Tail-ish sampling at the ingest edge (opt-in via /api/v1/ingest/sampling).
+	// Errors/slow spans always kept; rules polled from CH in the background.
+	sampler := sampling.New(spanBuf, store)
+	go sampler.Run(context.Background())
 	metricBuf := buffer.NewBatcher("metrics", store.InsertMetrics, opts)
 	histoBuf := buffer.NewBatcher("histograms", store.InsertHistograms, opts)
 	logBuf := buffer.NewBatcher("logs", store.InsertLogs, opts)
@@ -35,7 +41,7 @@ func main() {
 	appBuf := buffer.NewBatcher("app", store.InsertAppEvents, opts)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/traces", gateway.TracesHandler(spanBuf))
+	mux.HandleFunc("/v1/traces", gateway.TracesHandler(sampler))
 	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(metricBuf.Publish, histoBuf.Publish))
 	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
 	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))

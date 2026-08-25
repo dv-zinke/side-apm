@@ -53,6 +53,10 @@ type Reader interface {
 	InsertDeploy(ctx context.Context, tenant string, d storage.Deploy) error
 	ListDeploys(ctx context.Context, tenant, service string, from, to time.Time, limit int) ([]storage.Deploy, error)
 	DeployImpacts(ctx context.Context, tenant, service string, windowMin, limit int) ([]storage.DeployImpact, error)
+	ListSamplingRules(ctx context.Context, tenant string) ([]storage.SamplingRule, error)
+	UpsertSamplingRule(ctx context.Context, tenant string, rule storage.SamplingRule) error
+	DeleteSamplingRule(ctx context.Context, tenant, id string) error
+	IngestStats(ctx context.Context, tenant string, from, to time.Time) ([]storage.IngestStat, error)
 	AppOverview(ctx context.Context, tenant string, from, to time.Time) (storage.AppOverview, error)
 	AppVersions(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppVersionStat, error)
 	TopScreens(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
@@ -178,6 +182,7 @@ func Router(r Reader) http.Handler {
 	registerErrors(mux, r)
 	registerSpanQuery(mux, r)
 	registerChannels(mux, r)
+	registerIngest(mux, r)
 	registerAuth(mux, r)
 	return withCORS(authMiddleware(mux))
 }

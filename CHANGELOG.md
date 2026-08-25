@@ -12,6 +12,8 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 ---
 
 ## 2026-08-25
+### Added
+- **테일 기반 샘플링 / 트레이스 인입 제어** (검증기 1위 격차, D2 비용 서사 방어) — 게이트웨이 인입 엣지에서 서비스별 보관 비율 규칙 적용. **에러·느린 스팬(>1초)은 항상 보관**(문제 안 놓침), 나머지는 traceId 해시 기반 확률 보관(트레이스 일관). 규칙 없으면 전량 보관(안전 기본). 규칙은 CH에서 백그라운드 폴링(핫패스 무DB), 인입량은 `ingest_stats`로 주기 flush. 스키마 `sampling_rules`·`ingest_stats`(라이브). `internal/sampling/sampler.go`가 `buffer.Port` 래핑. `/api/v1/ingest/sampling` CRUD + `/ingest/stats`. 신규 뷰 "인입 제어"(보관비율 슬라이더·규칙표·수신/보관/절감 KPI·인입량 스택차트). 검증: 20% 규칙 → 실측 드롭 46.6%(우선보관으로 설정보다 높은 보관율, 정직). CDO 수정: 삭제 undo·통계 로딩스켈레톤/에러상태(가짜 0% 제거)·슬라이더 포커스·aria-live. `cmd/gateway/main.go`·`web/src/Ingest.tsx`.
 ### Changed
 - **통합 시간 피커 완성도 sweep** — 시간 창 컨트롤이 없던 서비스맵·RUM·모바일 앱에 `TimeRangePicker` 적용(백엔드는 이미 from/to 지원, 프론트만). 상대=라이브/절대=고정·URL 공유·keepPreviousData. 각 뷰의 서브카드(RUM 클릭·에러·리소스·리플레이, 앱 화면·크래시·네트워크)가 선택 창 기준 갱신. CDO 수정: 서비스맵 pane-head가 랩톱 폭(≤1180px)에서 범례+피커 경쟁으로 깨지던 것 → 피커를 자기 행으로 wrap + 범례 nowrap. `web/src/{ServiceMap,Rum,Apps}.tsx`·api.ts.
 - **배포 카드 → RED 드릴다운** — 배포 추적 카드 클릭 시 해당 서비스 RED 차트로 이동(배포 마커 오버레이). RED가 `?redsvc=` 딥링크로 초기 서비스 수용(서비스 select도 URL 반영). 카드 hover-lift·focus 링·키보드(Enter), 배포 시각을 hover title→인라인 노출(모바일 접근). 리뷰어 비차단 지적 반영. `web/src/Deploys.tsx`·`web/src/RedDashboard.tsx`.

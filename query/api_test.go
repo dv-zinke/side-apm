@@ -152,6 +152,16 @@ func (fakeReader) ListDeploys(_ context.Context, _, _ string, _, _ time.Time, _ 
 func (fakeReader) DeployImpacts(_ context.Context, _, _ string, _, _ int) ([]storage.DeployImpact, error) {
 	return nil, nil
 }
+func (fakeReader) ListSamplingRules(_ context.Context, _ string) ([]storage.SamplingRule, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertSamplingRule(_ context.Context, _ string, _ storage.SamplingRule) error {
+	return nil
+}
+func (fakeReader) DeleteSamplingRule(_ context.Context, _, _ string) error { return nil }
+func (fakeReader) IngestStats(_ context.Context, _ string, _, _ time.Time) ([]storage.IngestStat, error) {
+	return nil, nil
+}
 func (fakeReader) AppOverview(_ context.Context, _ string, _, _ time.Time) (storage.AppOverview, error) {
 	return storage.AppOverview{}, nil
 }

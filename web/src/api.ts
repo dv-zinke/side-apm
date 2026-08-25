@@ -437,6 +437,29 @@ export async function fetchSpanQuery(q: string, fromISO: string, toISO: string, 
   return r.json();
 }
 
+// ── Ingest control / sampling ────────────────────────────────
+export type SamplingRule = { id?: string; service: string; keepRate: number; enabled: boolean };
+export async function fetchSamplingRules(): Promise<SamplingRule[]> {
+  const r = await fetch(`${BASE}/api/v1/ingest/sampling`);
+  if (!r.ok) throw new Error(`sampling ${r.status}`);
+  return r.json();
+}
+export async function createSamplingRule(rule: SamplingRule): Promise<SamplingRule> {
+  const r = await fetch(`${BASE}/api/v1/ingest/sampling`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rule) });
+  if (!r.ok) throw new Error((await r.text()) || `create ${r.status}`);
+  return r.json();
+}
+export async function deleteSamplingRule(id: string): Promise<void> {
+  const r = await fetch(`${BASE}/api/v1/ingest/sampling/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`delete ${r.status}`);
+}
+export type IngestStat = { minute: string; received: number; kept: number; dropped: number };
+export async function fetchIngestStats(fromISO: string, toISO: string): Promise<IngestStat[]> {
+  const r = await fetch(`${BASE}/api/v1/ingest/stats?from=${fromISO}&to=${toISO}`);
+  if (!r.ok) throw new Error(`ingest stats ${r.status}`);
+  return r.json();
+}
+
 // ── Deploy tracking / regression ─────────────────────────────
 export type DeployImpact = {
   time: string; service: string; version: string; description: string; windowMin: number;
