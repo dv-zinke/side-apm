@@ -90,6 +90,12 @@
 6. ✅ **애드혹 스팬 쿼리**(DD Trace Query / NR NRQL) — 구현(안전 제한 DSL). `/api/v1/spans/query`.
 7. ✅ **알림 통지 라우팅**(Slack/Webhook/PagerDuty·디둡·발송로그) — 구현. `/api/v1/alert-channels`.
 8. ✅ **계층형 보관 + 절대/공유 시간축** — 구현(30d/180d/24mo, `?view=&from=&to=` 공유). 상세: [[2026-08-22-progress-time-and-competitive-gaps]].
+9. ✅ **에러 인박스 트리아지**(해결/무시/재발 감지) — 구현. `/api/v1/errors/{fp}/status`.
+10. ✅ **로그 검색·집계**(SigNoz/Loki 대응) — 구현(스팬 DSL 로그 이식 + `| stats`). `/api/v1/logs/query`.
+11. ✅ **알림 조건 확장 + 무음**(error_count·log_match·span_match·snooze/정비창) — 구현.
+12. ✅ **배포 추적/회귀 감지**(DD Deployment / NR Change Tracking) — 구현. `/api/v1/deploys/impact`.
+13. ✅ **테일 기반 샘플링/인입 제어** — 구현(에러·느린 스팬 우선보관·서비스별 keep_rate). `/api/v1/ingest/sampling`. **D2(비용/소유권)를 정책으로 승격.**
+14. ✅ **쿼리→알림 승격**(NRQL alert류) — 구현(span_match, Explore 원클릭). 상세: 이번 세션은 `CHANGELOG.md`.
 
 ## 6. 확장 구현 (2026-08 — 신규 확보, [[03-rum]] 등)
 
@@ -111,7 +117,11 @@
 | **애드혹 스팬 쿼리** | `/api/v1/spans/query` | 안전 제한 DSL로 속성 검색 — DD Trace Query/NRQL |
 | **알림 통지 라우팅** | `/api/v1/alert-channels` | Slack/Webhook/PagerDuty·디둡·발송로그 — DD/PagerDuty |
 | **계층형 보관 + 공유 시간축** | `/api/v1/red`(라우팅)·`/meta/retention` | 절대/상대·30d/180d/24mo·URL 공유 |
+| **로그 검색·집계** | `/api/v1/logs/query` | 안전 DSL 로그 필터+`\| stats` — SigNoz/Loki LogQL |
+| **알림 조건 5종 + 무음** | `/api/v1/alert-rules` | error_rate·p95·error_count·log_match·span_match·snooze |
+| **배포 추적/회귀** | `/api/v1/deploys/impact` | 배포 전후 RED 비교 — DD Deployment/NR Change Tracking |
+| **테일 샘플링/인입 제어** | `/api/v1/ingest/*` | 서비스별 keep_rate·에러/느린 우선보관·드롭율 — DD Sampling |
 
-**정직한 잔여 격차**: 800+통합, RUM 소스맵 심볼리케이션. (연속 프로파일링·다중테넌시/인증은 확보.)
+**정직한 잔여 격차**: 800+통합, RUM 소스맵 심볼리케이션, k8s 네이티브(파드/노드) — 데모 환경 미대상. (연속 프로파일링·다중테넌시/인증·샘플링은 확보.)
 
 > 2026-08 세션 상세 핸드오프: [[2026-08-22-progress-time-and-competitive-gaps]]
