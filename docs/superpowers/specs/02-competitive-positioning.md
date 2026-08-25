@@ -96,6 +96,7 @@
 12. ✅ **배포 추적/회귀 감지**(DD Deployment / NR Change Tracking) — 구현. `/api/v1/deploys/impact`.
 13. ✅ **테일 기반 샘플링/인입 제어** — 구현(에러·느린 스팬 우선보관·서비스별 keep_rate). `/api/v1/ingest/sampling`. **D2(비용/소유권)를 정책으로 승격.**
 14. ✅ **쿼리→알림 승격**(NRQL alert류) — 구현(span_match, Explore 원클릭). 상세: 이번 세션은 `CHANGELOG.md`.
+15. ✅ **통합 인시던트/상관 뷰**(alert→deploy→trace→log MTTR) — 구현. 알림 발화 → 서비스+±15분 창으로 관련 트레이스·에러·로그·직전 배포를 한 화면에 모아 조사(신규 백엔드 0, 기존 엔드포인트 오케스트레이션). **DD/NR이 유일하게 앞서던 워크플로우 영역을 정면으로 좁힘.**
 
 ## 6. 확장 구현 (2026-08 — 신규 확보, [[03-rum]] 등)
 
@@ -121,6 +122,7 @@
 | **알림 조건 5종 + 무음** | `/api/v1/alert-rules` | error_rate·p95·error_count·log_match·span_match·snooze |
 | **배포 추적/회귀** | `/api/v1/deploys/impact` | 배포 전후 RED 비교 — DD Deployment/NR Change Tracking |
 | **테일 샘플링/인입 제어** | `/api/v1/ingest/*` | 서비스별 keep_rate·에러/느린 우선보관·드롭율 — DD Sampling |
+| **통합 인시던트/상관 뷰** | (프론트 오케스트레이션) | 알림→직전배포→트레이스→로그 ±15분 MTTR — DD/NR Incident 대응 |
 
 **정직한 잔여 격차**: 800+통합, RUM 소스맵 심볼리케이션, k8s 네이티브(파드/노드) — 데모 환경 미대상. (연속 프로파일링·다중테넌시/인증·샘플링은 확보.)
 

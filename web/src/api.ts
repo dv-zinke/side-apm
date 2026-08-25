@@ -315,9 +315,11 @@ export async function deleteDashboard(id: string): Promise<void> {
 }
 
 export type Deploy = { time: string; service: string; version: string; description: string };
-export async function fetchDeploys(service = "", limit = 50): Promise<Deploy[]> {
+export async function fetchDeploys(service = "", limit = 50, fromISO?: string, toISO?: string): Promise<Deploy[]> {
   const p = new URLSearchParams({ limit: String(limit) });
   if (service) p.set("service", service);
+  if (fromISO) p.set("from", fromISO);
+  if (toISO) p.set("to", toISO);
   const r = await fetch(`${BASE}/api/v1/deploys?${p}`);
   if (!r.ok) throw new Error(`deploys ${r.status}`);
   return r.json();

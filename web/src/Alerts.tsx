@@ -4,9 +4,11 @@ import {
   fetchServices, fetchAlertRules, createAlertRule, deleteAlertRule, fetchAlerts, upsertAlertRule,
   fetchChannels, createChannel, deleteChannel, testChannel, fetchNotifications, fetchSpanQuery, fetchLogQuery,
 } from "./api";
-import type { AlertRule, AlertMetric, Channel } from "./api";
+import type { AlertRule, AlertMetric, Channel, Alert } from "./api";
 import { EmptyState, Skeleton, IconX } from "./states";
 import { useAuth } from "./auth";
+import { useNav } from "./nav";
+import { IncidentModal, fmtMetric } from "./IncidentModal";
 import { getParam, replaceParams } from "./urlState";
 
 const METRIC_LABEL: Record<string, string> = { error_rate: "에러율", p95_ms: "p95 지연", error_count: "에러 건수", log_match: "로그 매칭", span_match: "스팬 매칭", uptime: "가동", throughput: "처리량" };
@@ -333,6 +335,8 @@ export function Alerts() {
   const [addingChan, setAddingChan] = useState(false);
   const closeAdd = () => { setAdding(false); if (getParam("newalert")) replaceParams({ newalert: null }); };
   const { auth } = useAuth();
+  const { openTrace } = useNav();
+  const [incident, setIncident] = useState<Alert | null>(null);
   const canEdit = auth?.role !== "viewer";
   const { data: rules, isLoading: rulesLoading } = useQuery({ queryKey: ["alert-rules"], queryFn: fetchAlertRules, refetchInterval: 10000 });
   const { data: channels } = useQuery({ queryKey: ["channels"], queryFn: fetchChannels, refetchInterval: 30000 });
@@ -377,7 +381,8 @@ export function Alerts() {
                     <span className="log-time">{a.firedAt.slice(0, 19).replace("T", " ")}</span>
                     <span className={`chip ${a.state === "firing" ? "err" : "ok"} log-sev`}><span className="dot" />{a.state === "firing" ? "발화" : "해제"}</span>
                     <span className="log-svc">{a.ruleName}</span>
-                    <span className="log-body">{a.service} · {METRIC_LABEL[a.metric] ?? a.metric} {a.value.toFixed(1)}{unitOf(a.metric)}<span className="alert-thr"> (임계 {a.threshold}{unitOf(a.metric)})</span></span>
+                    <span className="log-body">{a.service} · {METRIC_LABEL[a.metric] ?? a.metric} {fmtMetric(a.metric, a.value)}<span className="alert-thr"> (임계 {fmtMetric(a.metric, a.threshold)})</span></span>
+                    {a.service && <button className="btn-investigate" onClick={() => setIncident(a)} aria-label={`${a.ruleName} 인시던트 조사`}>조사하기 →</button>}
                   </div>
                 ))}
               </div>
@@ -424,6 +429,7 @@ export function Alerts() {
           </>
         )}
       </div>
+      {incident && <IncidentModal alert={incident} onClose={() => setIncident(null)} onTrace={(t) => { setIncident(null); openTrace(t); }} />}
     </div>
   );
 }
