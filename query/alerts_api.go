@@ -25,7 +25,7 @@ type AlertRuleDTO struct {
 	SnoozeUntil string   `json:"snoozeUntil"` // RFC3339, "" = active
 }
 
-var validAlertMetric = map[string]bool{"error_rate": true, "p95_ms": true, "error_count": true, "log_match": true}
+var validAlertMetric = map[string]bool{"error_rate": true, "p95_ms": true, "error_count": true, "log_match": true, "span_match": true}
 
 func splitCSV(s string) []string {
 	out := []string{}
@@ -82,10 +82,10 @@ func registerAlerts(mux *http.ServeMux, r Reader) {
 			http.Error(w, "name, metric(error_rate|p95_ms|error_count|log_match) required", http.StatusBadRequest)
 			return
 		}
-		// log_match rules target a query, not a service; the others need a service.
-		if dto.Metric == "log_match" {
+		// log_match/span_match rules target a query, not a service; others need a service.
+		if dto.Metric == "log_match" || dto.Metric == "span_match" {
 			if dto.Query == "" {
-				http.Error(w, "log_match rule requires query", http.StatusBadRequest)
+				http.Error(w, dto.Metric+" rule requires query", http.StatusBadRequest)
 				return
 			}
 		} else if dto.Service == "" {

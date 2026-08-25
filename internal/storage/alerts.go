@@ -184,3 +184,25 @@ func (s *Store) CountLogMatches(ctx context.Context, tenantID, dsl string, windo
 	}
 	return float64(n), true, nil
 }
+
+// CountSpanMatches counts spans matching a span-query DSL over the window — the
+// value behind a "span_match" alert rule ("promote a trace query to a monitor").
+// Reuses the safe span-query compiler; any `| stats` tail is ignored (we count).
+func (s *Store) CountSpanMatches(ctx context.Context, tenantID, dsl string, windowMin uint16) (float64, bool, error) {
+	if windowMin == 0 {
+		windowMin = 5
+	}
+	filterPart, _, _ := strings.Cut(dsl, "|")
+	where, wargs, err := buildSpanWhere(strings.TrimSpace(filterPart))
+	if err != nil {
+		return 0, false, err
+	}
+	from := time.Now().UTC().Add(-time.Duration(windowMin) * time.Minute)
+	q := "SELECT count() FROM apm.spans WHERE tenant_id = ? AND start_time >= ? AND start_time <= ? AND " + where + " SETTINGS max_execution_time = 10"
+	args := append([]any{tenantID, from, time.Now().UTC()}, wargs...)
+	var n uint64
+	if err := s.db.QueryRowContext(ctx, q, args...).Scan(&n); err != nil {
+		return 0, false, err
+	}
+	return float64(n), true, nil
+}

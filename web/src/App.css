@@ -605,7 +605,14 @@
 .explore-view { padding: var(--sp-3) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; }
 .q-bar { display: flex; gap: var(--sp-2); align-items: stretch; margin-bottom: var(--sp-2); }
 .q-input { flex: 1; font-family: var(--mono); font-size: 16px; } /* 16px: avoids iOS focus zoom on the app's hero input */
-.q-help-btn { flex: none; }
+.q-help-btn { flex: none; white-space: nowrap; }
+.q-alert-btn { flex: none; white-space: nowrap; }
+.q-bar .btn-primary { white-space: nowrap; }
+@media (max-width: 520px) {
+  .q-bar { flex-wrap: wrap; }
+  .q-input { flex: 1 1 100%; order: -1; }
+  .q-bar .btn { flex: 1 1 auto; min-height: 40px; }
+}
 .q-help { font-size: var(--fs-xs); color: var(--tx); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); display: flex; flex-direction: column; gap: 4px; }
 .q-help b { color: var(--tx-hi); margin-right: 6px; }
 .q-help code { color: var(--accent); background: none; font-size: var(--fs-xs); }
@@ -973,6 +980,9 @@
 .rule-query { font-family: var(--mono); font-size: var(--fs-xs); color: var(--accent); background: var(--accent-wash); border-radius: var(--r-sm); padding: 1px 6px; display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 .rule-query-input { font-family: var(--mono); border-left: 2px solid var(--accent); }
 .rule-preview { font-size: var(--fs-xs); color: var(--tx-dim); margin: var(--sp-2) 0 0; }
+.rule-match-now { color: var(--accent); }
+.rule-promote-banner { font-size: var(--fs-sm); color: var(--tx); background: var(--accent-wash); border: 1px solid var(--accent-line); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-3); }
+.rule-promote-banner b { color: var(--tx-hi); }
 .snooze-wrap { position: relative; display: inline-block; }
 .snooze-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; display: flex; flex-direction: column; min-width: 96px; background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.28)); overflow: hidden; }
 .snooze-opt { appearance: none; border: 0; background: transparent; color: var(--tx); font: 500 var(--fs-sm) var(--sans); text-align: left; padding: 7px 12px; cursor: pointer; }

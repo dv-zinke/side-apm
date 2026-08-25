@@ -53,7 +53,7 @@ export function FacetView({ res }: { res: { fields: string[]; aggLabels: string[
 }
 
 export function Explore() {
-  const { openTrace } = useNav();
+  const { openTrace, setView } = useNav();
   const [sel, setSel] = useTimeSel();
   const minute = Math.floor(Date.now() / 60000);
   const win = resolveSel(sel, minute * 60000);
@@ -91,6 +91,12 @@ export function Explore() {
   const hasResult = (facets?.rows.length ?? 0) > 0 || spans.length > 0;
   const openById = (traceId: string) =>
     openTrace({ traceId, serviceName: "", transactionName: "", statusCode: "", startTime: "", durationMs: 0 } as Transaction);
+  // Promote this query to a span_match alert rule (count of matches > threshold).
+  // Only offer it for a query that actually ran and matched — an error or
+  // zero-match query would become a rule that can never fire.
+  const filterQuery = q.split("|")[0].trim();
+  const canPromote = ran && !!filterQuery && hasResult && !opErr && !syntaxErr;
+  const promote = () => { replaceParams({ newalert: filterQuery, q: null }); setView("alerts"); };
 
   return (
     <div className="content-scroll">
@@ -113,6 +119,7 @@ export function Explore() {
             autoCorrect="off"
           />
           <button className="btn btn-primary" onClick={() => submit()}>실행</button>
+          {canPromote && <button className="btn q-alert-btn" onClick={promote} title="이 조건의 매칭 건수로 알림 규칙 만들기"><span aria-hidden>🔔</span> 알림 만들기</button>}
           <button className="btn q-help-btn" aria-expanded={help} onClick={() => setHelp((h) => !h)}>문법</button>
         </div>
 
