@@ -11,6 +11,12 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 
 ---
 
+## 2026-10-04
+### Fixed
+- **RUM 비콘 CORS 차단 해소** (QA/ISSUE-001) — `navigator.sendBeacon`은 크로스오리진 시 항상 credentials=include 모드라, 게이트웨이의 `Access-Control-Allow-Origin: *`(와일드카드)를 브라우저가 거부 → 콘솔 자체 RUM 자가수집이 매 ~10초 실패하며 콘솔 에러 폭주. 공유 헬퍼 `writeCORS`로 **요청 Origin 반사 + `Access-Control-Allow-Credentials: true`**(Origin 없는 서버 호출은 `*` 유지) 적용. `RumHandler`·`RumReplayHandler`·`AppHandler`. 검증: preflight reflected-origin+credentials, 인브라우저 beacon 204, 13초간 CORS 0건. 회귀 테스트 2종(`gateway/cors_test.go`). `gateway/cors.go`(신규)·`rum.go`·`app.go`. `65c491a`
+- **부팅 레이스 401 해소** (QA/ISSUE-002) — `installAuthFetch`가 App useEffect에서 `window.fetch`를 패치했는데, React는 자식 effect를 부모보다 먼저 실행 → 뷰 데이터 fetch가 패치 전에 토큰 없이 발사되어 매 로드/이동 시 `/meta/retention`·`/rum/overview` 등 401·콘솔 노이즈(재시도로 자가복구). `currentToken`은 모듈 로드 시 이미 세팅되므로 **패치를 import 시점에 즉시 설치**하고, `installAuthFetch`는 401→로그아웃 콜백만 등록. 검증: 4개 뷰 신규 로드 401 0건. `web/src/auth.tsx`. `5045021`
+- QA 전체 점검(Exhaustive, ego-browser): ~21개 뷰 렌더·콘솔·상호작용 검증, 최종 대시보드 15초간 실에러 0건. 헬스 점수 84→99. 리포트 `.gstack/qa-reports/qa-report-side-apm-2026-10-04.md`.
+
 ## 2026-08-25
 ### Added
 - **통합 인시던트/상관 뷰 (조사하기)** (검증기 1위 — DD/NR이 유일하게 앞서던 MTTR 워크플로우) — 알림이 발화하면 그 **서비스 + 발화시각 ±15분** 창으로 관련 신호를 한 화면에 모아 원인 규명. 상단 요약(발화 상태·지표값/임계·시각) → **직전 배포(회귀 의심)** 배너(발화 2h 전~발화 사이 최신 배포, "발화 N분 전 배포" fire-상대시간) → 2열(느린 트레이스·에러 이슈) → 에러 로그. 모든 행 클릭 시 트레이스 워터폴로 드릴다운. **신규 백엔드 0** — 기존 `/traces`·`/logs`·`/errors`·`/deploys` 엔드포인트를 프론트에서 서비스+시간창으로 오케스트레이션(신규 파이프라인 없음). `fetchDeploys`에 from/to 추가. 알림 발화 이력 행(서비스 있는 행)에 "조사하기 →" 진입점. CDO 수정(CONDITIONAL→): 임계값 raw 소수점 폭주 → `fmtMetric`로 지표별 포맷 통일(발화 이력 리스트도 적용), 모달 오픈 시 dialog 포커스 이동+Tab 트랩+복귀, Esc 닫기, "조사하기" hover-only→상시 노출(opacity .7), 배포 상대시간을 발화 기준으로, 4개 패널 isError+"다시 시도"(PanelErr), "HTTP 0"→"미분류"·메서드뿐인 메시지 operation 폴백. `web/src/IncidentModal.tsx`(신규)·`web/src/{Alerts,api}.ts(x)`·App.css. `84d3955`
