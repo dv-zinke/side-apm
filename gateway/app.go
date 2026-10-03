@@ -34,7 +34,7 @@ type appEvent struct {
 // AppHandler ingests mobile app monitoring events (iOS/Android SDK).
 func AppHandler(publish func(ctx context.Context, evs []storage.AppEvent) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		writeCORS(w, r)
 		if r.Method == http.MethodOptions {
 			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
