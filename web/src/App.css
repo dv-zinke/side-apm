@@ -26,13 +26,31 @@
 .nav { padding: var(--sp-3) var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-4); }
 .nav-group { display: flex; flex-direction: column; gap: 1px; }
 .nav-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--tx-dim);
   padding: var(--sp-1) var(--sp-2) var(--sp-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: color 120ms ease, background 120ms ease;
 }
+.nav-label:hover:not(:disabled) { color: var(--tx-hi); }
+.nav-label:disabled { cursor: default; }
+.nav-label:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px var(--accent); }
+.nav-chevron { flex: none; opacity: 0.7; transition: transform 160ms ease; }
+.nav-group.collapsed .nav-chevron { transform: rotate(-90deg); }
+.nav-group.collapsed .nav-item { display: none; }
+.nav-label:disabled .nav-chevron { opacity: 0; }
 .nav-item {
   display: flex;
   align-items: center;
@@ -67,7 +85,7 @@
   border-bottom: 1px solid var(--line);
   background: var(--bg-panel);
 }
-.page-title { font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); letter-spacing: -0.01em; }
+.page-title { font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); letter-spacing: -0.01em; white-space: nowrap; }
 
 .fresh {
   margin-left: auto;
@@ -75,6 +93,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--tx-dim);
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 .live {
   display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -86,6 +105,14 @@
   0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 50%, transparent); }
   70%  { box-shadow: 0 0 0 6px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* Tight phones: the LIVE dot already signals freshness, so drop the redundant
+   "N초 전 갱신" + role chip to keep the title and actions on one clean row. */
+@media (max-width: 520px) {
+  .topbar { gap: var(--sp-2); padding: 0 var(--sp-3); }
+  .fresh { display: none; }
+  .live-text { display: none; }
+  .usermenu-role { display: none; }
 }
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -949,6 +976,8 @@
   .nav { flex-direction: row; gap: var(--sp-2); padding: var(--sp-2); }
   .nav-group { flex-direction: row; gap: 2px; }
   .nav-label { display: none; }
+  /* Toggle is hidden on mobile, so never let a desktop-collapsed group hide items here. */
+  .nav-group.collapsed .nav-item { display: flex; }
   .nav-item { padding: 7px 10px; }
   .main { flex: 1; }
   .split { flex-direction: column; }

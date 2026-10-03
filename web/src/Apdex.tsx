@@ -28,7 +28,7 @@ export function ApdexCard({ service }: { service?: string }) {
       <div className={`kpi-value${r ? " " + r.tone : ""}`}>{has ? data!.score.toFixed(2) : "—"}</div>
       {r
         ? <span className={`chip ${r.tone}`} style={{ alignSelf: "flex-start" }}><span className="dot" />{r.label}</span>
-        : <span className="kpi-sub">히스토그램 대기 중</span>}
+        : <span className="kpi-sub" title="Apdex는 http.server.duration 히스토그램 메트릭으로 계산해요. OTLP로 히스토그램을 보내면 자동으로 채워집니다.">히스토그램 메트릭 연결 필요</span>}
     </div>
   );
 }

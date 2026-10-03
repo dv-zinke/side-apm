@@ -76,14 +76,37 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
 const ALL = GROUPS.flatMap((g) => g.items);
 const titleOf = (v: View) => ALL.find((i) => i.id === v)!.label;
 
+const COLLAPSE_KEY = "apm.nav.collapsed";
+const loadCollapsed = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}"); } catch { return {}; }
+};
+
 function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
-  function onKey(e: React.KeyboardEvent, idx: number) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+  const activeGroup = GROUPS.find((g) => g.items.some((i) => i.id === view))?.label;
+  const toggleGroup = (label: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  // Keyboard nav only cycles through items that are currently visible, so arrow
+  // keys never land focus on a hidden (collapsed) tab. The active view's group
+  // is always treated as open so the current tab stays reachable.
+  const isOpen = (label: string) => label === activeGroup || !collapsed[label];
+  const visible = ALL.filter((it) => {
+    const grp = GROUPS.find((g) => g.items.some((i) => i.id === it.id))!.label;
+    return isOpen(grp);
+  });
+  function onKey(e: React.KeyboardEvent, id: View) {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const next = e.key === "ArrowDown" ? (idx + 1) % ALL.length : (idx - 1 + ALL.length) % ALL.length;
-    setView(ALL[next].id);
-    refs.current[ALL[next].id]?.focus();
+    const vIdx = visible.findIndex((x) => x.id === id);
+    const next = e.key === "ArrowDown" ? (vIdx + 1) % visible.length : (vIdx - 1 + visible.length) % visible.length;
+    setView(visible[next].id);
+    refs.current[visible[next].id]?.focus();
   }
   return (
     <aside className="sidebar">
@@ -94,12 +117,23 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
         <span className="workspace-name">APM Console</span>
       </div>
       <nav className="nav" role="tablist" aria-orientation="vertical" aria-label="관제 화면">
-        {GROUPS.map((g) => (
-          <div className="nav-group" key={g.label}>
-            <div className="nav-label">{g.label}</div>
+        {GROUPS.map((g) => {
+          const open = isOpen(g.label);
+          return (
+          <div className={`nav-group${open ? "" : " collapsed"}`} key={g.label}>
+            <button
+              type="button"
+              className="nav-label"
+              aria-expanded={open}
+              onClick={() => toggleGroup(g.label)}
+              disabled={g.label === activeGroup}
+              title={g.label === activeGroup ? "현재 보고 있는 그룹이에요" : open ? "그룹 접기" : "그룹 펼치기"}
+            >
+              <span>{g.label}</span>
+              <svg className="nav-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
             {g.items.map((it) => {
               const active = view === it.id;
-              const idx = ALL.findIndex((x) => x.id === it.id);
               return (
                 <button
                   key={it.id}
@@ -111,7 +145,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
                   tabIndex={active ? 0 : -1}
                   className={`nav-item${active ? " active" : ""}`}
                   onClick={() => setView(it.id)}
-                  onKeyDown={(e) => onKey(e, idx)}
+                  onKeyDown={(e) => onKey(e, it.id)}
                 >
                   <span className="nav-ico">{it.icon()}</span>
                   <span className="nav-text">{it.label}</span>
@@ -119,7 +153,8 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
     </aside>
   );
