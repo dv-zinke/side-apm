@@ -33,10 +33,16 @@ export async function login(username: string, password: string): Promise<Auth> {
   return { token: d.token, user: d.user, role: d.role, tenant: d.tenant };
 }
 
-// Patch fetch once so every request carries the bearer token and a 401 clears
-// the stored session (bounces back to login).
+// Patch fetch so every request carries the bearer token and a 401 clears the
+// stored session (bounces back to login). Patched at module load — before any
+// component effect runs — so the first render's data fetches already carry the
+// token. (React runs child effects before parent effects, so installing this in
+// an effect let view fetches fire token-less first and 401 on boot.) The 401
+// handler needs React state to bounce to login, so it's registered later via
+// installAuthFetch; until then it's a no-op.
+let onUnauthorized: () => void = () => {};
 let patched = false;
-export function installAuthFetch(onUnauthorized: () => void) {
+function patchFetch() {
   if (patched) return;
   patched = true;
   const orig = window.fetch.bind(window);
@@ -53,4 +59,12 @@ export function installAuthFetch(onUnauthorized: () => void) {
     }
     return res;
   };
+}
+
+// Install eagerly at import, before React renders.
+patchFetch();
+
+// Register the unauthorized handler (needs React state). Fetch is already patched.
+export function installAuthFetch(onUnauth: () => void) {
+  onUnauthorized = onUnauth;
 }
