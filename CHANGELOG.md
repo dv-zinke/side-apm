@@ -13,6 +13,7 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 
 ## 2026-10-04
 ### Fixed
+- **헤드라인 P95 오염 제거** (사용성/ISSUE-003) — apm-query 자가추적(otelhttp)이 SSE 스트림 `GET /api/v1/live/transactions`를 연결 수명(관측 ~3.5분) 내내 요청 span으로 기록 → 대시보드 "최대 P95"가 **62,665ms(62초)** 라는 가짜 값으로 표시(APM 제품이 자기 화면에서 가짜 지연을 보여줌). `otelhttp.WithFilter`로 해당 경로만 자가추적 제외. 검증: 재시작 후 신규 live/transactions SERVER span 0건(일반 엔드포인트는 계속 추적), 최근 창 apm-query P95 62,665ms→**27ms**. `cmd/query/main.go`. `1a46c4e`
 - **RUM 비콘 CORS 차단 해소** (QA/ISSUE-001) — `navigator.sendBeacon`은 크로스오리진 시 항상 credentials=include 모드라, 게이트웨이의 `Access-Control-Allow-Origin: *`(와일드카드)를 브라우저가 거부 → 콘솔 자체 RUM 자가수집이 매 ~10초 실패하며 콘솔 에러 폭주. 공유 헬퍼 `writeCORS`로 **요청 Origin 반사 + `Access-Control-Allow-Credentials: true`**(Origin 없는 서버 호출은 `*` 유지) 적용. `RumHandler`·`RumReplayHandler`·`AppHandler`. 검증: preflight reflected-origin+credentials, 인브라우저 beacon 204, 13초간 CORS 0건. 회귀 테스트 2종(`gateway/cors_test.go`). `gateway/cors.go`(신규)·`rum.go`·`app.go`. `65c491a`
 - **부팅 레이스 401 해소** (QA/ISSUE-002) — `installAuthFetch`가 App useEffect에서 `window.fetch`를 패치했는데, React는 자식 effect를 부모보다 먼저 실행 → 뷰 데이터 fetch가 패치 전에 토큰 없이 발사되어 매 로드/이동 시 `/meta/retention`·`/rum/overview` 등 401·콘솔 노이즈(재시도로 자가복구). `currentToken`은 모듈 로드 시 이미 세팅되므로 **패치를 import 시점에 즉시 설치**하고, `installAuthFetch`는 401→로그아웃 콜백만 등록. 검증: 4개 뷰 신규 로드 401 0건. `web/src/auth.tsx`. `5045021`
 - QA 전체 점검(Exhaustive, ego-browser): ~21개 뷰 렌더·콘솔·상호작용 검증, 최종 대시보드 15초간 실에러 0건. 헬스 점수 84→99. 리포트 `.gstack/qa-reports/qa-report-side-apm-2026-10-04.md`.
