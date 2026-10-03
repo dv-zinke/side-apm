@@ -3,7 +3,7 @@ import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useLiveTxns } from "./live";
 import { useNav } from "./nav";
-import { liveToTxn } from "./api";
+import { liveToTxn, fetchRecentTxns } from "./api";
 import type { LiveTxn } from "./api";
 
 type Tier = "ok" | "slow" | "err";
@@ -11,7 +11,7 @@ type P = { x: number; y: number; r: number; tier: Tier; t: LiveTxn };
 
 const SLOW_MS = 600;   // amber above this
 const VERYSLOW_MS = 1500; // red above this
-const FLOW_SEC = 6;    // time to cross the lane
+const FLOW_SEC = 4.5;  // time to cross the lane
 
 function tierOf(durationMs: number, isError: boolean): Tier {
   if (isError || durationMs >= VERYSLOW_MS) return "err";
@@ -22,9 +22,10 @@ function tierOf(durationMs: number, isError: boolean): Tier {
 /* WhaTap-style live "active transaction speed" lane.
    Each streamed transaction spawns a dot that flows across the lane;
    colour = speed tier, size = duration. Pure canvas + rAF. */
-export function SpeedBand() {
+export function SpeedBand({ services }: { services?: string[] } = {}) {
   const { theme } = useTheme();
   const { openTrace } = useNav();
+  const scopeKey = services ? services.join(",") : "";
   const c = chartColors(theme);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particles = useRef<P[]>([]);
@@ -34,20 +35,40 @@ export function SpeedBand() {
 
   // Ingest the live stream → spawn particles.
   const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  useLiveTxns((t) => {
-    const tier = tierOf(t.durationMs, t.isError);
+  const spawn = (t: LiveTxn, x: number) => {
     particles.current.push({
-      // stagger entry across ~1s so 1-second SSE batches read as a continuous
-      // stream instead of vertical columns.
-      x: reduce ? Math.random() : 1 + Math.random() * 0.18,
-      y: Math.random(),
-      r: 4.5 + Math.min(9, t.durationMs / 180),
-      tier,
+      x, y: Math.random(),
+      r: 5 + Math.min(6, t.durationMs / 300),
+      tier: tierOf(t.durationMs, t.isError),
       t,
     });
+  };
+  useLiveTxns((t) => {
+    if (services && !services.includes(t.service)) return; // scoped to enabled services
+    // stagger entry across ~1s so 1-second SSE batches read as a continuous
+    // stream instead of vertical columns.
+    spawn(t, reduce ? Math.random() : 1 + Math.random() * 0.18);
     spawns.current.push(performance.now());
+    const tier = tierOf(t.durationMs, t.isError);
     setTally((s) => ({ ...s, [tier]: s[tier] + 1 }));
   });
+  useEffect(() => { particles.current = []; setTally({ ok: 0, slow: 0, err: 0 }); }, [scopeKey]); // reset on scope change
+  // Backfill the lane on mount so it's full of flowing dots immediately.
+  useEffect(() => {
+    let alive = true;
+    fetchRecentTxns(5).then((txns) => {
+      if (!alive) return;
+      const recent = txns.slice(0, 350);
+      // spread evenly across the lane (position ≠ time; it's a live density band)
+      recent.forEach((t) => spawn(t, Math.random()));
+      setTally((s) => {
+        const n = { ...s };
+        for (const t of recent) n[tierOf(t.durationMs, t.isError)]++;
+        return n;
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // rAF flow + draw.
   useEffect(() => {
@@ -67,7 +88,18 @@ export function SpeedBand() {
         canvas.height = Math.round(h * dpr);
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      if (reduce) {
+        ctx.clearRect(0, 0, w, h);
+      } else {
+        // Fade the previous frame instead of clearing → each dot leaves a
+        // trailing streak, so traffic reads as packets flowing across the wire.
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
       const speed = 1 / (FLOW_SEC * 1000); // fraction of width per ms
       const arr = particles.current;
       for (let i = arr.length - 1; i >= 0; i--) {
@@ -76,11 +108,13 @@ export function SpeedBand() {
         if (p.x < -0.02) { arr.splice(i, 1); continue; }
         const px = p.x * w;
         const py = 10 + p.y * (h - 20);
+        // Small round dot; the fade above turns its motion into a streak.
+        const r = p.r * 0.55;
         ctx.fillStyle = col[p.tier];
-        ctx.globalAlpha = 0.24;
-        ctx.beginPath(); ctx.arc(px, py, p.r * 2.4, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
       const cap = reduce ? 160 : 2500;

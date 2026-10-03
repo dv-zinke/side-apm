@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -26,7 +25,7 @@ func (fakeSM) RecentRootTxns(_ context.Context, _ string, _ time.Time, _ int) ([
 func TestServiceMapEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeSM{}))
 	defer srv.Close()
-	resp, _ := http.Get(srv.URL + "/api/v1/servicemap")
+	resp, _ := authGet(srv.URL + "/api/v1/servicemap")
 	if resp.StatusCode != 200 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}

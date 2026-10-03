@@ -21,10 +21,15 @@ OpenTelemetry + ClickHouse 기반 APM(모니터링) 제품. Go 백엔드(gateway
 ### 검토
 - UI 단계가 끝나면 **`cdo-design-review` 에이전트**(`.claude/agents/cdo-design-review.md`)로 실제 화면을 검토한다. "CDO 검토" / "디자인 검토"로 트리거.
 
+## 패치 기록 (필수)
+- **작업(기능/수정/스키마)을 마칠 때마다 `CHANGELOG.md`에 한 항목 추가**한다. 날짜 역순, 분류(Added/Changed/Fixed/Docs/Infra·Schema), 끝에 커밋 해시. 규칙은 파일 상단 참조.
+
 ## 참고 문서
+- `CHANGELOG.md` — 패치 기록(매 작업 후 갱신)
 - `docs/superpowers/specs/2026-08-13-apm-otel-clickhouse-design.md` — 아키텍처/스키마 설계 + Known limitations
 - `docs/superpowers/specs/2026-08-13-apm-feature-catalog.md` — 기능 카탈로그 + Phase 매핑
-- `docs/superpowers/plans/` — Phase별 구현 계획
+- `docs/superpowers/specs/02-competitive-positioning.md` — 경쟁 포지셔닝(확보/격차 트래커)
+- `docs/superpowers/plans/` — Phase별 구현 계획 + 세션 핸드오프
 
 ## 로컬 실행 / 데모
 ```bash

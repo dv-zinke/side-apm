@@ -1,0 +1,9 @@
+<clickhouse>
+  <merge_tree>
+    <!-- After an unclean shutdown (host restart, docker kill) an
+         AggregatingMergeTree can leave >100 broken parts, which by default
+         aborts table load and wedges all ingest into that database. Raise the
+         threshold so ClickHouse drops the broken parts and boots instead. -->
+    <max_suspicious_broken_parts>500</max_suspicious_broken_parts>
+  </merge_tree>
+</clickhouse>

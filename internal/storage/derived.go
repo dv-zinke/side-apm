@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -81,8 +82,12 @@ type REDPoint struct {
 }
 
 func (s *Store) ListServices(ctx context.Context, tenantID string) ([]string, error) {
+	// Only services with traffic in the last 24h — stale/test services from long
+	// ago shouldn't pollute dropdowns or become the default selection.
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT DISTINCT service_name FROM apm.red_rollup WHERE tenant_id = ? ORDER BY service_name`, tenantID)
+		`SELECT DISTINCT service_name FROM apm.red_rollup
+		 WHERE tenant_id = ? AND minute >= now() - INTERVAL 24 HOUR
+		 ORDER BY service_name`, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +130,158 @@ ORDER BY minute`
 			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+type ServiceAvail struct {
+	Service  string
+	TotalReq uint64
+	TotalErr uint64
+	P95Ms    float64
+}
+
+// ServiceAvailabilities returns request/error totals + p95 latency per service
+// over the window in a SINGLE aggregate query. This replaced the SLO endpoint's
+// N-per-service RED+Apdex scans (found slow by self-tracing) — one query serves
+// the whole SLO view, staying fast even under concurrent load.
+func (s *Store) ServiceAvailabilities(ctx context.Context, tenantID string, from, to time.Time) ([]ServiceAvail, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT service_name, countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name
+ORDER BY service_name`, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ServiceAvail
+	for rows.Next() {
+		var a ServiceAvail
+		var qs []float64
+		if err := rows.Scan(&a.Service, &a.TotalReq, &a.TotalErr, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			a.P95Ms = qs[1] / 1e6
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// AllServicesREDStep is AllServicesRED downsampled to stepMin-minute buckets in a
+// SINGLE query. Percentiles are merged at the coarser bucket via quantilesMerge —
+// the correct way to downsample p95 (you cannot average percentiles client-side).
+// Powers the dashboard's time-range picker: 1-min buckets for short windows,
+// coarser for 6h/24h so payloads and charts stay sane. stepMin is clamped by the
+// caller and formatted as an int, so there's no injection surface.
+func (s *Store) AllServicesREDStep(ctx context.Context, tenantID string, from, to time.Time, stepMin int) (map[string][]REDPoint, error) {
+	if stepMin <= 1 {
+		return s.AllServicesRED(ctx, tenantID, from, to)
+	}
+	if stepMin > 1440 {
+		stepMin = 1440
+	}
+	q := fmt.Sprintf(`
+SELECT service_name, toStartOfInterval(minute, INTERVAL %d MINUTE) AS bucket,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name, bucket
+ORDER BY service_name, bucket`, stepMin)
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
+	}
+	return out, rows.Err()
+}
+
+// AllServicesREDHourly serves long absolute windows from the hourly "frozen"
+// tier (red_rollup_1h, retained 24 months) instead of the minute table. stepHours
+// coarsens further (6h/24h) for month-scale ranges. Percentiles merge correctly
+// via quantilesMerge over the hour buckets.
+func (s *Store) AllServicesREDHourly(ctx context.Context, tenantID string, from, to time.Time, stepHours int) (map[string][]REDPoint, error) {
+	if stepHours < 1 {
+		stepHours = 1
+	}
+	if stepHours > 720 {
+		stepHours = 720
+	}
+	q := fmt.Sprintf(`
+SELECT service_name, toStartOfInterval(hour, INTERVAL %d HOUR) AS bucket,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup_1h
+WHERE tenant_id = ? AND hour >= ? AND hour <= ?
+GROUP BY service_name, bucket
+ORDER BY service_name, bucket`, stepHours)
+	rows, err := s.db.QueryContext(ctx, q, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
+	}
+	return out, rows.Err()
+}
+
+// AllServicesRED returns every service's per-minute RED series in ONE query,
+// grouped by service — so views that scan all services (health, anomalies) run a
+// single aggregate instead of N per-service queries.
+func (s *Store) AllServicesRED(ctx context.Context, tenantID string, from, to time.Time) (map[string][]REDPoint, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT service_name, minute,
+       countMerge(request_count), sumMerge(error_count),
+       quantilesMerge(0.5, 0.95, 0.99)(duration_q) AS qs
+FROM apm.red_rollup
+WHERE tenant_id = ? AND minute >= ? AND minute <= ?
+GROUP BY service_name, minute
+ORDER BY service_name, minute`, tenantID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]REDPoint{}
+	for rows.Next() {
+		var svc string
+		var p REDPoint
+		var qs []float64
+		if err := rows.Scan(&svc, &p.Minute, &p.RequestCount, &p.ErrorCount, &qs); err != nil {
+			return nil, err
+		}
+		if len(qs) == 3 {
+			p.P50Ms, p.P95Ms, p.P99Ms = qs[0]/1e6, qs[1]/1e6, qs[2]/1e6
+		}
+		out[svc] = append(out[svc], p)
 	}
 	return out, rows.Err()
 }

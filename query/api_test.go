@@ -48,6 +48,10 @@ func (fakeReader) RecentRootTxns(_ context.Context, _ string, _ time.Time, _ int
 	return nil, nil
 }
 
+func (fakeReader) BackfillTxns(_ context.Context, _ string, _ time.Time, _ int) ([]storage.LiveTxn, error) {
+	return nil, nil
+}
+
 func (fakeReader) ListMetricNames(_ context.Context, _, _ string) ([]string, error) {
 	return nil, nil
 }
@@ -56,11 +60,176 @@ func (fakeReader) GetServiceMetric(_ context.Context, _, _, _ string, _, _ time.
 	return nil, nil
 }
 
+func (fakeReader) GetTraceLogs(_ context.Context, _, _ string) ([]storage.LogRow, error) {
+	return nil, nil
+}
+
+func (fakeReader) LogPatterns(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.LogPattern, error) {
+	return nil, nil
+}
+func (fakeReader) ListLogs(_ context.Context, _ string, _ storage.LogFilter) ([]storage.LogRow, error) {
+	return nil, nil
+}
+
+func (fakeReader) ListAlertRules(_ context.Context, _ string) ([]storage.AlertRule, error) {
+	return nil, nil
+}
+
+func (fakeReader) UpsertAlertRule(_ context.Context, _ string, _ storage.AlertRule) error {
+	return nil
+}
+
+func (fakeReader) DeleteAlertRule(_ context.Context, _, _ string) error { return nil }
+
+func (fakeReader) ListAlerts(_ context.Context, _ string, _ int) ([]storage.Alert, error) {
+	return nil, nil
+}
+
+func (fakeReader) ServiceApdex(_ context.Context, _, _ string, _ float64, _, _ time.Time) (float64, uint64, bool, error) {
+	return 0, 0, false, nil
+}
+
+func (fakeReader) ServicePercentiles(_ context.Context, _, _ string, _, _ time.Time) (float64, float64, float64, bool, error) {
+	return 0, 0, 0, false, nil
+}
+
+func (fakeReader) TopQueries(_ context.Context, _, _, _ string, _, _ time.Time, _ int) ([]storage.QueryStat, error) {
+	return nil, nil
+}
+func (fakeReader) NPlusOne(_ context.Context, _ string, _, _ int, _, _ time.Time) ([]storage.NPlusOneStat, error) {
+	return nil, nil
+}
+
+func (fakeReader) RumOverview(_ context.Context, _ string, _, _ time.Time) (storage.RumOverview, error) {
+	return storage.RumOverview{}, nil
+}
+func (fakeReader) TopClicks(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+func (fakeReader) TopErrors(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+func (fakeReader) TopResources(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.RumCount, error) {
+	return nil, nil
+}
+func (fakeReader) ListReplays(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ReplayMeta, error) {
+	return nil, nil
+}
+func (fakeReader) GetReplay(_ context.Context, _, _ string) (string, error) {
+	return "", nil
+}
+func (fakeReader) ListContainers(_ context.Context, _ string, _, _ time.Time) ([]storage.ContainerStat, error) {
+	return nil, nil
+}
+func (fakeReader) ContainerSeries(_ context.Context, _, _, _ string, _, _ time.Time) ([]storage.MetricPoint, error) {
+	return nil, nil
+}
+func (fakeReader) LatestHost(_ context.Context, _ string) (storage.HostStat, bool, error) {
+	return storage.HostStat{}, false, nil
+}
+func (fakeReader) ServiceAvailabilities(_ context.Context, _ string, _, _ time.Time) ([]storage.ServiceAvail, error) {
+	return nil, nil
+}
+func (fakeReader) AllServicesRED(_ context.Context, _ string, _, _ time.Time) (map[string][]storage.REDPoint, error) {
+	return nil, nil
+}
+func (fakeReader) AllServicesREDStep(_ context.Context, _ string, _, _ time.Time, _ int) (map[string][]storage.REDPoint, error) {
+	return nil, nil
+}
+func (fakeReader) AllServicesREDHourly(_ context.Context, _ string, _, _ time.Time, _ int) (map[string][]storage.REDPoint, error) {
+	return nil, nil
+}
+func (fakeReader) ListMonitors(_ context.Context, _ string, _, _ time.Time) ([]storage.MonitorStatus, error) {
+	return nil, nil
+}
+func (fakeReader) MonitorTimeline(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.UptimeBucket, error) {
+	return nil, nil
+}
+func (fakeReader) InsertDeploy(_ context.Context, _ string, _ storage.Deploy) error { return nil }
+func (fakeReader) ListDeploys(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.Deploy, error) {
+	return nil, nil
+}
+func (fakeReader) DeployImpacts(_ context.Context, _, _ string, _, _ int) ([]storage.DeployImpact, error) {
+	return nil, nil
+}
+func (fakeReader) ListSamplingRules(_ context.Context, _ string) ([]storage.SamplingRule, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertSamplingRule(_ context.Context, _ string, _ storage.SamplingRule) error {
+	return nil
+}
+func (fakeReader) DeleteSamplingRule(_ context.Context, _, _ string) error { return nil }
+func (fakeReader) IngestStats(_ context.Context, _ string, _, _ time.Time) ([]storage.IngestStat, error) {
+	return nil, nil
+}
+func (fakeReader) AppOverview(_ context.Context, _ string, _, _ time.Time) (storage.AppOverview, error) {
+	return storage.AppOverview{}, nil
+}
+func (fakeReader) AppVersions(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppVersionStat, error) {
+	return nil, nil
+}
+func (fakeReader) TopScreens(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
+func (fakeReader) TopCrashes(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
+func (fakeReader) TopAppNetwork(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.AppGroup, error) {
+	return nil, nil
+}
+func (fakeReader) CrashDetail(_ context.Context, _, _ string, _, _ time.Time) (storage.CrashDetail, error) {
+	return storage.CrashDetail{}, nil
+}
+func (fakeReader) ListDashboards(_ context.Context, _ string) ([]storage.Dashboard, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertDashboard(_ context.Context, _ string, _ storage.Dashboard) error { return nil }
+func (fakeReader) DeleteDashboard(_ context.Context, _, _ string) error                   { return nil }
+func (fakeReader) Authenticate(_ context.Context, _, _ string) (storage.User, bool, error) {
+	return storage.User{}, false, nil
+}
+func (fakeReader) ListProfiles(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.ProfileMeta, error) {
+	return nil, nil
+}
+func (fakeReader) ErrorGroups(_ context.Context, _, _ string, _, _ time.Time, _ int) ([]storage.ErrorGroup, error) {
+	return nil, nil
+}
+func (fakeReader) SetErrorStatus(_ context.Context, _, _, _ string) error { return nil }
+func (fakeReader) ErrorGroupDetail(_ context.Context, _, _, _, _ string, _, _ time.Time, _ int) (storage.ErrorGroupDetail, error) {
+	return storage.ErrorGroupDetail{}, nil
+}
+func (fakeReader) RunSpanQuery(_ context.Context, _, _ string, _, _ time.Time, _ int) (storage.SpanQueryResult, error) {
+	return storage.SpanQueryResult{Kind: "spans"}, nil
+}
+func (fakeReader) RunLogQuery(_ context.Context, _, _ string, _, _ time.Time, _ int) (storage.LogQueryResult, error) {
+	return storage.LogQueryResult{Kind: "rows"}, nil
+}
+func (fakeReader) ListChannels(_ context.Context, _ string) ([]storage.AlertChannel, error) {
+	return nil, nil
+}
+func (fakeReader) UpsertChannel(_ context.Context, _ string, _ storage.AlertChannel) error { return nil }
+func (fakeReader) DeleteChannel(_ context.Context, _, _ string) error                       { return nil }
+func (fakeReader) InsertNotification(_ context.Context, _ string, _ storage.Notification) error {
+	return nil
+}
+func (fakeReader) ListNotifications(_ context.Context, _ string, _ int) ([]storage.Notification, error) {
+	return nil, nil
+}
+func (fakeReader) GetProfile(_ context.Context, _, _ string) (string, string, string, string, error) {
+	return "", "", "", "", nil
+}
+
+func authGet(url string) (*http.Response, error) {
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+signToken(Principal{Tenant: "default", User: "t", Role: "admin", Exp: time.Now().Add(time.Hour).Unix()}))
+	return http.DefaultClient.Do(req)
+}
+
 func TestListTransactionsEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/api/v1/transactions?limit=10")
+	resp, err := authGet(srv.URL + "/api/v1/transactions?limit=10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +248,7 @@ func TestTraceSpansEndpoint(t *testing.T) {
 	srv := httptest.NewServer(Router(fakeReader{}))
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/api/v1/traces/aa11/spans")
+	resp, err := authGet(srv.URL + "/api/v1/traces/aa11/spans")
 	if err != nil {
 		t.Fatal(err)
 	}

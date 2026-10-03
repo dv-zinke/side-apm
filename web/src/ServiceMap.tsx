@@ -1,16 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { fetchServiceMap } from "./api";
 import { EmptyState, IconGraph } from "./states";
 import { useTheme } from "./theme";
 import { chartColors } from "./chart";
 import { useNav } from "./nav";
+import { TimeRangePicker, resolveSel, selLabel, useTimeSel } from "./range";
 
 export function ServiceMap() {
   const { theme } = useTheme();
   const { openService } = useNav();
   const c = chartColors(theme);
-  const { data } = useQuery({ queryKey: ["servicemap"], queryFn: fetchServiceMap, refetchInterval: 10000 });
+  const [sel, setSel] = useTimeSel();
+  const minute = Math.floor(Date.now() / 60000);
+  const w = resolveSel(sel, minute * 60000);
+  const { data } = useQuery({
+    queryKey: ["servicemap", w.fromISO, w.toISO],
+    queryFn: () => fetchServiceMap(w.fromISO, w.toISO),
+    refetchInterval: w.live ? 10000 : false,
+    placeholderData: keepPreviousData,
+  });
   const nodes = (data?.nodes ?? []).map((n) => ({
     name: n.name,
     symbolSize: Math.min(64, 22 + n.requestCount),
@@ -39,17 +48,20 @@ export function ServiceMap() {
   return (
     <div className="chart-wrap">
       <div className="pane-head" style={{ position: "static", margin: "calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0", borderTop: 0 }}>
-        <span className="pane-title">서비스맵 <span className="hint-inline">노드를 클릭하면 트랜잭션</span></span>
-        <span className="chart-note" style={{ marginLeft: "auto", marginBottom: 0 }}>
-          <span className="legend-key"><i style={{ background: c.accent }} />정상</span>
-          <span className="legend-key"><i style={{ background: c.err }} />에러</span>
-        </span>
+        <span className="pane-title">서비스맵 <span className="hint-inline">{selLabel(sel)} · 노드를 클릭하면 트랜잭션</span></span>
+        <div className="bar" style={{ marginLeft: "auto", gap: "var(--sp-3)" }}>
+          <span className="chart-note" style={{ marginBottom: 0 }}>
+            <span className="legend-key"><i style={{ background: c.accent }} />정상</span>
+            <span className="legend-key"><i style={{ background: c.err }} />에러</span>
+          </span>
+          <TimeRangePicker value={sel} onChange={setSel} />
+        </div>
       </div>
       {nodes.length === 0 ? (
         <EmptyState
           icon={<IconGraph />}
           title="서비스맵을 그릴 데이터가 없어요"
-          body="최근 15분간 서비스 간 호출이 관측되면 노드와 간선이 자동으로 그려져요."
+          body={`${selLabel(sel)} 동안 서비스 간 호출이 관측되면 노드와 간선이 자동으로 그려져요.`}
         />
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>

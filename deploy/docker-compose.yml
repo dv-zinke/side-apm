@@ -15,6 +15,8 @@ services:
       nofile: { soft: 262144, hard: 262144 }
     volumes:
       - ./init:/docker-entrypoint-initdb.d
+      - ./clickhouse/merge_tree.xml:/etc/clickhouse-server/config.d/merge_tree.xml:ro
+      - ./clickhouse/system_logs.xml:/etc/clickhouse-server/config.d/system_logs.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- 'http://localhost:8123/?query=SELECT+1' | grep -q 1"]
       interval: 5s
@@ -33,7 +35,13 @@ services:
 
   query:
     build: { context: .., dockerfile: cmd/query/Dockerfile }
-    environment: { APM_CH_DSN: "clickhouse://clickhouse:9000/apm" }
+    environment:
+      APM_CH_DSN: "clickhouse://clickhouse:9000/apm"
+      # Optional Slack-compatible alert webhook. Set your Slack Incoming Webhook
+      # URL (or leave unset to disable delivery).
+      APM_ALERT_WEBHOOK: "${APM_ALERT_WEBHOOK:-}"
+      # Synthetic monitors: "name|url,name|url" (unset = default local+external set).
+      APM_SYNTHETICS: "${APM_SYNTHETICS:-}"
     ports: ["8080:8080"]
     depends_on:
       clickhouse:
@@ -45,13 +53,64 @@ services:
     ports: ["3000:80"]
     depends_on: [query]
 
+  # Docker stats collector — reads the engine socket, ships per-container
+  # CPU/mem/net to the gateway.
+  dockermon:
+    build: { context: .., dockerfile: cmd/dockermon/Dockerfile }
+    environment:
+      APM_GATEWAY: "http://gateway:4318"
+      HOST_PROC: "/host/proc"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+    depends_on: [gateway]
+    restart: on-failure
+
+  # A REAL (non-simulated) OpenTelemetry-instrumented app that calls a real
+  # public API. Off by default; start with:
+  #   docker compose -f deploy/docker-compose.yml --profile realapp up -d --build realapp
+  realapp:
+    build: { context: ../demo/realapp }
+    profiles: ["realapp"]
+    environment:
+      OTEL_SERVICE_NAME: "shop-web"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_LOGS_EXPORTER: "otlp"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      # Call the instrumented shop-api instead of an external API, so the trace
+      # context propagates and the service map shows a real shop-web → shop-api edge.
+      UPSTREAM_API: "http://shop-api:3200"
+    depends_on: [gateway, shop-api]
+    restart: on-failure
+
+  # Downstream API for shop-web. Same image, instrumented, self-drive off so only
+  # shop-web originates traffic — gives the service map a genuine cross-service edge.
+  shop-api:
+    build: { context: ../demo/realapp }
+    profiles: ["realapp"]
+    environment:
+      OTEL_SERVICE_NAME: "shop-api"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_LOGS_EXPORTER: "otlp"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      PORT: "3200"
+      SELF_DRIVE: "false"
+    depends_on: [gateway]
+    restart: on-failure
+
   # Multi-service traffic simulator. Off by default; start with:
   #   docker compose -f deploy/docker-compose.yml --profile sim up -d --build sim
   sim:
     build: { context: ../demo/sim, dockerfile: Dockerfile }
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
-      SIM_RPS: "12"
+      # ~3 rps × ~8-service fan-out ≈ 6-8M spans/day; with the 3-day demo TTL that
+      # holds spans ~1.5GB. Raise for a busier demo (disk scales linearly).
+      SIM_RPS: "3"
     depends_on: [gateway]
     profiles: ["sim"]
     restart: on-failure

@@ -18,7 +18,10 @@ const children = services.map((s) => {
     OTEL_METRICS_EXPORTER: "otlp",
     OTEL_METRIC_EXPORT_INTERVAL: "10000",
     OTEL_METRIC_EXPORT_TIMEOUT: "5000",
-    OTEL_LOGS_EXPORTER: "none",
+    // delta temporality so each export is that window's counts → summable for
+    // server-side Apdex/percentiles from http.server.request.duration.
+    OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: "delta",
+    OTEL_LOGS_EXPORTER: "otlp",
     OTEL_BSP_SCHEDULE_DELAY: "500",
     SVC_NAME: s.name,
     SVC_PORT: String(s.port),
@@ -28,6 +31,7 @@ const children = services.map((s) => {
     SVC_SPIKE: String(s.spike || 0),
     SVC_ERR: String(s.err || 0),
     SVC_ROUTES: (s.routes || ["work"]).join(","),
+    SVC_QUERIES: (s.queries || []).join("|"),
   };
   return spawn("node", ["-r", REGISTER, "service.js"], { env, stdio: "inherit", cwd: __dirname });
 });
@@ -48,3 +52,95 @@ setTimeout(() => {
   console.log(`[sim] driving ~${RPS} rps through ${gw.name} → ${OTLP}`);
   setInterval(hit, Math.max(20, Math.floor(1000 / RPS)));
 }, 4000);
+
+// Keep RUM alive: post browser-like sessions to the gateway on an interval so
+// the RUM view has continuous data (the browser agent only fires on real use).
+const RUM_PAGES = ["/dashboard", "/trace", "/rum", "/alerts", "/db", "/servicemap", "/infra"];
+const RUM_CLICKS = ["대시보드", "트레이스 분석", "RED 대시보드", "알림", "서비스맵", "규칙 추가", "다크 모드로 전환", "복사", "저장하기", "에러만", "X-View", "연결하기", "컨테이너"];
+const RUM_ERRORS = ["TypeError: Cannot read properties of undefined (reading 'map')", "NetworkError: Failed to fetch", "Unhandled: request timeout after 10000ms"];
+const RUM_RES = ["/api/v1/transactions", "/api/v1/servicemap", "/api/v1/live/recent", "/api/v1/alerts", "/api/v1/db/queries", "/api/v1/rum/overview"];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a));
+
+function postJSON(path, body) {
+  const data = JSON.stringify(body);
+  const req = http.request(OTLP + path, { method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } },
+    (r) => { r.on("data", () => {}); r.on("end", () => {}); });
+  req.on("error", () => {});
+  req.write(data); req.end();
+}
+function rumSession() {
+  const now = Date.now();
+  const page = pick(RUM_PAGES);
+  const ev = [{ type: "pageview", ts: now, page }];
+  for (let i = 0; i < rint(3, 12); i++) ev.push({ type: "click", ts: now, target: pick(RUM_CLICKS) });
+  for (let i = 0; i < rint(2, 6); i++) ev.push({ type: "resource", ts: now, url: pick(RUM_RES), value: rint(15, 950), status: pick([200, 200, 200, 304, 500]) });
+  ev.push({ type: "vital", ts: now, metric: "LCP", value: rint(700, 4300) });
+  ev.push({ type: "vital", ts: now, metric: "INP", value: rint(20, 380) });
+  ev.push({ type: "vital", ts: now, metric: "CLS", value: Math.round(Math.random() * 250) / 1000 });
+  if (Math.random() < 0.28) ev.push({ type: "error", ts: now, message: pick(RUM_ERRORS), stack: "at App.tsx:42:11" });
+  postJSON("/v1/rum", { sessionId: "sim" + rint(1, 1e9), page, ua: "Mozilla/5.0 (sim)", events: ev });
+}
+setTimeout(() => { console.log("[sim] seeding RUM sessions"); setInterval(rumSession, 1200); }, 6000);
+
+// Build a small but valid rrweb replay: an error page with a ticking counter,
+// so the session-replay list stays populated and each entry actually plays back.
+function buildReplay(message) {
+  const t0 = Date.now() - 6000;
+  const snapshot = {
+    type: 0, id: 1, childNodes: [
+      { type: 1, name: "html", publicId: "", systemId: "", id: 2 },
+      { type: 2, tagName: "html", attributes: {}, id: 3, childNodes: [
+        { type: 2, tagName: "head", attributes: {}, id: 4, childNodes: [
+          { type: 2, tagName: "style", attributes: {}, id: 5, childNodes: [
+            { type: 3, textContent: "body{margin:0;font:16px sans-serif;background:#0b0e14;color:#e6e6e6}.card{padding:56px}h1{color:#f87171;font-size:22px}.n{font-size:64px;color:#38bdf8;margin-top:12px}.s{color:#8b98a9;margin-top:8px}", id: 6 },
+          ] },
+        ] },
+        { type: 2, tagName: "body", attributes: {}, id: 7, childNodes: [
+          { type: 2, tagName: "div", attributes: { class: "card" }, id: 8, childNodes: [
+            { type: 2, tagName: "h1", attributes: {}, id: 9, childNodes: [{ type: 3, textContent: message, id: 10 }] },
+            { type: 2, tagName: "div", attributes: { class: "n" }, id: 11, childNodes: [{ type: 3, textContent: "0", id: 12 }] },
+            { type: 2, tagName: "div", attributes: { class: "s" }, id: 13, childNodes: [{ type: 3, textContent: "재시도 중…", id: 14 }] },
+          ] },
+        ] },
+      ] },
+    ],
+  };
+  const ev = [
+    { type: 4, data: { href: "http://localhost:3000/checkout", width: 1200, height: 640 }, timestamp: t0 },
+    { type: 2, data: { node: snapshot, initialOffset: { left: 0, top: 0 } }, timestamp: t0 },
+  ];
+  for (let i = 1; i <= 5; i++) {
+    ev.push({ type: 3, data: { source: 0, texts: [{ id: 12, value: String(i) }], attributes: [], removes: [], adds: [] }, timestamp: t0 + i * 900 });
+  }
+  return ev;
+}
+function seedReplay() {
+  const message = pick(RUM_ERRORS);
+  postJSON("/v1/rum/replay", { sessionId: "sim" + rint(1, 1e9), page: "/checkout", message, events: buildReplay(message) });
+}
+setTimeout(() => { console.log("[sim] seeding session replays"); setInterval(seedReplay, 15000); }, 9000);
+
+// Mobile app monitoring: post launches / screens / crashes / network / errors.
+const APP_SCREENS = ["홈", "상품목록", "상품상세", "장바구니", "결제", "주문내역", "마이페이지", "검색", "리뷰"];
+const APP_VERSIONS = ["3.2.0", "3.2.0", "3.2.0", "3.1.5", "3.3.0-beta"];
+const APP_DEVICES = ["iPhone 15", "iPhone 14", "Galaxy S24", "Galaxy S23", "Pixel 8"];
+const APP_CRASHES = ["NSInvalidArgumentException: -[__NSCFString objectForKey:]",
+  "java.lang.NullPointerException: Attempt to invoke on a null object reference",
+  "Fatal Exception: java.lang.OutOfMemoryError", "EXC_BAD_ACCESS (SIGSEGV) at 0x0000000000000010"];
+const APP_NET = ["/api/v1/products", "/api/v1/cart", "/api/v1/checkout", "/api/v1/orders", "/api/v1/search"];
+function appSession() {
+  const now = Date.now();
+  const ios = Math.random() < 0.55;
+  const platform = ios ? "ios" : "android";
+  const device = ios ? pick(["iPhone 15", "iPhone 14"]) : pick(["Galaxy S24", "Galaxy S23", "Pixel 8"]);
+  const ev = [{ type: "launch", ts: now, launchType: Math.random() < 0.6 ? "cold" : "warm", durationMs: rint(350, 2600) }];
+  for (let i = 0; i < rint(2, 8); i++) ev.push({ type: "screen", ts: now, screen: pick(APP_SCREENS), durationMs: rint(20, 700) });
+  for (let i = 0; i < rint(2, 7); i++) ev.push({ type: "network", ts: now, url: pick(APP_NET), status: pick([200, 200, 200, 200, 404, 500]), durationMs: rint(30, 1800) });
+  if (Math.random() < 0.06) ev.push({ type: "crash", ts: now, message: pick(APP_CRASHES), stack: "at MainActivity.onCreate", fatal: true });
+  postJSON("/v1/app", {
+    sessionId: "app" + rint(1, 1e9), appVersion: pick(APP_VERSIONS), platform,
+    osVersion: ios ? "iOS 17.5" : "Android 14", device, events: ev,
+  });
+}
+setTimeout(() => { console.log("[sim] seeding mobile app sessions"); setInterval(appSession, 1000); }, 7000);

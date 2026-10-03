@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/heejune/apm/gateway"
 	"github.com/heejune/apm/internal/buffer"
+	"github.com/heejune/apm/internal/sampling"
 	"github.com/heejune/apm/internal/storage"
 )
 
@@ -18,18 +21,38 @@ func main() {
 	if err != nil {
 		log.Fatalf("clickhouse: %v", err)
 	}
-	// Async batched ingest: absorb spikes, retry transient CH failures,
-	// backpressure (503) when saturated so exporters retry.
-	buf := buffer.NewAsync(store, buffer.AsyncOpts{
+	// Async batched ingest for every signal: absorb spikes, retry transient CH
+	// failures, backpressure (503) when saturated so exporters retry.
+	opts := buffer.Opts{
 		QueueDepth: getenvInt("APM_INGEST_QUEUE", 1024),
 		BatchMax:   getenvInt("APM_INGEST_BATCH", 2000),
 		Flush:      time.Duration(getenvInt("APM_INGEST_FLUSH_MS", 500)) * time.Millisecond,
-	})
+	}
+	spanBuf := buffer.NewSpanBatcher(store, opts)
+	// Tail-ish sampling at the ingest edge (opt-in via /api/v1/ingest/sampling).
+	// Errors/slow spans always kept; rules polled from CH in the background.
+	sampler := sampling.New(spanBuf, store)
+	go sampler.Run(context.Background())
+	metricBuf := buffer.NewBatcher("metrics", store.InsertMetrics, opts)
+	histoBuf := buffer.NewBatcher("histograms", store.InsertHistograms, opts)
+	logBuf := buffer.NewBatcher("logs", store.InsertLogs, opts)
+	rumBuf := buffer.NewBatcher("rum", store.InsertRumEvents, opts)
+	infraBuf := buffer.NewBatcher("infra", store.InsertContainerStats, opts)
+	appBuf := buffer.NewBatcher("app", store.InsertAppEvents, opts)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/traces", gateway.TracesHandler(buf))
-	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(store))
+	mux.HandleFunc("/v1/traces", gateway.TracesHandler(sampler))
+	mux.HandleFunc("/v1/metrics", gateway.MetricsHandler(metricBuf.Publish, histoBuf.Publish))
+	mux.HandleFunc("/v1/logs", gateway.LogsHandler(logBuf.Publish))
+	mux.HandleFunc("/v1/rum", gateway.RumHandler(rumBuf.Publish))
+	mux.HandleFunc("/v1/rum/replay", gateway.RumReplayHandler(store))
+	mux.HandleFunc("/v1/infra", gateway.InfraHandler(infraBuf.Publish))
+	mux.HandleFunc("/v1/infra/host", gateway.HostHandler(store))
+	mux.HandleFunc("/v1/app", gateway.AppHandler(appBuf.Publish))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
+
+	// pprof for continuous profiling (scraped by the query profiler).
+	go func() { log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
 
 	addr := getenv("APM_GATEWAY_ADDR", ":4318")
 	log.Printf("gateway listening on %s (OTLP/HTTP)", addr)

@@ -1,0 +1,30 @@
+package gateway
+
+import (
+	"context"
+	"net/http"
+
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+
+	"github.com/heejune/apm/internal/otlp"
+)
+
+func LogsHandler(publishLogs func(ctx context.Context, ls []otlp.LogRecord) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req collogspb.ExportLogsServiceRequest
+		if err := readExport(r, &req); err != nil {
+			http.Error(w, "invalid OTLP payload", http.StatusBadRequest)
+			return
+		}
+		logs := otlp.MapLogs(&req, tenantFromReq(r))
+		if err := publishLogs(r.Context(), logs); err != nil {
+			http.Error(w, "publish failed", http.StatusServiceUnavailable)
+			return
+		}
+		writeExportOK(w, r, &collogspb.ExportLogsServiceResponse{})
+	}
+}

@@ -19,10 +19,66 @@ type Reader interface {
 	GetTraceSummary(ctx context.Context, tenant, traceID string) (storage.TraceSummaryRow, error)
 	ListServices(ctx context.Context, tenant string) ([]string, error)
 	GetServiceRED(ctx context.Context, tenant, service string, from, to time.Time) ([]storage.REDPoint, error)
+	ServiceAvailabilities(ctx context.Context, tenant string, from, to time.Time) ([]storage.ServiceAvail, error)
+	AllServicesRED(ctx context.Context, tenant string, from, to time.Time) (map[string][]storage.REDPoint, error)
+	AllServicesREDStep(ctx context.Context, tenant string, from, to time.Time, stepMin int) (map[string][]storage.REDPoint, error)
+	AllServicesREDHourly(ctx context.Context, tenant string, from, to time.Time, stepHours int) (map[string][]storage.REDPoint, error)
 	GetServiceMap(ctx context.Context, tenant string, from, to time.Time) (storage.ServiceMap, error)
 	RecentRootTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
+	BackfillTxns(ctx context.Context, tenant string, since time.Time, limit int) ([]storage.LiveTxn, error)
 	ListMetricNames(ctx context.Context, tenant, service string) ([]string, error)
 	GetServiceMetric(ctx context.Context, tenant, service, name string, from, to time.Time) ([]storage.MetricPoint, error)
+	GetTraceLogs(ctx context.Context, tenant, traceID string) ([]storage.LogRow, error)
+	ListLogs(ctx context.Context, tenant string, f storage.LogFilter) ([]storage.LogRow, error)
+	LogPatterns(ctx context.Context, tenant, severity string, from, to time.Time, limit int) ([]storage.LogPattern, error)
+	ListAlertRules(ctx context.Context, tenant string) ([]storage.AlertRule, error)
+	UpsertAlertRule(ctx context.Context, tenant string, r storage.AlertRule) error
+	DeleteAlertRule(ctx context.Context, tenant, id string) error
+	ListAlerts(ctx context.Context, tenant string, limit int) ([]storage.Alert, error)
+	ServiceApdex(ctx context.Context, tenant, service string, tMs float64, from, to time.Time) (float64, uint64, bool, error)
+	ServicePercentiles(ctx context.Context, tenant, service string, from, to time.Time) (p50, p95, p99 float64, ok bool, err error)
+	TopQueries(ctx context.Context, tenant, service, orderBy string, from, to time.Time, limit int) ([]storage.QueryStat, error)
+	NPlusOne(ctx context.Context, tenant string, minRepeats, limit int, from, to time.Time) ([]storage.NPlusOneStat, error)
+	RumOverview(ctx context.Context, tenant string, from, to time.Time) (storage.RumOverview, error)
+	TopClicks(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	TopErrors(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	TopResources(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.RumCount, error)
+	ListReplays(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ReplayMeta, error)
+	GetReplay(ctx context.Context, tenant, id string) (string, error)
+	ListContainers(ctx context.Context, tenant string, from, to time.Time) ([]storage.ContainerStat, error)
+	ContainerSeries(ctx context.Context, tenant, container, metric string, from, to time.Time) ([]storage.MetricPoint, error)
+	LatestHost(ctx context.Context, tenant string) (storage.HostStat, bool, error)
+	ListMonitors(ctx context.Context, tenant string, from, to time.Time) ([]storage.MonitorStatus, error)
+	MonitorTimeline(ctx context.Context, tenant, monitor string, from, to time.Time, bucketSec int) ([]storage.UptimeBucket, error)
+	InsertDeploy(ctx context.Context, tenant string, d storage.Deploy) error
+	ListDeploys(ctx context.Context, tenant, service string, from, to time.Time, limit int) ([]storage.Deploy, error)
+	DeployImpacts(ctx context.Context, tenant, service string, windowMin, limit int) ([]storage.DeployImpact, error)
+	ListSamplingRules(ctx context.Context, tenant string) ([]storage.SamplingRule, error)
+	UpsertSamplingRule(ctx context.Context, tenant string, rule storage.SamplingRule) error
+	DeleteSamplingRule(ctx context.Context, tenant, id string) error
+	IngestStats(ctx context.Context, tenant string, from, to time.Time) ([]storage.IngestStat, error)
+	AppOverview(ctx context.Context, tenant string, from, to time.Time) (storage.AppOverview, error)
+	AppVersions(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppVersionStat, error)
+	TopScreens(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	TopCrashes(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	TopAppNetwork(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.AppGroup, error)
+	CrashDetail(ctx context.Context, tenant, message string, from, to time.Time) (storage.CrashDetail, error)
+	ListDashboards(ctx context.Context, tenant string) ([]storage.Dashboard, error)
+	UpsertDashboard(ctx context.Context, tenant string, d storage.Dashboard) error
+	DeleteDashboard(ctx context.Context, tenant, id string) error
+	Authenticate(ctx context.Context, username, password string) (storage.User, bool, error)
+	ListProfiles(ctx context.Context, tenant string, from, to time.Time, limit int) ([]storage.ProfileMeta, error)
+	GetProfile(ctx context.Context, tenant, id string) (tree, top, unit, ptype string, err error)
+	ErrorGroups(ctx context.Context, tenant, stateFilter string, from, to time.Time, limit int) ([]storage.ErrorGroup, error)
+	ErrorGroupDetail(ctx context.Context, tenant, service, op, etype string, from, to time.Time, stepMin int) (storage.ErrorGroupDetail, error)
+	SetErrorStatus(ctx context.Context, tenant, fingerprint, state string) error
+	RunSpanQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.SpanQueryResult, error)
+	RunLogQuery(ctx context.Context, tenant, dsl string, from, to time.Time, limit int) (storage.LogQueryResult, error)
+	ListChannels(ctx context.Context, tenant string) ([]storage.AlertChannel, error)
+	UpsertChannel(ctx context.Context, tenant string, c storage.AlertChannel) error
+	DeleteChannel(ctx context.Context, tenant, id string) error
+	InsertNotification(ctx context.Context, tenant string, n storage.Notification) error
+	ListNotifications(ctx context.Context, tenant string, limit int) ([]storage.Notification, error)
 }
 
 type TransactionDTO struct {
@@ -46,6 +102,7 @@ type SpanDTO struct {
 	StatusCode   string  `json:"statusCode"`
 	HTTPMethod   string  `json:"httpMethod,omitempty"`
 	HTTPRoute    string  `json:"httpRoute,omitempty"`
+	HTTPURL      string  `json:"httpUrl,omitempty"`
 	DBSystem     string  `json:"dbSystem,omitempty"`
 	DBStatement  string  `json:"dbStatement,omitempty"`
 }
@@ -56,12 +113,22 @@ func Router(r Reader) http.Handler {
 		q := req.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		minMs, _ := strconv.ParseFloat(q.Get("minMs"), 64)
-		rows, err := r.ListTransactions(req.Context(), defaultTenant, storage.Filter{
-			Service:    q.Get("service"),
-			ErrorsOnly: q.Get("errors") == "1" || q.Get("errors") == "true",
-			MinMs:      minMs,
-			Query:      q.Get("q"),
-			Limit:      limit,
+		var from, to time.Time
+		if t, ok := parseTimeParam(q.Get("from")); ok {
+			from = t
+		}
+		if t, ok := parseTimeParam(q.Get("to")); ok {
+			to = t
+		}
+		rows, err := r.ListTransactions(req.Context(), tenantOf(req), storage.Filter{
+			Service:         q.Get("service"),
+			ErrorsOnly:      q.Get("errors") == "1" || q.Get("errors") == "true",
+			MinMs:           minMs,
+			Query:           q.Get("q"),
+			From:            from,
+			To:              to,
+			OrderByDuration: q.Get("sort") == "duration",
+			Limit:           limit,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -78,7 +145,7 @@ func Router(r Reader) http.Handler {
 		writeJSON(w, out)
 	})
 	mux.HandleFunc("GET /api/v1/traces/{traceID}/spans", func(w http.ResponseWriter, req *http.Request) {
-		spans, err := r.GetTraceSpans(req.Context(), defaultTenant, req.PathValue("traceID"))
+		spans, err := r.GetTraceSpans(req.Context(), tenantOf(req), req.PathValue("traceID"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -90,7 +157,7 @@ func Router(r Reader) http.Handler {
 				ServiceName: s.ServiceName, SpanName: s.SpanName, SpanKind: s.SpanKind,
 				StartTime:  s.StartTime.Format("2006-01-02T15:04:05.000Z"),
 				DurationMs: float64(s.DurationNs) / 1e6, StatusCode: s.StatusCode,
-				HTTPMethod: s.HTTPMethod, HTTPRoute: s.HTTPRoute,
+				HTTPMethod: s.HTTPMethod, HTTPRoute: s.HTTPRoute, HTTPURL: s.HTTPURL,
 				DBSystem: s.DBSystem, DBStatement: s.DBStatement,
 			})
 		}
@@ -99,7 +166,25 @@ func Router(r Reader) http.Handler {
 	registerDerived(mux, r)
 	registerServiceMap(mux, r)
 	registerMetrics(mux, r)
-	return withCORS(mux)
+	registerLogs(mux, r)
+	registerAlerts(mux, r)
+	registerDB(mux, r)
+	registerRum(mux, r)
+	registerInfra(mux, r)
+	registerSynthetics(mux, r)
+	registerAnomalies(mux, r)
+	registerHealth(mux, r)
+	registerSLO(mux, r)
+	registerDeploys(mux, r)
+	registerApp(mux, r)
+	registerDashboards(mux, r)
+	registerProfiles(mux, r)
+	registerErrors(mux, r)
+	registerSpanQuery(mux, r)
+	registerChannels(mux, r)
+	registerIngest(mux, r)
+	registerAuth(mux, r)
+	return withCORS(authMiddleware(mux))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -110,6 +195,8 @@ func writeJSON(w http.ResponseWriter, v any) {
 func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

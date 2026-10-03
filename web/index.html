@@ -4,10 +4,12 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <title>APM Console</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Self-monitoring: the console reports its own RUM to the gateway. -->
+    <script src="/rum.js" data-endpoint="http://localhost:4318"></script>
   </body>
 </html>

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -35,19 +36,8 @@ type LiveTxnDTO struct {
 
 func registerServiceMap(mux *http.ServeMux, r Reader) {
 	mux.HandleFunc("GET /api/v1/servicemap", func(w http.ResponseWriter, req *http.Request) {
-		to := time.Now().UTC()
-		from := to.Add(-15 * time.Minute)
-		if v := req.URL.Query().Get("from"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				from = p
-			}
-		}
-		if v := req.URL.Query().Get("to"); v != "" {
-			if p, err := time.Parse(time.RFC3339, v); err == nil {
-				to = p
-			}
-		}
-		sm, err := r.GetServiceMap(req.Context(), defaultTenant, from, to)
+		from, to := resolveWindow(req.URL.Query().Get("from"), req.URL.Query().Get("to"), 15*time.Minute)
+		sm, err := r.GetServiceMap(req.Context(), tenantOf(req), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -90,7 +80,7 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				txns, err := r.RecentRootTxns(ctx, defaultTenant, since, 500)
+				txns, err := r.RecentRootTxns(ctx, tenantOf(req), since, 500)
 				if err == nil {
 					for _, x := range txns {
 						if _, dup := seen[x.TraceID]; dup {
@@ -120,5 +110,31 @@ func registerServiceMap(mux *http.ServeMux, r Reader) {
 				flusher.Flush()
 			}
 		}
+	})
+
+	// Backfill: recent root transactions so live widgets (heatmap, speed band)
+	// render a full window immediately instead of filling in from empty.
+	mux.HandleFunc("GET /api/v1/live/recent", func(w http.ResponseWriter, req *http.Request) {
+		sinceMin := 10
+		if v := req.URL.Query().Get("sinceMin"); v != "" {
+			if m, err := strconv.Atoi(v); err == nil && m > 0 && m <= 60 {
+				sinceMin = m
+			}
+		}
+		since := time.Now().UTC().Add(-time.Duration(sinceMin) * time.Minute)
+		txns, err := r.BackfillTxns(req.Context(), tenantOf(req), since, 5000)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]LiveTxnDTO, 0, len(txns))
+		for _, x := range txns {
+			out = append(out, LiveTxnDTO{
+				TraceID: x.TraceID, Service: x.Service, Transaction: x.Transaction,
+				StatusCode: x.StatusCode, StartTime: x.StartTime.Format(time.RFC3339Nano),
+				DurationMs: x.DurationMs, IsError: x.IsError,
+			})
+		}
+		writeJSON(w, out)
 	})
 }

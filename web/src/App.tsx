@@ -1,53 +1,112 @@
 import { useState, useRef, useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TransactionTable } from "./TransactionTable";
-import { TraceTree } from "./TraceTree";
-import { RecordSummary } from "./RecordSummary";
 import { RedDashboard } from "./RedDashboard";
 import { ServiceMap } from "./ServiceMap";
 import { XView } from "./XView";
 import { Dashboard } from "./Dashboard";
 import { Runtime } from "./Runtime";
+import { Onboarding } from "./Onboarding";
+import { Logs } from "./Logs";
+import { Errors } from "./Errors";
+import { Explore } from "./Explore";
+import { Deploys } from "./Deploys";
+import { Ingest } from "./Ingest";
+import { Alerts } from "./Alerts";
+import { Database } from "./Database";
+import { Rum } from "./Rum";
+import { Infra } from "./Infra";
+import { Synthetics } from "./Synthetics";
+import { Anomalies } from "./Anomalies";
+import { Health } from "./Health";
+import { Slo } from "./Slo";
+import { Apps } from "./Apps";
+import { CustomDash } from "./CustomDash";
+import { Profiling } from "./Profiling";
 import { TraceModal } from "./TraceModal";
 import { ThemeProvider, useTheme } from "./theme";
 import { LiveProvider } from "./live";
 import { NavCtx } from "./nav";
+import { getParam, pushParams } from "./urlState";
+import { AuthProvider, useAuth, installAuthFetch } from "./auth";
+import { Login } from "./Login";
 import {
-  EmptyState, IconTrace,
-  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconSun, IconMoon,
+  IconGrid, IconTraceNav, IconPulse, IconGraphNav, IconScatter, IconGauge, IconPlug, IconLogs, IconBell, IconDB, IconRum, IconContainer, IconHeartbeat, IconAnomaly, IconShield, IconTarget, IconMobile, IconSun, IconMoon, IconError, IconSearch, IconDeploy, IconFunnel,
 } from "./states";
 import type { Transaction } from "./api";
 import "./App.css";
 
 const qc = new QueryClient();
 
-type View = "dashboard" | "trace" | "red" | "runtime" | "map" | "xview";
+type View = "dashboard" | "health" | "custom" | "connect" | "trace" | "explore" | "red" | "runtime" | "profiling" | "logs" | "errors" | "db" | "infra" | "synth" | "anomaly" | "slo" | "deploys" | "ingest" | "rum" | "app" | "alerts" | "map" | "xview";
 type NavItem = { id: View; label: string; icon: () => React.ReactElement };
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "개요", items: [
+    { id: "health", label: "서비스 헬스", icon: IconShield },
     { id: "dashboard", label: "대시보드", icon: IconGrid },
+    { id: "custom", label: "커스텀 대시보드", icon: IconGrid },
+    { id: "connect", label: "연결하기", icon: IconPlug },
   ] },
   { label: "모니터링", items: [
     { id: "trace", label: "트레이스 분석", icon: IconTraceNav },
+    { id: "explore", label: "탐색", icon: IconSearch },
     { id: "red", label: "RED 대시보드", icon: IconPulse },
     { id: "runtime", label: "런타임", icon: IconGauge },
+    { id: "profiling", label: "프로파일링", icon: IconPulse },
+    { id: "db", label: "데이터베이스", icon: IconDB },
+    { id: "infra", label: "컨테이너", icon: IconContainer },
+    { id: "synth", label: "가동 모니터링", icon: IconHeartbeat },
+    { id: "anomaly", label: "이상탐지", icon: IconAnomaly },
+    { id: "slo", label: "SLO", icon: IconTarget },
+    { id: "deploys", label: "배포 추적", icon: IconDeploy },
+    { id: "logs", label: "로그", icon: IconLogs },
+    { id: "errors", label: "에러 추적", icon: IconError },
+    { id: "alerts", label: "알림", icon: IconBell },
+    { id: "ingest", label: "인입 제어", icon: IconFunnel },
   ] },
   { label: "토폴로지 · 실시간", items: [
     { id: "map", label: "서비스맵", icon: IconGraphNav },
     { id: "xview", label: "X-View", icon: IconScatter },
   ] },
+  { label: "사용자", items: [
+    { id: "rum", label: "브라우저(RUM)", icon: IconRum },
+    { id: "app", label: "모바일 앱", icon: IconMobile },
+  ] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
 const titleOf = (v: View) => ALL.find((i) => i.id === v)!.label;
 
+const COLLAPSE_KEY = "apm.nav.collapsed";
+const loadCollapsed = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}"); } catch { return {}; }
+};
+
 function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
-  function onKey(e: React.KeyboardEvent, idx: number) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+  const activeGroup = GROUPS.find((g) => g.items.some((i) => i.id === view))?.label;
+  const toggleGroup = (label: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  // Keyboard nav only cycles through items that are currently visible, so arrow
+  // keys never land focus on a hidden (collapsed) tab. The active view's group
+  // is always treated as open so the current tab stays reachable.
+  const isOpen = (label: string) => label === activeGroup || !collapsed[label];
+  const visible = ALL.filter((it) => {
+    const grp = GROUPS.find((g) => g.items.some((i) => i.id === it.id))!.label;
+    return isOpen(grp);
+  });
+  function onKey(e: React.KeyboardEvent, id: View) {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const next = e.key === "ArrowDown" ? (idx + 1) % ALL.length : (idx - 1 + ALL.length) % ALL.length;
-    setView(ALL[next].id);
-    refs.current[ALL[next].id]?.focus();
+    const vIdx = visible.findIndex((x) => x.id === id);
+    const next = e.key === "ArrowDown" ? (vIdx + 1) % visible.length : (vIdx - 1 + visible.length) % visible.length;
+    setView(visible[next].id);
+    refs.current[visible[next].id]?.focus();
   }
   return (
     <aside className="sidebar">
@@ -58,12 +117,23 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
         <span className="workspace-name">APM Console</span>
       </div>
       <nav className="nav" role="tablist" aria-orientation="vertical" aria-label="관제 화면">
-        {GROUPS.map((g) => (
-          <div className="nav-group" key={g.label}>
-            <div className="nav-label">{g.label}</div>
+        {GROUPS.map((g) => {
+          const open = isOpen(g.label);
+          return (
+          <div className={`nav-group${open ? "" : " collapsed"}`} key={g.label}>
+            <button
+              type="button"
+              className="nav-label"
+              aria-expanded={open}
+              onClick={() => toggleGroup(g.label)}
+              disabled={g.label === activeGroup}
+              title={g.label === activeGroup ? "현재 보고 있는 그룹이에요" : open ? "그룹 접기" : "그룹 펼치기"}
+            >
+              <span>{g.label}</span>
+              <svg className="nav-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
             {g.items.map((it) => {
               const active = view === it.id;
-              const idx = ALL.findIndex((x) => x.id === it.id);
               return (
                 <button
                   key={it.id}
@@ -75,7 +145,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
                   tabIndex={active ? 0 : -1}
                   className={`nav-item${active ? " active" : ""}`}
                   onClick={() => setView(it.id)}
-                  onKeyDown={(e) => onKey(e, idx)}
+                  onKeyDown={(e) => onKey(e, it.id)}
                 >
                   <span className="nav-ico">{it.icon()}</span>
                   <span className="nav-text">{it.label}</span>
@@ -83,7 +153,8 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
     </aside>
   );
@@ -122,18 +193,44 @@ function ThemeToggle() {
   );
 }
 
+const ROLE_LABEL: Record<string, string> = { admin: "관리자", editor: "편집자", viewer: "뷰어" };
+function UserMenu() {
+  const { auth, setAuth } = useAuth();
+  if (!auth) return null;
+  return (
+    <div className="usermenu">
+      <span className="usermenu-name">{auth.user}<span className="usermenu-role">{ROLE_LABEL[auth.role] ?? auth.role}</span></span>
+      <button className="btn btn-sm" onClick={() => setAuth(null)}>로그아웃</button>
+    </div>
+  );
+}
+
+// The view lives in the URL (?view=) so reloads and shared links land on the
+// right screen. dashboard is the default and stays param-free.
+const viewFromURL = (): View => {
+  const v = getParam("view");
+  return v && ALL.some((i) => i.id === v) ? (v as View) : "dashboard";
+};
+
 function Console() {
-  const [sel, setSel] = useState<Transaction | null>(null);
-  const [view, setView] = useState<View>("dashboard");
+  const [view, setViewState] = useState<View>(viewFromURL);
   const [modalTrace, setModalTrace] = useState<Transaction | null>(null);
   const [svcFilter, setSvcFilter] = useState("");
+  // setView writes to the URL (pushState) so browser back/forward navigates
+  // between views; a popstate listener keeps state in sync with the address bar.
+  const setView = (v: View) => { setViewState(v); pushParams({ view: v === "dashboard" ? null : v }); };
+  useEffect(() => {
+    const onPop = () => setViewState(viewFromURL());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   // Drill-down from a live widget → open the trace in an overlay, so the
   // dashboard and its live streams keep running underneath.
   const openTrace = (t: Transaction) => setModalTrace(t);
   // Service map node → jump to the transaction list filtered to that service.
-  const openService = (name: string) => { setSvcFilter(name); setSel(null); setView("trace"); };
+  const openService = (name: string) => { setSvcFilter(name); setView("trace"); };
   return (
-    <NavCtx.Provider value={{ openTrace, openService }}>
+    <NavCtx.Provider value={{ openTrace, openService, setView: (id) => setView(id as View) }}>
     <div className="shell">
       <Sidebar view={view} setView={setView} />
       <div className="main">
@@ -144,41 +241,57 @@ function Console() {
             <span className="live-dot" /><span className="live-text">live</span>
           </span>
           <ThemeToggle />
+          <UserMenu />
         </header>
         <main className="content" id="panel" role="tabpanel" aria-labelledby={`tab-${view}`}>
-          {view === "dashboard" ? (
+          {view === "health" ? (
+            <Health />
+          ) : view === "custom" ? (
+            <CustomDash />
+          ) : view === "dashboard" ? (
             <div className="content-scroll"><Dashboard /></div>
+          ) : view === "connect" ? (
+            <Onboarding />
           ) : view === "runtime" ? (
             <Runtime />
+          ) : view === "profiling" ? (
+            <Profiling />
+          ) : view === "db" ? (
+            <Database />
+          ) : view === "logs" ? (
+            <Logs />
+          ) : view === "errors" ? (
+            <Errors />
+          ) : view === "explore" ? (
+            <Explore />
+          ) : view === "alerts" ? (
+            <Alerts />
           ) : view === "map" ? (
             <ServiceMap />
           ) : view === "xview" ? (
             <XView />
+          ) : view === "rum" ? (
+            <Rum />
+          ) : view === "app" ? (
+            <Apps />
+          ) : view === "infra" ? (
+            <Infra />
+          ) : view === "synth" ? (
+            <Synthetics />
+          ) : view === "anomaly" ? (
+            <Anomalies />
+          ) : view === "slo" ? (
+            <Slo />
+          ) : view === "deploys" ? (
+            <Deploys />
+          ) : view === "ingest" ? (
+            <Ingest />
           ) : view === "red" ? (
             <RedDashboard />
           ) : (
-            <div className="split">
-              <section className="pane pane-list" aria-label="트랜잭션 목록">
-                <TransactionTable selected={sel} onSelect={setSel} service={svcFilter} onService={setSvcFilter} />
-              </section>
-              <section className="pane pane-detail" aria-label="트랜잭션 상세">
-                {sel ? (
-                  <div className="pane-body">
-                    <div className="section-label">레코드 요약</div>
-                    <RecordSummary traceId={sel.traceId} />
-                    <div className="section-label">트리 뷰 · 워터폴</div>
-                    <TraceTree traceId={sel.traceId} />
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<IconTrace />}
-                    title="트랜잭션을 선택해주세요"
-                    body="왼쪽 목록에서 트랜잭션을 고르면 요약과 스팬 워터폴이 여기에 펼쳐져요."
-                    hint="5초마다 자동 갱신"
-                  />
-                )}
-              </section>
-            </div>
+            <section className="pane" aria-label="트랜잭션 목록">
+              <TransactionTable selected={modalTrace} onSelect={openTrace} service={svcFilter} onService={setSvcFilter} />
+            </section>
           )}
         </main>
       </div>
@@ -188,13 +301,24 @@ function Console() {
   );
 }
 
+function Gate() {
+  const { auth, setAuth } = useAuth();
+  useEffect(() => { installAuthFetch(() => setAuth(null)); }, [setAuth]);
+  if (!auth) return <Login />;
+  return (
+    <LiveProvider>
+      <Console />
+    </LiveProvider>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={qc}>
-        <LiveProvider>
-          <Console />
-        </LiveProvider>
+        <AuthProvider>
+          <Gate />
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

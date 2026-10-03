@@ -25,4 +25,4 @@ CREATE TABLE IF NOT EXISTS apm.spans
 ENGINE = MergeTree
 PARTITION BY (tenant_id, toDate(start_time))
 ORDER BY (tenant_id, service_name, start_time)
-TTL toDateTime(start_time) + INTERVAL 15 DAY;
+TTL toDateTime(start_time) + INTERVAL 30 DAY;
