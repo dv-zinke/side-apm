@@ -12,6 +12,8 @@ OTel + ClickHouse APM 제품의 패치 기록. **작업(기능/수정)을 마칠
 ---
 
 ## 2026-10-04
+### Changed
+- **사용성 개선 3종 (라이브 리뷰 반영)** — ① **접이식 네비 그룹**: 좌측 21개(모니터링 그룹만 15개) 과밀 완화. 그룹 헤더가 접기/펼치기 버튼(셰브론·aria-expanded), 상태 localStorage 영속, 현재 뷰 그룹은 강제 펼침. 항목은 항상 렌더하고 CSS로 숨겨 **모바일(토글 숨김)에선 전 항목 노출**. 검증: 모니터링 접으면 23→8, 새로고침 후 유지, 모바일 23개 전부 노출. ② **APDEX 빈 상태 카피**: 데모에 히스토그램 메트릭이 없어 영구 `—`로 "고장"처럼 보이던 것 → "히스토그램 메트릭 연결 필요" + 설명 툴팁(행동 유도). ③ **모바일 헤더 줄바꿈 수정**: 제목/갱신표시 `nowrap`, ≤520px에서 중복 "N초 전 갱신"·역할칩 숨김(LIVE 점 유지). `web/src/{App.tsx,App.css,Apdex.tsx}`. `fc302ab`
 ### Fixed
 - **헤드라인 P95 오염 제거** (사용성/ISSUE-003) — apm-query 자가추적(otelhttp)이 SSE 스트림 `GET /api/v1/live/transactions`를 연결 수명(관측 ~3.5분) 내내 요청 span으로 기록 → 대시보드 "최대 P95"가 **62,665ms(62초)** 라는 가짜 값으로 표시(APM 제품이 자기 화면에서 가짜 지연을 보여줌). `otelhttp.WithFilter`로 해당 경로만 자가추적 제외. 검증: 재시작 후 신규 live/transactions SERVER span 0건(일반 엔드포인트는 계속 추적), 최근 창 apm-query P95 62,665ms→**27ms**. `cmd/query/main.go`. `1a46c4e`
 - **RUM 비콘 CORS 차단 해소** (QA/ISSUE-001) — `navigator.sendBeacon`은 크로스오리진 시 항상 credentials=include 모드라, 게이트웨이의 `Access-Control-Allow-Origin: *`(와일드카드)를 브라우저가 거부 → 콘솔 자체 RUM 자가수집이 매 ~10초 실패하며 콘솔 에러 폭주. 공유 헬퍼 `writeCORS`로 **요청 Origin 반사 + `Access-Control-Allow-Credentials: true`**(Origin 없는 서버 호출은 `*` 유지) 적용. `RumHandler`·`RumReplayHandler`·`AppHandler`. 검증: preflight reflected-origin+credentials, 인브라우저 beacon 204, 13초간 CORS 0건. 회귀 테스트 2종(`gateway/cors_test.go`). `gateway/cors.go`(신규)·`rum.go`·`app.go`. `65c491a`
