@@ -53,6 +53,12 @@ func main() {
 		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
 			return r.Method + " " + r.URL.Path
 		}),
+		// Don't self-trace the live SSE stream: its span would cover the whole
+		// connection lifetime (minutes), landing as a bogus multi-second request
+		// that dominates apm-query's P95 on our own dashboard.
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/api/v1/live/transactions"
+		}),
 	)
 
 	addr := getenv("APM_QUERY_ADDR", ":8080")
