@@ -28,6 +28,13 @@ function typeTone(t: string): string {
   return "err"; // 5xx, HTTP 0 (connection failure), and named exceptions
 }
 
+// Humanize the raw error type. "HTTP 0" means there was no HTTP status (a DB/driver
+// or non-HTTP span) — showing it verbatim misleads users into reading a status code.
+function humanType(t: string, op?: string): string {
+  if (t === "HTTP 0" || t === "HTTP") return /\b(sql|db|query|conn|pg|postgres|mysql|redis|mongo)\b/i.test(op || "") ? "DB 오류" : "예외";
+  return t;
+}
+
 const STATE_TABS = [
   { id: "active", label: "활성" },
   { id: "resolved", label: "해결됨" },
@@ -201,7 +208,7 @@ export function Errors() {
                         <span className="err-svc">{g.service}</span>
                         <span className="err-op">{g.operation || "—"}{badge && <span className={`chip ${badge.tone} err-state-badge`}>{badge.label}</span>}</span>
                       </td>
-                      <td><span className={`chip ${typeTone(g.errorType)}`}><span className="dot" />{g.errorType}</span></td>
+                      <td><span className={`chip ${typeTone(g.errorType)}`} title={g.errorType}><span className="dot" />{humanType(g.errorType, g.operation)}</span></td>
                       <td className="db-stmt" title={g.message}>{g.message || <span className="tx-dim">—</span>}</td>
                       <td className="r err-count">{g.count.toLocaleString()}</td>
                       <td className="r err-last">{ago(g.lastSeen)}</td>

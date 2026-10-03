@@ -47,16 +47,32 @@ app.get("/buy", async (_req, res) => {
   }
 });
 
+// --- Upstream API routes ---------------------------------------------------
+// When a second instance runs as "shop-api" (UPSTREAM_API points a shop-web at
+// it), these serve the endpoints shop-web calls. The cross-service HTTP hop
+// propagates trace context (undici → express), so the service map draws a real
+// shop-web → shop-api edge instead of only self-loops.
+app.get("/posts", (req, res) => {
+  const limit = Number(req.query._limit || 10);
+  res.json(Array.from({ length: limit }, (_, i) => ({ id: i + 1, title: `post ${i + 1}` })));
+});
+app.post("/posts", express.json(), (req, res) => res.status(201).json({ id: 101, ...req.body }));
+app.get("/users/:id", (req, res) => res.json({ id: Number(req.params.id), name: `user ${req.params.id}` }));
+app.get("/carts/:id", (req, res) => res.json({ id: Number(req.params.id), items: [{ sku: "A1", qty: 2 }] }));
+
 app.get("/healthz", (_req, res) => res.send("ok"));
 
 const port = Number(process.env.PORT || 3200);
 app.listen(port, () => log.info(`real app listening on ${port} → ${UPSTREAM}`));
 
-// Self-drive real traffic so traces flow continuously once running.
-const routes = ["/browse", "/buy", "/buy", "/browse"];
-setTimeout(() => {
-  setInterval(() => {
-    const path = routes[Math.floor(Math.random() * routes.length)];
-    fetch(`http://localhost:${port}${path}`).then((r) => r.text()).catch(() => {});
-  }, 1500);
-}, 4000);
+// Self-drive real traffic so traces flow continuously once running. Disable on
+// the upstream instance (SELF_DRIVE=false) so only shop-web originates traffic.
+if (process.env.SELF_DRIVE !== "false") {
+  const routes = ["/browse", "/buy", "/buy", "/browse"];
+  setTimeout(() => {
+    setInterval(() => {
+      const path = routes[Math.floor(Math.random() * routes.length)];
+      fetch(`http://localhost:${port}${path}`).then((r) => r.text()).catch(() => {});
+    }, 1500);
+  }, 4000);
+}

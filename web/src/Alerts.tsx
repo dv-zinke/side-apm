@@ -357,7 +357,9 @@ export function Alerts() {
         {tab === "rules" && (
           <>
             <div className="bar" style={{ marginBottom: "var(--sp-3)" }}>
-              {canEdit && !adding && <button className="btn btn-primary" onClick={() => setAdding(true)}>규칙 추가</button>}
+              {/* When the list is empty the EmptyState owns the primary CTA, so the
+                  top button drops to outline — one primary per screen (§2.2). */}
+              {canEdit && !adding && <button className={`btn${(rules ?? []).length === 0 ? "" : " btn-primary"}`} onClick={() => setAdding(true)}>규칙 추가</button>}
             </div>
             {adding && <RuleForm onDone={closeAdd} initMetric={promotedQuery ? "span_match" : undefined} initQuery={promotedQuery ?? undefined} />}
             {rulesLoading ? <Skeleton rows={4} />
@@ -394,7 +396,7 @@ export function Alerts() {
           <>
             <p className="chan-intro">알림이 발화하면 여기 등록한 채널로 전송돼요. 규칙마다 채널을 골라 라우팅하고, 지정 안 한 규칙은 환경 웹훅으로 갑니다.</p>
             <div className="bar" style={{ marginBottom: "var(--sp-3)" }}>
-              {canEdit && !addingChan && <button className="btn btn-primary" onClick={() => setAddingChan(true)}>채널 추가</button>}
+              {canEdit && !addingChan && <button className={`btn${(channels ?? []).length === 0 ? "" : " btn-primary"}`} onClick={() => setAddingChan(true)}>채널 추가</button>}
             </div>
             {addingChan && <ChannelForm onDone={() => setAddingChan(false)} />}
             {(channels ?? []).length === 0 && !addingChan ? (

@@ -96,7 +96,10 @@ export function Apps() {
     refetchInterval: w.live ? 10000 : false, placeholderData: keepPreviousData,
   });
   const [crash, setCrash] = useState<string | null>(null);
-  const empty = ov && ov.sessions === 0;
+  // Treat "no overview object" (unconnected / errored) the same as zero sessions,
+  // so an unconnected app shows the onboarding empty state instead of KPI cards
+  // full of "—" that blend into the background.
+  const empty = !ov || ov.sessions === 0;
 
   return (
     <div className="content-scroll">

@@ -79,6 +79,26 @@ services:
       OTEL_LOGS_EXPORTER: "otlp"
       OTEL_TRACES_EXPORTER: "otlp"
       OTEL_METRICS_EXPORTER: "otlp"
+      # Call the instrumented shop-api instead of an external API, so the trace
+      # context propagates and the service map shows a real shop-web → shop-api edge.
+      UPSTREAM_API: "http://shop-api:3200"
+    depends_on: [gateway, shop-api]
+    restart: on-failure
+
+  # Downstream API for shop-web. Same image, instrumented, self-drive off so only
+  # shop-web originates traffic — gives the service map a genuine cross-service edge.
+  shop-api:
+    build: { context: ../demo/realapp }
+    profiles: ["realapp"]
+    environment:
+      OTEL_SERVICE_NAME: "shop-api"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://gateway:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_LOGS_EXPORTER: "otlp"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      PORT: "3200"
+      SELF_DRIVE: "false"
     depends_on: [gateway]
     restart: on-failure
 

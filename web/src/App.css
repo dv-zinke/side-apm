@@ -885,6 +885,16 @@
   .icon-btn.sm { width: 44px; height: 44px; }
   .snooze-opt { min-height: 44px; display: flex; align-items: center; }
 }
+@media (max-width: 767px) {
+  /* Trace list → stacked cards: 4 columns crushed to unreadable widths on phones,
+     and each compressed row fell under the 44px touch target. */
+  .txn-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .txn-tbl, .txn-tbl tbody, .txn-tbl tr, .txn-tbl td { display: block; width: auto; }
+  .txn-tbl tr { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); min-height: 44px; }
+  .txn-tbl td { border: 0 !important; padding: 4px 0 !important; text-align: left !important; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+  .txn-tbl td.r { text-align: left !important; }
+  .txn-tbl td[data-label]::before { content: attr(data-label); color: var(--tx-dim); font-size: var(--fs-xs); flex: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; border-top-color: var(--line-strong); }
   .live-dot { animation: none; }

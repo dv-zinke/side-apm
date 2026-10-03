@@ -174,10 +174,13 @@ const win = (fromISO?: string, toISO?: string, extra?: Record<string, string>) =
   if (toISO) p.set("to", toISO);
   return p.toString();
 };
-export async function fetchAppOverview(fromISO?: string, toISO?: string): Promise<AppOverview> {
+export async function fetchAppOverview(fromISO?: string, toISO?: string): Promise<AppOverview | null> {
   const r = await fetch(`${BASE}/api/v1/app/overview?${win(fromISO, toISO)}`);
   if (!r.ok) throw new Error(`app overview ${r.status}`);
-  return r.json();
+  // The endpoint sends an empty body when no app data exists; r.json() would throw
+  // on that and wedge the query in a retry loop (stuck skeleton). Treat empty as null.
+  const text = await r.text();
+  return text ? (JSON.parse(text) as AppOverview) : null;
 }
 export async function fetchAppVersions(fromISO?: string, toISO?: string): Promise<AppVersion[]> {
   const r = await fetch(`${BASE}/api/v1/app/versions?${win(fromISO, toISO)}`);

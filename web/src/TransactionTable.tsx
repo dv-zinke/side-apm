@@ -5,10 +5,12 @@ import type { Transaction } from "./api";
 import { Skeleton, ErrorState, EmptyState } from "./states";
 
 function StatusChip({ code }: { code: string }) {
+  // Humanize raw OTel status codes — users shouldn't see "UNSET"/"OK". UNSET
+  // means no error was recorded, which reads as 정상 to a user; only ERROR is 에러.
   const isErr = code === "ERROR";
-  const isSet = code && code !== "UNSET";
-  const cls = isErr ? "err" : isSet ? "ok" : "muted";
-  return <span className={`chip ${cls}`}><span className="dot" />{code || "UNSET"}</span>;
+  const label = isErr ? "에러" : "정상";
+  const cls = isErr ? "err" : "ok";
+  return <span className={`chip ${cls}`}><span className="dot" />{label}</span>;
 }
 
 function durClass(ms: number, status: string): string {
@@ -94,7 +96,7 @@ export function TransactionTable({
           />
         )
       ) : (
-        <table className="tbl">
+        <table className="tbl txn-tbl">
           <thead>
             <tr>
               <th>서비스</th><th>트랜잭션</th><th>상태</th><th className="r">경과</th>
@@ -114,10 +116,10 @@ export function TransactionTable({
                   onClick={() => onSelect(t)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(t); } }}
                 >
-                  <td className="svc">{t.serviceName}</td>
-                  <td>{t.transactionName}</td>
-                  <td><StatusChip code={t.statusCode} /></td>
-                  <td className={`r ${durClass(t.durationMs, t.statusCode)}`}>{t.durationMs.toLocaleString(undefined, { maximumFractionDigits: 1 })} ms</td>
+                  <td className="svc" data-label="서비스">{t.serviceName}</td>
+                  <td data-label="트랜잭션">{t.transactionName}</td>
+                  <td data-label="상태"><StatusChip code={t.statusCode} /></td>
+                  <td className={`r ${durClass(t.durationMs, t.statusCode)}`} data-label="경과">{t.durationMs.toLocaleString(undefined, { maximumFractionDigits: 1 })} ms</td>
                 </tr>
               );
             })}
